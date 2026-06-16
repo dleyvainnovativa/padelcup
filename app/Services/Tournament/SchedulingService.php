@@ -109,15 +109,7 @@ class SchedulingService
         return null;
     }
 
-    private function playerName(GameMatch $match, int $playerId): ?string
-    {
-        foreach ([$match->pairA, $match->pairB] as $pair) {
-            foreach ([$pair?->player1, $pair?->player2] as $player) {
-                if ($player && $player->id === $playerId) return $player->name;
-            }
-        }
-        return null;
-    }
+
 
     private function overlaps(Carbon $aStart, Carbon $aEnd, Carbon $bStart, Carbon $bEnd): bool
     {
@@ -461,5 +453,102 @@ class SchedulingService
             if ($start < ($e + $pad) && ($s - $pad) < $end) return true;
         }
         return false;
+    }
+
+    /**
+     * Post-resolution conflict check: find players booked in two (or more)
+     * SCHEDULED matches whose times overlap (hard conflict) or fall within the
+     * rest gap (soft warning). Only considers matches with KNOWN players — the
+     * cross-category collapse that placeholder scheduling can't prevent up front.
+     *
+     * @return array<int,array{player:string, severity:string, matches:array}>
+     */
+    public function detectConflicts(Tournament $tournament): array
+    {
+        $restSec = ((int) ($tournament->min_rest_minutes ?? 30)) * 60;
+
+        $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->whereNotNull('starts_at')
+            ->whereNotNull('pair_a_id')->whereNotNull('pair_b_id')
+            ->with(['category', 'group', 'court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->get();
+
+        // [playerId => [ ['match'=>m,'start'=>ts,'end'=>ts], ... ]]
+        $byPlayer = [];
+        foreach ($matches as $m) {
+            $start = $m->starts_at->timestamp;
+            $end = $start + (((int) ($m->duration_minutes ?: 60)) * 60);
+            foreach ($m->playerIds() as $pid) {
+                $byPlayer[$pid][] = ['match' => $m, 'start' => $start, 'end' => $end];
+            }
+        }
+
+        $conflicts = [];
+        foreach ($byPlayer as $pid => $entries) {
+            if (count($entries) < 2) continue;
+            usort($entries, fn($a, $b) => $a['start'] <=> $b['start']);
+
+            for ($i = 0; $i < count($entries) - 1; $i++) {
+                for ($j = $i + 1; $j < count($entries); $j++) {
+                    $a = $entries[$i];
+                    $b = $entries[$j];
+
+                    $hardOverlap = $a['start'] < $b['end'] && $b['start'] < $a['end'];
+                    $restViolation = ! $hardOverlap
+                        && $b['start'] >= $a['end']
+                        && ($b['start'] - $a['end'] < $restSec);
+
+                    if (! $hardOverlap && ! $restViolation) continue;
+
+                    $conflicts[] = [
+                        'player' => $this->playerName($a['match'], $pid) ?? 'Jugador',
+                        'severity' => $hardOverlap ? 'overlap' : 'rest',
+                        'matches' => [
+                            $this->matchInfo($a['match']),
+                            $this->matchInfo($b['match']),
+                        ],
+                    ];
+                }
+            }
+        }
+
+        // De-dupe (same player + same two matches).
+        $seen = [];
+        $unique = [];
+        foreach ($conflicts as $c) {
+            $key = $c['player'] . '|' . implode('|', array_map(fn($x) => $x['label'] . $x['time'], $c['matches']));
+            if (isset($seen[$key])) continue;
+            $seen[$key] = true;
+            $unique[] = $c;
+        }
+
+        // Hard overlaps first.
+        usort($unique, fn($a, $b) => ($a['severity'] === 'overlap' ? 0 : 1) <=> ($b['severity'] === 'overlap' ? 0 : 1));
+
+        return $unique;
+    }
+
+    /** Resolve a player's display name from a match's pairs. */
+    private function playerName(GameMatch $match, int $playerId): ?string
+    {
+        foreach ([$match->pairA, $match->pairB] as $pair) {
+            if (! $pair) continue;
+            foreach ([$pair->player1, $pair->player2] as $p) {
+                if ($p && $p->id === $playerId) {
+                    return $p->name;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Compact match descriptor for the conflict report. */
+    private function matchInfo(GameMatch $match): array
+    {
+        return [
+            'label' => $match->contextLabel(),
+            'court' => $match->court?->name,
+            'time' => $match->starts_at?->timezone('America/Mexico_City')->translatedFormat('D d M · H:i'),
+        ];
     }
 }

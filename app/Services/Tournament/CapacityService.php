@@ -69,8 +69,11 @@ class CapacityService
             if ($wins && $wins->isNotEmpty()) {
                 $capacity = 0;
                 foreach ($wins as $w) {
-                    $mins = $w->starts_at->diffInMinutes($w->ends_at);
-                    $capacity += intdiv((int) $mins, $duration) * $courts;
+                    // Count only PLAY-HOUR minutes within the window, not the raw
+                    // calendar span (a Thu→Sat window doesn't include the
+                    // overnight hours when no matches are played).
+                    $mins = $this->playableMinutes($w->starts_at, $w->ends_at, $tournament);
+                    $capacity += intdiv($mins, $duration) * $courts;
                 }
                 $fits = $matches <= $capacity;
                 $shortfall = max(0, $matches - $capacity);
@@ -171,6 +174,127 @@ class CapacityService
         $p = 2;
         while ($p < $n) $p *= 2;
         return $p;
+    }
+
+    /**
+     * Playable minutes between two datetimes, counting only the daily play-hours
+     * window (play_start..play_end) on each day the range spans. A Thu→Sat
+     * window does NOT include the overnight 23:00→08:00 gaps.
+     */
+    private function playableMinutes(Carbon $start, Carbon $end, Tournament $tournament): int
+    {
+        $ps = Carbon::parse($tournament->play_start ?? '08:00', 'America/Mexico_City');
+        $pe = Carbon::parse($tournament->play_end ?? '22:00', 'America/Mexico_City');
+        $startMin = $ps->hour * 60 + $ps->minute;
+        $endMin = $pe->hour * 60 + $pe->minute;
+
+        $total = 0;
+        $day = $start->copy()->startOfDay();
+        $last = $end->copy()->startOfDay();
+
+        while ($day->lte($last)) {
+            // This day's playable window.
+            $dayPlayStart = $day->copy()->setTime(intdiv($startMin, 60), $startMin % 60);
+            $dayPlayEnd = $day->copy()->setTime(intdiv($endMin, 60), $endMin % 60);
+
+            // Clip to the actual [start, end] range.
+            $s = $start->greaterThan($dayPlayStart) ? $start : $dayPlayStart;
+            $e = $end->lessThan($dayPlayEnd) ? $end : $dayPlayEnd;
+
+            if ($e->greaterThan($s)) {
+                $total += $s->diffInMinutes($e);
+            }
+            $day->addDay();
+        }
+
+        return $total;
+    }
+
+    /**
+     * Propose phase windows by laying phases end-to-end across the tournament's
+     * play days. Each phase consumes its court-time (+15% headroom), followed by
+     * a 30-min buffer before the next. Flows across days within play hours.
+     *
+     * @return array<string,array{starts_at:string, ends_at:string}>  (Y-m-d H:i)
+     */
+    public function proposeWindows(Tournament $tournament): array
+    {
+        $preview = $this->preview($tournament);
+        $courts = $preview['courts'];
+        $duration = $preview['duration'];
+
+        $bufferMin = 30;       // gap between phases
+        $headroom = 1.15;      // +15% slack on each phase's court-time
+
+        $days = $tournament->playDays();
+        if ($days->isEmpty()) return [];
+
+        $playStart = Carbon::parse($tournament->play_start ?? '08:00', 'America/Mexico_City');
+        $playEnd = Carbon::parse($tournament->play_end ?? '22:00', 'America/Mexico_City');
+        $startMin = $playStart->hour * 60 + $playStart->minute;
+        $endMin = $playEnd->hour * 60 + $playEnd->minute;
+
+        // Cursor: day index + minute-of-day.
+        $dayIdx = 0;
+        $cur = $startMin;
+
+        $advance = function (int $minutes) use (&$dayIdx, &$cur, $startMin, $endMin, $days) {
+            // Move the cursor forward $minutes, wrapping to next day at play_end.
+            $remaining = $minutes;
+            while ($remaining > 0) {
+                $left = $endMin - $cur;
+                if ($remaining <= $left) {
+                    $cur += $remaining;
+                    $remaining = 0;
+                } else {
+                    $remaining -= $left;
+                    $dayIdx++;
+                    $cur = $startMin;
+                    if ($dayIdx >= $days->count()) {
+                        // Out of days: clamp to last day's end.
+                        $dayIdx = $days->count() - 1;
+                        $cur = $endMin;
+                        return;
+                    }
+                }
+            }
+        };
+
+        $stamp = function () use ($days, &$dayIdx, &$cur) {
+            $d = $days->get(min($dayIdx, $days->count() - 1));
+            $h = intdiv($cur, 60);
+            $m = $cur % 60;
+            return Carbon::parse($d->format('Y-m-d'), 'America/Mexico_City')
+                ->setTime($h, $m)->format('Y-m-d H:i');
+        };
+
+        $proposal = [];
+        $overflow = false;
+        foreach (SchedulePhase::keys() as $phase) {
+            $matches = $preview['perPhase'][$phase]['matches'] ?? 0;
+            if ($matches === 0) continue;
+
+            // Court-time minutes needed for this phase (rows × duration), padded.
+            $rows = (int) ceil($matches / max(1, $courts));
+            $need = (int) ceil($rows * $duration * $headroom);
+
+            $startStamp = $stamp();
+            $advance($need);
+            $endStamp = $stamp();
+
+            // Overflow: a phase ran out of days (clamped at the last day's end),
+            // or produced a zero-length window (no room left).
+            if (($dayIdx >= $days->count() - 1 && $cur >= $endMin) || $startStamp === $endStamp) {
+                $overflow = true;
+            }
+            if ($startStamp === $endStamp) $overflow = true;
+
+            $proposal[$phase] = ['starts_at' => $startStamp, 'ends_at' => $endStamp];
+
+            $advance($bufferMin);
+        }
+
+        return ['windows' => $proposal, 'overflow' => $overflow];
     }
 
     /** Field size (pairs in the round) → phase key. */

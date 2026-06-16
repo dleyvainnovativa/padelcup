@@ -5,6 +5,16 @@ $ready = $match->pair_a_id && $match->pair_b_id;
 @endphp
 
 <div class="match-row" x-data="{ open: false, special: false }">
+    @if($match->starts_at || $match->court)
+    <div class="match-row__meta">
+        @if($match->court)
+        <span><i class="fa-solid fa-location-dot"></i> {{ $match->court->name }}</span>
+        @endif
+        @if($match->starts_at)
+        <span><i class="fa-regular fa-clock"></i> {{ $match->starts_at->timezone('America/Mexico_City')->translatedFormat('D d M · H:i') }}</span>
+        @endif
+    </div>
+    @endif
     <div class="match-row__main">
         {{-- Pair A --}}
         <div class="match-row__pair {{ $confirmed && $match->winner_pair_id === $match->pair_a_id ? 'is-winner' : '' }}">
@@ -41,6 +51,22 @@ $ready = $match->pair_a_id && $match->pair_b_id;
             <span style="font-size:11px;color:var(--text-faint);">Por definir</span>
             @endif
             @endcan
+            @if($confirmed)
+            @php
+            $shareData = [
+            'tournament' => $tournament->name,
+            'category' => $category->name,
+            'context' => $match->contextLabel(),
+            'pairA' => $match->pairA?->name() ?? '—',
+            'pairB' => $match->pairB?->name() ?? '—',
+            'sets' => $match->sets ?? [],
+            'winner' => $match->winner_pair_id === $match->pair_a_id ? 'a' : ($match->winner_pair_id === $match->pair_b_id ? 'b' : null),
+            ];
+            @endphp
+            <button type="button" class="btn btn-soft btn-sm" data-share-match='@json($shareData)' title="Compartir imagen">
+                <i class="fa-solid fa-image"></i>
+            </button>
+            @endif
         </div>
     </div>
 
@@ -50,16 +76,18 @@ $ready = $match->pair_a_id && $match->pair_b_id;
     <div x-show="open" x-cloak class="match-row__form">
         <form method="POST" action="{{ $confirmed ? route('results.edit', [$tournament, $category, $match]) : route('results.confirm', [$tournament, $category, $match]) }}">
             @csrf
-            <div class="d-flex align-items-center gap-3 flex-wrap match-row__sets" x-show="!special">
+            <div class="d-flex align-items-center gap-3 flex-wrap match-row__sets" x-show="!special" data-score-group>
                 <span style="font-size:12px;color:var(--text-muted);min-width:90px;">Sets (A-B):</span>
                 @for($i = 0; $i < 3; $i++)
                     <div class="d-flex align-items-center gap-1 match-row__set">
                     <span class="match-row__set-label">Set {{ $i + 1 }}</span>
                     <input type="number" name="sets[{{ $i }}][0]" min="0" max="7"
+                        inputmode="numeric" data-score-input
                         value="{{ $match->sets[$i][0] ?? '' }}"
                         class="form-control form-control-sm" style="width:52px;border-radius:var(--radius);text-align:center;">
                     <span style="color:var(--text-faint);">-</span>
                     <input type="number" name="sets[{{ $i }}][1]" min="0" max="7"
+                        inputmode="numeric" data-score-input
                         value="{{ $match->sets[$i][1] ?? '' }}"
                         class="form-control form-control-sm" style="width:52px;border-radius:var(--radius);text-align:center;">
                     @if($i === 2)<span style="font-size:10px;color:var(--text-faint);">(3er set)</span>@endif

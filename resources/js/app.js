@@ -77,5 +77,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.querySelector('[data-bracket-board]')) {
     import('./modules/bracketResults').then((m) => m.initBracketResults());
   }
+
+  // Feature module: agile score entry (results page).
+  if (document.querySelector('[data-score-input]')) {
+    import('./modules/scoreEntry').then((m) => m.initScoreEntry());
+  }
+
+  // Feature module: public pages (auto-refresh, share, QR).
+  if (document.querySelector('[data-auto-refresh], [data-share], [data-qr]')) {
+    import('./modules/publicPages').then((m) => m.initPublicPages());
+  }
+
+  // Feature module: shareable match result image.
+  if (document.querySelector('[data-share-match]')) {
+    import('./modules/matchShare').then((m) => m.initMatchShare());
+  }
   Alpine.start();
 });

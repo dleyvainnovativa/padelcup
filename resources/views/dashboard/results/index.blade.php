@@ -20,11 +20,19 @@
         <h1>Resultados · {{ $category->name }}</h1>
         <div class="page-sub">{{ $tournament->name }}</div>
     </div>
-    <div class="d-flex gap-2 align-items-center">
+    <div class="d-flex gap-2 align-items-center flex-wrap">
         @if($category->format->hasBracket())
         <a href="{{ route('draw.bracket', [$tournament, $category]) }}" class="btn btn-soft">
             <i class="fa-solid fa-sitemap me-1"></i> Llave
         </a>
+        @unless($tournament->isLocked())
+        <form method="POST" action="{{ route('draw.bracket.build', [$tournament, $category]) }}"
+            data-confirm="Se generará la llave a partir de los clasificados actuales. Si ya existe una, se reemplazará. ¿Continuar?"
+            data-confirm-title="Generar llave" data-confirm-ok="Generar">
+            @csrf
+            <button class="btn btn-soft"><i class="fa-solid fa-sitemap me-1"></i> Generar llave</button>
+        </form>
+        @endunless
         @endif
         <x-pill :variant="$tournament->isLocked() ? 'warn' : 'neutral'" dot>
             {{ $tournament->phase->label() }}
@@ -47,14 +55,22 @@
     </div>
 </div>
 @else
-@php $hasBoth = $groupMatches->isNotEmpty() && $bracketMatches->isNotEmpty(); @endphp
-<div x-data="{ tab: '{{ $groupMatches->isNotEmpty() ? 'groups' : 'bracket' }}' }">
+@php
+$hasBoth = $groupMatches->isNotEmpty() && $bracketMatches->isNotEmpty();
+$defaultTab = $groupMatches->isNotEmpty() ? 'groups' : 'bracket';
+$tabKey = 'results_tab_'.$category->id;
+@endphp
+<div x-data="{
+                tab: (sessionStorage.getItem('{{ $tabKey }}') || '{{ $defaultTab }}'),
+                setTab(t) { this.tab = t; sessionStorage.setItem('{{ $tabKey }}', t); }
+             }"
+    x-init="if (!['groups','bracket'].includes(tab)) tab = '{{ $defaultTab }}'">
     @if($hasBoth)
     <div class="tc-tabs mb-3">
-        <button type="button" class="tc-tab" :class="{ 'is-active': tab === 'groups' }" @click="tab = 'groups'">
+        <button type="button" class="tc-tab" :class="{ 'is-active': tab === 'groups' }" @click="setTab('groups')">
             <i class="fa-solid fa-layer-group me-1"></i> Grupos
         </button>
-        <button type="button" class="tc-tab" :class="{ 'is-active': tab === 'bracket' }" @click="tab = 'bracket'">
+        <button type="button" class="tc-tab" :class="{ 'is-active': tab === 'bracket' }" @click="setTab('bracket')">
             <i class="fa-solid fa-sitemap me-1"></i> Eliminación
         </button>
     </div>

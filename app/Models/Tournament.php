@@ -20,6 +20,7 @@ class Tournament extends Model
         'description',
         'rules',
         'logo_path',
+        'cover_image_path',
         'starts_on',
         'ends_on',
         'play_start',
@@ -99,6 +100,11 @@ class Tournament extends Model
         return $this->hasMany(PhaseWindow::class);
     }
 
+    public function sponsors()
+    {
+        return $this->hasMany(Sponsor::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     // --- Helpers -------------------------------------------------------
 
     public function isSetup(): bool
@@ -108,6 +114,13 @@ class Tournament extends Model
     public function isLocked(): bool
     {
         return $this->phase === TournamentPhase::Locked;
+    }
+
+    /** Public URL for the cover image, or null if none uploaded. */
+    public function coverImageUrl(): ?string
+    {
+        if (blank($this->cover_image_path)) return null;
+        return \Illuminate\Support\Facades\Storage::disk(config('filesystems.default'))->url($this->cover_image_path);
     }
 
     /** Lock the tournament on the first confirmed result (idempotent). */

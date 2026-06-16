@@ -15,6 +15,7 @@ class Category extends Model
     protected $fillable = [
         'tournament_id',
         'name',
+        'slug',
         'format',
         'group_format',
         'mexicano_pairing',
@@ -30,6 +31,27 @@ class Category extends Model
         'has_third_place',
         'whatsapp_group_url',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Category $c) {
+            if (blank($c->slug)) {
+                $c->slug = static::uniqueSlug($c->name, $c->tournament_id);
+            }
+        });
+    }
+
+    /** Slug unique within a tournament. */
+    public static function uniqueSlug(string $name, ?int $tournamentId): string
+    {
+        $base = \Illuminate\Support\Str::slug($name) ?: 'categoria';
+        $slug = $base;
+        $i = 1;
+        while (static::where('tournament_id', $tournamentId)->where('slug', $slug)->exists()) {
+            $slug = $base . '-' . $i++;
+        }
+        return $slug;
+    }
 
     protected function casts(): array
     {

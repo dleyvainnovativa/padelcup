@@ -45,6 +45,9 @@ class ScheduleController extends Controller
         $presentPhases = \App\Support\SchedulePhase::presentIn($matches);
         $phaseWindows = $tournament->phaseWindows()->get()->groupBy('phase');
         $capacity = app(\App\Services\Tournament\CapacityService::class)->preview($tournament);
+        $proposal = app(\App\Services\Tournament\CapacityService::class)->proposeWindows($tournament);
+        $proposedWindows = $proposal['windows'];
+        $proposalOverflow = $proposal['overflow'];
 
         return view('dashboard.schedule.index', [
             'tournament' => $tournament,
@@ -56,6 +59,8 @@ class ScheduleController extends Controller
             'presentPhases' => $presentPhases,
             'phaseWindows' => $phaseWindows,
             'capacity' => $capacity,
+            'proposedWindows' => $proposedWindows,
+            'proposalOverflow' => $proposalOverflow,
         ]);
     }
 
@@ -151,6 +156,41 @@ class ScheduleController extends Controller
             ->update(['court_id' => null, 'starts_at' => null]);
 
         return back()->with('status', "{$count} partidos quitados del calendario.");
+    }
+
+    /** Detect players double-booked across scheduled matches (post-resolution). */
+    public function conflicts(Request $request, Tournament $tournament)
+    {
+        $this->authorize('update', $tournament);
+
+        $conflicts = $this->scheduler->detectConflicts($tournament);
+
+        return back()->with('conflicts', $conflicts)->with('conflictsChecked', true);
+    }
+
+    /** Export the full schedule as a PDF (for WhatsApp / sharing). */
+    public function exportPdf(Tournament $tournament)
+    {
+        $this->authorize('view', $tournament);
+
+        $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->whereNotNull('starts_at')
+            ->with(['category', 'group', 'court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->orderBy('starts_at')
+            ->get();
+
+        // Group by day → time → (rows). Each row lists court + match.
+        $byDay = $matches->groupBy(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'));
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('dashboard.schedule.pdf', [
+            'tournament' => $tournament,
+            'byDay' => $byDay,
+            'generatedAt' => now('America/Mexico_City'),
+        ])->setPaper('a4', 'portrait');
+
+        $filename = \Illuminate\Support\Str::slug($tournament->name) . '-calendario.pdf';
+
+        return $pdf->download($filename);
     }
 
     /** Save the tournament's phase windows + min rest gap. */

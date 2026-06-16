@@ -75,8 +75,21 @@ class TournamentController extends Controller
         $schedFields = ['play_start', 'play_end', 'match_duration_minutes', 'starts_on', 'ends_on'];
         $before = $tournament->only($schedFields);
 
+        $data = $request->validated();
+
+        // Cover image upload (optional). Store on the default disk; replace any
+        // previous image.
+        if ($request->hasFile('cover_image')) {
+            $disk = config('filesystems.default');
+            if ($tournament->cover_image_path) {
+                \Illuminate\Support\Facades\Storage::disk($disk)->delete($tournament->cover_image_path);
+            }
+            $data['cover_image_path'] = $request->file('cover_image')
+                ->store('tournament-covers', $disk);
+        }
+
         $tournament->update([
-            ...$request->validated(),
+            ...$data,
             'is_listed' => $request->boolean('is_listed'),
         ]);
 

@@ -14,6 +14,7 @@
     <div class="tc-card__body">
         <form method="POST" action="{{ route('tournaments.update', $tournament) }}"
             id="tournament-edit-form"
+            enctype="multipart/form-data"
             data-scheduled-count="{{ $scheduledCount }}"
             data-orig-start="{{ \Illuminate\Support\Str::of($tournament->play_start)->substr(0,5) }}"
             data-orig-end="{{ \Illuminate\Support\Str::of($tournament->play_end)->substr(0,5) }}"
@@ -28,6 +29,19 @@
             <div class="mb-3">
                 <label class="form-label" style="font-size:13px;font-weight:500;">Descripción</label>
                 <textarea name="description" rows="2" class="form-control" style="border-radius:var(--radius);">{{ old('description', $tournament->description) }}</textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" style="font-size:13px;font-weight:500;">Imagen del torneo</label>
+                @if($tournament->coverImageUrl())
+                <div class="mb-2">
+                    <img src="{{ $tournament->coverImageUrl() }}" alt="Imagen actual"
+                        style="max-height:120px;border-radius:var(--radius);border:1px solid var(--border);">
+                </div>
+                @endif
+                <input type="file" name="cover_image" accept="image/jpeg,image/png,image/webp"
+                    class="form-control @error('cover_image') is-invalid @enderror" style="border-radius:var(--radius);">
+                <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">Se muestra en la página pública. JPG, PNG o WEBP, máx 4 MB.</div>
+                @error('cover_image')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
             </div>
             <div class="row g-3">
                 <div class="col-6">
@@ -53,7 +67,7 @@
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="form-label" style="font-size:13px;font-weight:500;">Duración partido (min)</label>
-                    <input type="number" name="match_duration_minutes" min="30" max="240" step="15" value="{{ old('match_duration_minutes', $tournament->match_duration_minutes) }}" class="form-control" style="border-radius:var(--radius);">
+                    <input type="number" name="match_duration_minutes" min="30" max="240" step="5" value="{{ old('match_duration_minutes', $tournament->match_duration_minutes) }}" class="form-control" style="border-radius:var(--radius);">
                 </div>
             </div>
             <div style="font-size:12px;color:var(--text-faint);margin-top:6px;">

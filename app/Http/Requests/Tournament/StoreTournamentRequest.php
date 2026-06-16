@@ -25,6 +25,7 @@ class StoreTournamentRequest extends FormRequest
             'play_start' => ['nullable', 'date_format:H:i'],
             'play_end' => ['nullable', 'date_format:H:i', 'after:play_start'],
             'match_duration_minutes' => ['nullable', 'integer', 'min:30', 'max:240'],
+            'cover_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:4096'],
             'registration_opens_at' => ['nullable', 'date'],
             'registration_closes_at' => ['nullable', 'date', 'after_or_equal:registration_opens_at'],
             'invitation_ttl_hours' => ['nullable', 'integer', 'min:1', 'max:336'],

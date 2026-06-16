@@ -21,7 +21,7 @@ Route::get('/auth/{provider}/callback', [OAuthController::class, 'callback'])->n
 // --- Authenticated app ---
 Route::middleware(['auth'])->group(function () {
 
-    Route::get('/dashboard', fn() => view('dashboard.index'))->name('dashboard');
+    Route::get('/dashboard', [\App\Http\Controllers\Dashboard\DashboardController::class, 'index'])->name('dashboard');
 
     // Tournaments (manager CRUD)
     Route::resource('tournaments', TournamentController::class);
@@ -76,10 +76,23 @@ Route::middleware(['auth'])->group(function () {
         Route::post('calendario/colocar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'place'])->name('schedule.place');
         Route::post('calendario/quitar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'unplace'])->name('schedule.unplace');
         Route::post('calendario/limpiar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'clearAll'])->name('schedule.clear');
+        Route::post('calendario/conflictos', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'conflicts'])->name('schedule.conflicts');
+        Route::get('calendario/pdf', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportPdf'])->name('schedule.pdf');
         Route::post('calendario/fases', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'savePhaseWindows'])->name('schedule.phases');
 
         // Resumen (tournament summary / leaderboard)
         Route::get('resumen', [\App\Http\Controllers\Dashboard\SummaryController::class, 'show'])->name('tournaments.summary');
+
+        // Sponsors / partners carousel (manager-managed)
+        Route::get('patrocinadores', [\App\Http\Controllers\Dashboard\SponsorController::class, 'index'])->name('sponsors.index');
+        Route::post('patrocinadores', [\App\Http\Controllers\Dashboard\SponsorController::class, 'store'])->name('sponsors.store');
+        Route::post('patrocinadores/{sponsor}', [\App\Http\Controllers\Dashboard\SponsorController::class, 'update'])->name('sponsors.update');
+        Route::delete('patrocinadores/{sponsor}', [\App\Http\Controllers\Dashboard\SponsorController::class, 'destroy'])->name('sponsors.destroy');
+
+        // Bulk import (CSV/XLSX/paste) — create categories + players/pairs
+        Route::get('importar', [\App\Http\Controllers\Dashboard\TournamentImportController::class, 'form'])->name('tournaments.import.form');
+        Route::post('importar/previsualizar', [\App\Http\Controllers\Dashboard\TournamentImportController::class, 'preview'])->name('tournaments.import.preview');
+        Route::post('importar/confirmar', [\App\Http\Controllers\Dashboard\TournamentImportController::class, 'commit'])->name('tournaments.import.commit');
     });
 
     // Stripe Connect onboarding (managers)
@@ -119,6 +132,15 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 });
 
 Route::get('/', fn() => redirect()->route('dashboard'));
+
+// Public, read-only tournament pages (Phase 8) — no auth.
+Route::get('/torneos', [\App\Http\Controllers\PublicTournamentController::class, 'directory'])->name('public.directory');
+Route::get('/t/{tournament}', [\App\Http\Controllers\PublicTournamentController::class, 'show'])->name('public.tournament');
+Route::get('/t/{tournament}/calendario', [\App\Http\Controllers\PublicTournamentController::class, 'schedule'])->name('public.schedule');
+Route::get('/t/{tournament}/jugador/{player}', [\App\Http\Controllers\PublicTournamentController::class, 'player'])->name('public.player');
+Route::get('/t/{tournament}/{category:slug}', [\App\Http\Controllers\PublicTournamentController::class, 'category'])
+    ->scopeBindings()
+    ->name('public.category');
 
 // Quick-register (partner accepts invitation via token — PUBLIC, no auth)
 Route::get('/invitacion/{invitation}', [\App\Http\Controllers\Registration\QuickRegistrationController::class, 'show'])->name('quick.show');

@@ -23,14 +23,14 @@ class ResultController extends Controller
 
         $groupMatches = $category->matches()
             ->whereNotNull('group_id')
-            ->with(['group', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->with(['group', 'court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
             ->orderBy('round')->orderBy('slot')->orderBy('id')
             ->get()
             ->groupBy('group_id');
 
         $bracketMatches = $category->matches()
             ->whereNull('group_id')
-            ->with(['pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->with(['court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
             ->orderBy('round')->orderBy('slot')
             ->get();
 

@@ -29,6 +29,11 @@
                 @csrf
                 <button class="btn btn-accent"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Auto-programar</button>
             </form>
+            <a href="{{ route('schedule.pdf', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-file-pdf me-1"></i> Exportar PDF</a>
+            <form method="POST" action="{{ route('schedule.conflicts', $tournament) }}">
+                @csrf
+                <button class="btn btn-soft"><i class="fa-solid fa-user-clock me-1"></i> Revisar conflictos</button>
+            </form>
             <form method="POST" action="{{ route('schedule.clear', $tournament) }}"
                 data-confirm="Se quitarán TODOS los partidos del calendario (los resultados se conservan). ¿Continuar?"
                 data-confirm-title="Limpiar calendario" data-confirm-ok="Limpiar" data-confirm-variant="danger">
@@ -139,12 +144,30 @@
             <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
                 Define las fechas y horas reservadas para cada fase. Al auto-programar, cada partido se coloca solo dentro de la ventana de su fase. Deja vacía una fase para no restringirla.
             </p>
-            <form method="POST" action="{{ route('schedule.phases', $tournament) }}">
+            <form method="POST" action="{{ route('schedule.phases', $tournament) }}"
+                x-data="{
+                    proposal: {{ Illuminate\Support\Js::from($proposedWindows) }},
+                    applyProposal() {
+                        for (const [phase, win] of Object.entries(this.proposal)) {
+                            const s = this.$refs['start_' + phase];
+                            const e = this.$refs['end_' + phase];
+                            if (s) s.value = win.starts_at.replace(' ', 'T');
+                            if (e) e.value = win.ends_at.replace(' ', 'T');
+                        }
+                    }
+                  }">
                 @csrf
-                <div class="mb-3" style="max-width:260px;">
-                    <label class="form-label" style="font-size:13px;font-weight:500;">Descanso mínimo entre partidos (min)</label>
-                    <input type="number" name="min_rest_minutes" min="0" max="240" value="{{ $tournament->min_rest_minutes ?? 30 }}"
-                        class="form-control" style="border-radius:var(--radius);">
+                <div class="d-flex justify-content-between align-items-end mb-3 flex-wrap gap-2">
+                    <div style="max-width:260px;">
+                        <label class="form-label" style="font-size:13px;font-weight:500;">Descanso mínimo entre partidos (min)</label>
+                        <input type="number" name="min_rest_minutes" min="0" max="240" value="{{ $tournament->min_rest_minutes ?? 30 }}"
+                            class="form-control" style="border-radius:var(--radius);">
+                    </div>
+                    @if(!empty($proposedWindows))
+                    <button type="button" class="btn btn-soft btn-sm" @click="applyProposal()">
+                        <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generar sugeridas
+                    </button>
+                    @endif
                 </div>
                 @forelse($presentPhases as $i => $phase)
                 @php $win = ($phaseWindows[$phase] ?? collect())->first(); @endphp
@@ -155,13 +178,13 @@
                     </div>
                     <div class="col-6 col-md-4">
                         <label class="form-label" style="font-size:11px;color:var(--text-faint);">Inicio</label>
-                        <input type="datetime-local" name="windows[{{ $i }}][starts_at]"
+                        <input type="datetime-local" name="windows[{{ $i }}][starts_at]" x-ref="start_{{ $phase }}"
                             value="{{ $win?->starts_at?->format('Y-m-d\TH:i') }}"
                             class="form-control form-control-sm" style="border-radius:var(--radius);">
                     </div>
                     <div class="col-6 col-md-4">
                         <label class="form-label" style="font-size:11px;color:var(--text-faint);">Fin</label>
-                        <input type="datetime-local" name="windows[{{ $i }}][ends_at]"
+                        <input type="datetime-local" name="windows[{{ $i }}][ends_at]" x-ref="end_{{ $phase }}"
                             value="{{ $win?->ends_at?->format('Y-m-d\TH:i') }}"
                             class="form-control form-control-sm" style="border-radius:var(--radius);">
                     </div>
@@ -169,6 +192,16 @@
                 @empty
                 <div style="font-size:13px;color:var(--text-faint);">Genera grupos o llave para ver las fases.</div>
                 @endforelse
+                @if(!empty($proposedWindows))
+                @if($proposalOverflow)
+                <p style="font-size:12px;color:var(--danger-text);margin:6px 0 0;">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i>Los partidos no caben en los días de juego con las canchas actuales. Considera más canchas, más días, o partidos más cortos.
+                </p>
+                @endif
+                <p style="font-size:11px;color:var(--text-faint);margin:6px 0 0;">
+                    "Generar sugeridas" reparte las fases en los días de juego (con 15% de holgura y 30 min entre fases). Revisa y ajusta antes de guardar.
+                </p>
+                @endif
                 <button type="submit" class="btn btn-accent btn-sm mt-2"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar ventanas</button>
             </form>
         </div>
@@ -180,6 +213,49 @@
 <div class="alert py-2 px-3 mb-3" style="font-size:13px;border-radius:var(--radius);background:var(--danger-soft);color:var(--danger-text);">
     @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
 </div>
+@endif
+
+{{-- Conflict check report --}}
+@if(session('conflictsChecked'))
+@php $conflicts = session('conflicts', []); @endphp
+@if(empty($conflicts))
+<div class="tc-card mb-3" style="border-color:color-mix(in srgb, var(--success,#30a46c) 40%, transparent);">
+    <div class="tc-card__body" style="color:var(--success-text);font-size:13px;">
+        <i class="fa-solid fa-circle-check me-1"></i> Sin conflictos: ningún jugador está programado en partidos que se encimen.
+    </div>
+</div>
+@else
+<div class="tc-card mb-3">
+    <div class="tc-card__head">
+        <h3><i class="fa-solid fa-user-clock me-1"></i> Conflictos de jugadores ({{ count($conflicts) }})</h3>
+    </div>
+    <div class="tc-card__body" style="display:flex;flex-direction:column;gap:8px;">
+        @foreach($conflicts as $c)
+        <div class="conflict-row conflict-row--{{ $c['severity'] }}">
+            <div class="conflict-row__player">
+                <i class="fa-solid {{ $c['severity'] === 'overlap' ? 'fa-triangle-exclamation' : 'fa-clock' }}"></i>
+                {{ $c['player'] }}
+                <span class="conflict-row__tag">{{ $c['severity'] === 'overlap' ? 'Se encima' : 'Poco descanso' }}</span>
+            </div>
+            <div class="conflict-row__matches">
+                @foreach($c['matches'] as $mi)
+                <div class="conflict-row__match">
+                    <span class="conflict-row__label">{{ $mi['label'] }}</span>
+                    <span class="conflict-row__when">
+                        @if($mi['court'])<i class="fa-solid fa-location-dot"></i> {{ $mi['court'] }} · @endif
+                        {{ $mi['time'] ?? 'sin hora' }}
+                    </span>
+                </div>
+                @endforeach
+            </div>
+        </div>
+        @endforeach
+        <p style="font-size:11px;color:var(--text-faint);margin:4px 0 0;">
+            Mueve o quita uno de los partidos en conflicto para resolverlo, luego vuelve a revisar.
+        </p>
+    </div>
+</div>
+@endif
 @endif
 
 @if($courts->isEmpty())
