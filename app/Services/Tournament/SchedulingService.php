@@ -227,11 +227,19 @@ class SchedulingService
             ->with(['group', 'category', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2']);
 
         if ($hasPhases) {
-            // Ready matches OR placeholders that will be fed later.
+            // Ready matches OR placeholders that will be fed later (feeders) OR
+            // positional bracket matches with two real seed labels (e.g.
+            // "Grupo G - 1 vs Grupo J - 1") — reserve their slot ahead of the
+            // pairs binding. Genuine byes (a side = 'BYE') are excluded.
             $query->where(function ($q) {
                 $q->where(fn($q) => $q->whereNotNull('pair_a_id')->whereNotNull('pair_b_id'))
                     ->orWhereNotNull('feeder_a_id')
-                    ->orWhereNotNull('feeder_b_id');
+                    ->orWhereNotNull('feeder_b_id')
+                    ->orWhere(function ($q) {
+                        $q->whereNotNull('seed_label_a')->whereNotNull('seed_label_b')
+                            ->where('seed_label_a', '!=', 'BYE')
+                            ->where('seed_label_b', '!=', 'BYE');
+                    });
             });
         } else {
             $query->whereNotNull('pair_a_id')->whereNotNull('pair_b_id');

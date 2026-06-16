@@ -147,28 +147,36 @@
             <div class="pub-card__body">
                 @foreach($matches as $m)
                 @php $played = $m->state->value === 'confirmed'; @endphp
-                <div class="pub-result-row">
-                    <span class="pub-result-row__a {{ $played && $m->winner_pair_id === $m->pair_a_id ? 'is-win' : '' }}">{{ $m->pairA?->name() ?? '—' }}</span>
-                    <span class="pub-result-row__sc pub-mono">
-                        @if($played)@foreach($m->sets ?? [] as $s){{ $s[0] }}-{{ $s[1] }}@if(!$loop->last) @endif @endforeach
-                        @else <span class="pub-muted">—</span>@endif
-                    </span>
-                    <span class="pub-result-row__b {{ $played && $m->winner_pair_id === $m->pair_b_id ? 'is-win' : '' }}">{{ $m->pairB?->name() ?? '—' }}</span>
-                    @if($played)
-                    @php
-                    $shareData = [
-                    'tournament' => $tournament->name,
-                    'category' => $category->name,
-                    'context' => $m->contextLabel(),
-                    'pairA' => $m->pairA?->name() ?? '—',
-                    'pairB' => $m->pairB?->name() ?? '—',
-                    'sets' => $m->sets ?? [],
-                    'winner' => $m->winner_pair_id === $m->pair_a_id ? 'a' : ($m->winner_pair_id === $m->pair_b_id ? 'b' : null),
-                    ];
-                    @endphp
-                    <button type="button" class="pub-share-btn" data-share-match='@json($shareData)' title="Compartir imagen">
-                        <i class="fa-solid fa-image"></i>
-                    </button>
+                <div class="pub-result-wrap">
+                    <div class="pub-result-row">
+                        <span class="pub-result-row__a {{ $played && $m->winner_pair_id === $m->pair_a_id ? 'is-win' : '' }}">{{ $m->pairA?->name() ?? '—' }}</span>
+                        <span class="pub-result-row__sc pub-mono">
+                            @if($played)@foreach($m->sets ?? [] as $s){{ $s[0] }}-{{ $s[1] }}@if(!$loop->last) @endif @endforeach
+                            @else <span class="pub-muted">—</span>@endif
+                        </span>
+                        <span class="pub-result-row__b {{ $played && $m->winner_pair_id === $m->pair_b_id ? 'is-win' : '' }}">{{ $m->pairB?->name() ?? '—' }}</span>
+                        @if($played)
+                        @php
+                        $shareData = [
+                        'tournament' => $tournament->name,
+                        'category' => $category->name,
+                        'context' => $m->contextLabel(),
+                        'pairA' => $m->pairA?->name() ?? '—',
+                        'pairB' => $m->pairB?->name() ?? '—',
+                        'sets' => $m->sets ?? [],
+                        'winner' => $m->winner_pair_id === $m->pair_a_id ? 'a' : ($m->winner_pair_id === $m->pair_b_id ? 'b' : null),
+                        ];
+                        @endphp
+                        <button type="button" class="pub-share-btn" data-share-match='@json($shareData)' title="Compartir imagen">
+                            <i class="fa-solid fa-image"></i>
+                        </button>
+                        @endif
+                    </div>
+                    @if($m->starts_at || $m->court)
+                    <div class="pub-result-meta">
+                        @if($m->court)<span><i class="fa-solid fa-location-dot"></i> {{ $m->court->name }}</span>@endif
+                        @if($m->starts_at)<span><i class="fa-regular fa-clock"></i> {{ $m->starts_at->timezone('America/Mexico_City')->translatedFormat('D d M · H:i') }}</span>@endif
+                    </div>
                     @endif
                 </div>
                 @endforeach

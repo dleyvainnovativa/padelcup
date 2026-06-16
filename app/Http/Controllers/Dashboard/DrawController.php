@@ -110,11 +110,18 @@ class DrawController extends Controller
         abort_unless($category->tournament_id === $tournament->id, 404);
 
         if ($category->format === CategoryFormat::Hybrid) {
+            // If the group phase isn't finished, build a POSITIONAL bracket with
+            // seed labels (A1 vs B2…) — pairs bind automatically once groups end.
+            if (! $this->brackets->groupsComplete($category)) {
+                $this->brackets->buildPositional($category);
+                return redirect()->route('draw.bracket', [$tournament, $category])
+                    ->with('status', 'Llave preliminar generada con posiciones (A1, B2…). Las parejas se asignarán al terminar los grupos. Puedes intercambiar posiciones antes de que inicien.');
+            }
+
             $result = $this->brackets->qualifiers($category);
 
             // Unresolved boundary tie → ask the manager to choose.
             if ($result['tie']) {
-                // Manager may have submitted a resolution.
                 if ($request->filled('resolved')) {
                     $chosen = array_map('intval', $request->input('resolved', []));
                     $seeds = $this->mergeResolvedTie($result, $chosen);
@@ -140,6 +147,30 @@ class DrawController extends Controller
         return redirect()
             ->route('draw.bracket', [$tournament, $category])
             ->with('status', 'Llave generada.');
+    }
+
+    /** Swap two round-1 bracket slots (manual seeding adjustment). */
+    public function swapBracket(Request $request, Tournament $tournament, Category $category)
+    {
+        $this->authorize('update', $category);
+        abort_unless($category->tournament_id === $tournament->id, 404);
+
+        $data = $request->validate([
+            'match_a' => ['required', 'integer'],
+            'side_a' => ['required', 'in:a,b'],
+            'match_b' => ['required', 'integer'],
+            'side_b' => ['required', 'in:a,b'],
+        ]);
+
+        $a = \App\Models\GameMatch::where('category_id', $category->id)->findOrFail($data['match_a']);
+        $b = \App\Models\GameMatch::where('category_id', $category->id)->findOrFail($data['match_b']);
+
+        // Only allow swapping before the bracket has results.
+        abort_if($a->state === \App\Enums\MatchState::Confirmed || $b->state === \App\Enums\MatchState::Confirmed, 422, 'No se puede mover un partido ya jugado.');
+
+        $this->brackets->swapSlots($a, $data['side_a'], $b, $data['side_b']);
+
+        return back()->with('status', 'Posiciones intercambiadas.');
     }
 
     /** Show the bracket. */

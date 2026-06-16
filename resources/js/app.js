@@ -76,6 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Feature module: bracket results (tap a bracket match to score).
   if (document.querySelector('[data-bracket-board]')) {
     import('./modules/bracketResults').then((m) => m.initBracketResults());
+    import('./modules/bracketSwap').then((m) => m.initBracketSwap());
   }
 
   // Feature module: agile score entry (results page).

@@ -67,7 +67,9 @@ class Tournament extends Model
         $base = Str::slug($name);
         $slug = $base;
         $i = 1;
-        while (static::where('slug', $slug)->exists()) {
+        // Include soft-deleted rows: the DB unique index counts them too, so a
+        // trashed tournament still occupies its slug.
+        while (static::withTrashed()->where('slug', $slug)->exists()) {
             $slug = $base . '-' . $i++;
         }
         return $slug;

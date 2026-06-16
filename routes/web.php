@@ -52,6 +52,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('grupos', [\App\Http\Controllers\Dashboard\DrawController::class, 'groups'])->name('draw.groups');
             Route::post('grupos/mover', [\App\Http\Controllers\Dashboard\DrawController::class, 'movePair'])->name('draw.groups.move');
             Route::post('llave/generar', [\App\Http\Controllers\Dashboard\DrawController::class, 'buildBracket'])->name('draw.bracket.build');
+            Route::post('llave/intercambiar', [\App\Http\Controllers\Dashboard\DrawController::class, 'swapBracket'])->name('draw.bracket.swap');
             Route::get('llave', [\App\Http\Controllers\Dashboard\DrawController::class, 'bracket'])->name('draw.bracket');
 
             // Results (Phase 6)

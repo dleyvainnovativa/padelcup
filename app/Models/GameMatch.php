@@ -16,6 +16,8 @@ class GameMatch extends Model
         'group_id',
         'pair_a_id',
         'pair_b_id',
+        'seed_label_a',
+        'seed_label_b',
         'round',
         'slot',
         'feeder_a_id',
@@ -111,7 +113,25 @@ class GameMatch extends Model
             return "{$word}{$of}";
         }
 
+        // Positional seed label (e.g. "A1", "B2") before pairs are bound.
+        $label = $side === 'a' ? $this->seed_label_a : $this->seed_label_b;
+        if ($label) {
+            return $label === 'BYE' ? 'Bye' : $this->seedLabelText($label);
+        }
+
         return 'Por definir';
+    }
+
+    /** Turn "A1" into "Grupo A - 1", "Q1" into "Mejor tercero 1". */
+    private function seedLabelText(string $label): string
+    {
+        if (preg_match('/^Q(\d+)$/', $label, $m)) {
+            return "Mejor clasificado {$m[1]}";
+        }
+        if (preg_match('/^([A-Z])(\d+)$/', $label, $m)) {
+            return "Grupo {$m[1]} - {$m[2]}";
+        }
+        return $label;
     }
 
     /** A grouping/context label: "Categoría · Grupo X · Ronda N". */

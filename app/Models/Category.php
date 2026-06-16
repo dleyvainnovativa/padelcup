@@ -47,7 +47,7 @@ class Category extends Model
         $base = \Illuminate\Support\Str::slug($name) ?: 'categoria';
         $slug = $base;
         $i = 1;
-        while (static::where('tournament_id', $tournamentId)->where('slug', $slug)->exists()) {
+        while (static::withTrashed()->where('tournament_id', $tournamentId)->where('slug', $slug)->exists()) {
             $slug = $base . '-' . $i++;
         }
         return $slug;

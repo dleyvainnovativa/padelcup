@@ -19,6 +19,7 @@
             <i class="fa-solid fa-flag-checkered me-1"></i> Resultados
         </a>
         @unless($tournament->isLocked())
+        <button type="button" class="btn btn-soft" data-swap-toggle><i class="fa-solid fa-arrows-up-down-left-right me-1"></i> Editar posiciones</button>
         <form method="POST" action="{{ route('draw.bracket.build', [$tournament, $category]) }}"
             data-confirm="Se reemplazará la llave actual por una nueva. ¿Continuar?" data-confirm-title="Regenerar llave" data-confirm-ok="Regenerar">
             @csrf
@@ -37,7 +38,7 @@
     </div>
 </div>
 @else
-<div style="overflow-x:auto;" data-bracket-board>
+<div style="overflow-x:auto;" data-bracket-board data-swap-url="{{ route('draw.bracket.swap', [$tournament, $category]) }}">
     <div style="display:flex;gap:24px;min-width:max-content;padding-bottom:12px;">
         @foreach($matches as $round => $roundMatches)
         <div style="display:flex;flex-direction:column;gap:14px;justify-content:space-around;min-width:220px;">
@@ -51,21 +52,24 @@
             @php
             $status = $m->scheduleStatus();
             $ready = $m->isReadyForResult();
+            $swappable = $round == 1 && $status !== 'played';
             @endphp
             <div class="sched-match is-{{ $status }} {{ $ready ? 'is-tappable' : '' }}"
                 @if($ready)
                 data-bracket-match="{{ $m->id }}"
                 data-ctx="{{ $m->bracketRoundName() }}"
-                data-a="{{ $m->pairA?->name() ?? '—' }}"
-                data-b="{{ $m->pairB?->name() ?? '—' }}"
+                data-a="{{ $m->sideLabel('a') }}"
+                data-b="{{ $m->sideLabel('b') }}"
                 data-status="{{ $status }}"
                 data-sets='@json($m->sets ?? [])'
                 data-confirm-url="{{ route('results.confirm', [$tournament, $category, $m]) }}"
                 data-edit-url="{{ route('results.edit', [$tournament, $category, $m]) }}"
                 @endif>
-                <div style="font-weight:600;{{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? '' : 'opacity:.75;' }}">{{ $m->pairA?->name() ?? '—' }}</div>
+                <div class="bmatch-side {{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? '' : 'is-dim' }}"
+                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="a" @endif>{{ $m->sideLabel('a') }}</div>
                 <div style="font-size:10px;color:var(--text-faint);">vs</div>
-                <div style="font-weight:600;{{ $m->winner_pair_id === $m->pair_b_id && $m->pair_b_id ? '' : 'opacity:.75;' }}">{{ $m->pairB?->name() ?? '—' }}</div>
+                <div class="bmatch-side {{ $m->winner_pair_id === $m->pair_b_id && $m->pair_b_id ? '' : 'is-dim' }}"
+                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="b" @endif>{{ $m->sideLabel('b') }}</div>
                 @if($status === 'played' && $m->sets)
                 <div class="sched-match__scores">
                     @foreach($m->sets as $s)

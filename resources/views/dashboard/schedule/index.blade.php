@@ -29,7 +29,15 @@
                 @csrf
                 <button class="btn btn-accent"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Auto-programar</button>
             </form>
-            <a href="{{ route('schedule.pdf', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-file-pdf me-1"></i> Exportar PDF</a>
+            <div x-data="{ open: false }" style="position:relative;">
+                <button type="button" class="btn btn-soft" @click="open = !open" @click.outside="open = false">
+                    <i class="fa-solid fa-file-pdf me-1"></i> Exportar PDF <i class="fa-solid fa-chevron-down" style="font-size:10px;margin-left:4px;"></i>
+                </button>
+                <div x-show="open" x-cloak class="pdf-menu">
+                    <a href="{{ route('schedule.pdf', $tournament) }}" class="pdf-menu__item"><i class="fa-regular fa-clock me-1"></i> Por horario</a>
+                    <a href="{{ route('schedule.pdf', ['tournament' => $tournament, 'order' => 'category']) }}" class="pdf-menu__item"><i class="fa-solid fa-layer-group me-1"></i> Por categoría</a>
+                </div>
+            </div>
             <form method="POST" action="{{ route('schedule.conflicts', $tournament) }}">
                 @csrf
                 <button class="btn btn-soft"><i class="fa-solid fa-user-clock me-1"></i> Revisar conflictos</button>

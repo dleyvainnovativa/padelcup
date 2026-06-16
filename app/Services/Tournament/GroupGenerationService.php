@@ -38,7 +38,10 @@ class GroupGenerationService
             return [$n];
         }
 
-        $groups = max(1, (int) round($n / $preferred));
+        // Round UP the group count so an uneven split leans to SMALLER groups
+        // (e.g. 3s) rather than oversized ones (5s). With preferred 4 and 9
+        // pairs this gives [3,3,3], not [5,4].
+        $groups = max(1, (int) ceil($n / $preferred));
         // Ensure no group would be smaller than 3 (pull groups down if needed).
         while ($groups > 1 && ($n / $groups) < 3) {
             $groups--;

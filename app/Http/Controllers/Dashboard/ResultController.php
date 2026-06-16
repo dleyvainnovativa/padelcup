@@ -13,7 +13,26 @@ use Illuminate\Validation\ValidationException;
 
 class ResultController extends Controller
 {
-    public function __construct(private ResultService $results) {}
+    public function __construct(private ResultService $results, private \App\Services\Tournament\BracketService $brackets) {}
+
+    /** After a group result, if all groups are now complete, bind a positional
+     *  bracket's qualifiers (A1/B2 labels → real pairs). No-op otherwise. */
+    private function maybeBindBracket(Tournament $tournament, Category $category, GameMatch $match): void
+    {
+        if (! $match->group_id) return;                       // only group matches trigger
+        if ($category->format !== \App\Enums\CategoryFormat::Hybrid) return;
+        if (! $this->brackets->groupsComplete($category)) return;
+
+        // Is there a positional bracket waiting (round-1 has seed labels, no pairs)?
+        $positional = GameMatch::where('category_id', $category->id)
+            ->whereNull('group_id')->where('round', 1)
+            ->whereNotNull('seed_label_a')->whereNull('pair_a_id')
+            ->exists();
+
+        if ($positional) {
+            $this->brackets->bindQualifiers($category);
+        }
+    }
 
     /** Match list for a category (group matches + bracket), with entry forms. */
     public function index(Tournament $tournament, Category $category)
@@ -63,6 +82,8 @@ class ResultController extends Controller
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors());
         }
+
+        $this->maybeBindBracket($tournament, $category, $match);
 
         return back()->with('status', 'Resultado confirmado.');
     }

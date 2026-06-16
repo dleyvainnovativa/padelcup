@@ -36,9 +36,18 @@ class ScheduleController extends Controller
 
         $scheduled = $matches->whereNotNull('starts_at');
         $unscheduled = $matches->whereNull('starts_at')
-            // Ready matches (both pairs) OR placeholder matches that will be
-            // fed later (Mexicano R2: has feeders but pairs not yet known).
-            ->filter(fn($m) => ($m->pair_a_id && $m->pair_b_id) || $m->feeder_a_id || $m->feeder_b_id)
+            // Schedulable when: both pairs known; OR fed by earlier matches
+            // (Mexicano R2, later bracket rounds); OR a positional bracket match
+            // with two real seed labels (e.g. "Grupo G - 1 vs Grupo J - 1") whose
+            // pairs bind once groups finish. Genuine byes (a side = 'BYE') are
+            // excluded — nobody plays them.
+            ->filter(function ($m) {
+                if ($m->pair_a_id && $m->pair_b_id) return true;
+                if ($m->feeder_a_id || $m->feeder_b_id) return true;
+                $a = $m->seed_label_a;
+                $b = $m->seed_label_b;
+                return $a && $b && $a !== 'BYE' && $b !== 'BYE';
+            })
             ->values();
 
         // Phases that actually exist in this tournament + any saved windows.
@@ -169,18 +178,39 @@ class ScheduleController extends Controller
     }
 
     /** Export the full schedule as a PDF (for WhatsApp / sharing). */
-    public function exportPdf(Tournament $tournament)
+    public function exportPdf(Request $request, Tournament $tournament)
     {
         $this->authorize('view', $tournament);
+
+        $order = $request->query('order') === 'category' ? 'category' : 'time';
 
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->whereNotNull('starts_at')
             ->with(['category', 'group', 'court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
-            ->orderBy('starts_at')
             ->get();
 
-        // Group by day → time → (rows). Each row lists court + match.
-        $byDay = $matches->groupBy(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'));
+        if ($order === 'category') {
+            // Category → round → datetime.
+            $grouped = $matches
+                ->sortBy([
+                    fn($m) => $m->category->name,
+                    fn($m) => (int) ($m->round ?? 0),
+                    fn($m) => optional($m->starts_at)->timestamp ?? 0,
+                ])
+                ->groupBy(fn($m) => $m->category->name);
+
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('dashboard.schedule.pdf-category', [
+                'tournament' => $tournament,
+                'byCategory' => $grouped,
+                'generatedAt' => now('America/Mexico_City'),
+            ])->setPaper('a4', 'portrait');
+
+            return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-calendario-categoria.pdf');
+        }
+
+        // Default: chronological (day → time).
+        $byDay = $matches->sortBy(fn($m) => $m->starts_at->timestamp)
+            ->groupBy(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'));
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('dashboard.schedule.pdf', [
             'tournament' => $tournament,
@@ -188,9 +218,7 @@ class ScheduleController extends Controller
             'generatedAt' => now('America/Mexico_City'),
         ])->setPaper('a4', 'portrait');
 
-        $filename = \Illuminate\Support\Str::slug($tournament->name) . '-calendario.pdf';
-
-        return $pdf->download($filename);
+        return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-calendario.pdf');
     }
 
     /** Save the tournament's phase windows + min rest gap. */

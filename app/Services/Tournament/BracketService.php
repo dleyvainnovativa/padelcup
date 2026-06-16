@@ -220,6 +220,202 @@ class BracketService
         });
     }
 
+    // --- Positional bracket (labels before standings are final) -------
+
+    /**
+     * Build a bracket using POSITIONAL seed labels (A1, B2, …) for a hybrid
+     * category, WITHOUT requiring final standings. The first round pairs each
+     * group winner against a different group's runner-up (classic cross rule);
+     * pairs bind later via bindQualifiers() once groups complete.
+     *
+     * Supports the common configs (advance 1 or 2 per group). Returns the count
+     * of first-round matches built.
+     */
+    public function buildPositional(Category $category): void
+    {
+        $groups = $category->groups()->orderBy('position')->orderBy('id')->get();
+        $groupCount = $groups->count();
+        $adv = (int) $category->advance_per_group;
+        $extra = (int) ($category->extra_qualifiers ?? 0);
+
+        if ($groupCount < 1 || $adv < 1) {
+            throw new \RuntimeException('Configura los grupos y cuántos avanzan antes de generar la llave.');
+        }
+
+        // Ordered seed-LABEL list (strongest first), then standard fold to a
+        // power-of-2 bracket with byes. Always crash-safe for any count.
+        $seedLabels = $this->positionalSeedLabels($groupCount, $adv, $extra);
+        $size = $this->nextPowerOfTwo(count($seedLabels));
+        if ($size < 2) {
+            throw new \RuntimeException('No hay suficientes posiciones para una llave.');
+        }
+        $padded = array_pad($seedLabels, $size, 'BYE');
+
+        // First-round pairings via standard fold: seed i vs seed (size-1-i).
+        $pairings = [];
+        for ($i = 0; $i < $size / 2; $i++) {
+            $pairings[] = [$padded[$i], $padded[$size - 1 - $i]];
+        }
+
+        $rounds = (int) log($size, 2);
+
+        DB::transaction(function () use ($category, $pairings, $rounds) {
+            GameMatch::where('category_id', $category->id)->whereNull('group_id')->delete();
+
+            $firstRound = [];
+            foreach ($pairings as $slot => [$labelA, $labelB]) {
+                $firstRound[] = GameMatch::create([
+                    'category_id' => $category->id,
+                    'round' => 1,
+                    'slot' => $slot,
+                    'seed_label_a' => $labelA,
+                    'seed_label_b' => $labelB,
+                ]);
+            }
+
+            // Subsequent rounds with feeder links.
+            $prev = $firstRound;
+            for ($round = 2; $round <= $rounds; $round++) {
+                $current = [];
+                for ($slot = 0; $slot < count($prev) / 2; $slot++) {
+                    $current[] = GameMatch::create([
+                        'category_id' => $category->id,
+                        'round' => $round,
+                        'slot' => $slot,
+                        'feeder_a_id' => $prev[$slot * 2]->id,
+                        'feeder_b_id' => $prev[$slot * 2 + 1]->id,
+                    ]);
+                }
+                $prev = $current;
+            }
+        });
+    }
+
+    /**
+     * Ordered seed-label list (strongest first): group winners, then runners-up
+     * rotated by one group (so a winner doesn't fold onto its own runner), then
+     * further advance tiers, then extra-qualifier slots (Q1, Q2…).
+     *
+     * @return array<int,string>
+     */
+    private function positionalSeedLabels(int $groupCount, int $adv, int $extra): array
+    {
+        $letters = [];
+        for ($i = 0; $i < $groupCount; $i++) $letters[] = chr(ord('A') + $i);
+
+        $seeds = array_map(fn($L) => $L . '1', $letters); // winners
+
+        if ($adv >= 2) {
+            // Runners rotated by one group.
+            foreach ($letters as $i => $L) {
+                $seeds[] = $letters[($i + 1) % $groupCount] . '2';
+            }
+        }
+        for ($place = 3; $place <= $adv; $place++) {
+            foreach ($letters as $L) $seeds[] = $L . $place;
+        }
+        for ($k = 1; $k <= $extra; $k++) {
+            $seeds[] = 'Q' . $k;
+        }
+
+        return $seeds;
+    }
+
+    /**
+     * Bind real qualifier pairs into a positional bracket once standings are
+     * final. Resolves each seed label (e.g. "B2") to the pair that finished in
+     * that group position, fills round-1 pairs, applies byes, and advances.
+     */
+    public function bindQualifiers(Category $category): void
+    {
+        // Map seed label → pair id from final standings.
+        $map = $this->seedLabelMap($category);
+
+        DB::transaction(function () use ($category, $map) {
+            $firstRound = GameMatch::where('category_id', $category->id)
+                ->whereNull('group_id')->where('round', 1)->orderBy('slot')->get();
+
+            foreach ($firstRound as $m) {
+                $pairA = $m->seed_label_a ? ($map[$m->seed_label_a] ?? null) : null;
+                $pairB = $m->seed_label_b ? ($map[$m->seed_label_b] ?? null) : null;
+                $m->update(['pair_a_id' => $pairA, 'pair_b_id' => $pairB]);
+
+                if ($pairA && ! $pairB && $m->seed_label_b === 'BYE') {
+                    $this->autoWin($m->fresh(), $pairA);
+                } elseif ($pairB && ! $pairA && $m->seed_label_a === 'BYE') {
+                    $this->autoWin($m->fresh(), $pairB);
+                }
+            }
+
+            foreach ($firstRound as $m) {
+                $fresh = $m->fresh();
+                if ($fresh->winner_pair_id) $this->advanceWinner($fresh);
+            }
+        });
+    }
+
+    /** label (A1, B2…, Q1…) → pair id, from each group's final standings. */
+    private function seedLabelMap(Category $category): array
+    {
+        $groups = $category->groups()->orderBy('position')->orderBy('id')->get();
+        $letters = array_map(fn($i) => chr(ord('A') + $i), array_keys($groups->all()));
+
+        $map = [];
+        // Track which (group, position) pairs are auto-qualifiers so the Q-slots
+        // can be filled from the NEXT-best finishers without double-assigning.
+        foreach ($groups as $i => $group) {
+            $L = $letters[$i];
+            $standing = $this->standings->forGroup($group);
+            foreach ($standing as $pos => $row) {
+                $map[$L . ($pos + 1)] = $row['pair_id']; // A1, A2…
+            }
+        }
+
+        // Extra qualifiers (Q1, Q2…): the best boundary finishers ranked across
+        // groups, as computed by qualifiers(). They come AFTER the auto pairs in
+        // the returned list, so take the tail.
+        $extra = (int) ($category->extra_qualifiers ?? 0);
+        if ($extra > 0) {
+            $auto = $groups->count() * (int) $category->advance_per_group;
+            $ranked = $this->qualifiers($category)['qualifiers'] ?? [];
+            $extraIds = array_slice($ranked, $auto, $extra);
+            foreach ($extraIds as $k => $pairId) {
+                $map['Q' . ($k + 1)] = $pairId;
+            }
+        }
+
+        return $map;
+    }
+
+    /** True when every group in the category has all its matches confirmed. */
+    public function groupsComplete(Category $category): bool
+    {
+        $pending = GameMatch::where('category_id', $category->id)
+            ->whereNotNull('group_id')
+            ->where('state', '!=', MatchState::Confirmed->value)
+            ->exists();
+        return ! $pending;
+    }
+
+    /** Swap the two seed labels (or pairs) between two round-1 bracket slots. */
+    public function swapSlots(GameMatch $a, string $sideA, GameMatch $b, string $sideB): void
+    {
+        $labelCol = fn($s) => $s === 'a' ? 'seed_label_a' : 'seed_label_b';
+        $pairCol = fn($s) => $s === 'a' ? 'pair_a_id' : 'pair_b_id';
+
+        $tmpLabel = $a->{$labelCol($sideA)};
+        $tmpPair = $a->{$pairCol($sideA)};
+
+        $a->update([
+            $labelCol($sideA) => $b->{$labelCol($sideB)},
+            $pairCol($sideA) => $b->{$pairCol($sideB)},
+        ]);
+        $b->update([
+            $labelCol($sideB) => $tmpLabel,
+            $pairCol($sideB) => $tmpPair,
+        ]);
+    }
+
     /** Mark a bye/auto win without a score. */
     private function autoWin(GameMatch $match, int $pairId): void
     {

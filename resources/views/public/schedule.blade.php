@@ -23,11 +23,38 @@
             <i class="fa-solid fa-magnifying-glass"></i>
             <input type="text" name="q" value="{{ $search }}" placeholder="Buscar mi partido (nombre del jugador o pareja)…" autocomplete="off">
         </div>
+        @if($categoryFilter)<input type="hidden" name="cat" value="{{ $categoryFilter }}">@endif
+        @if($dayFilter)<input type="hidden" name="day" value="{{ $dayFilter }}">@endif
         <button type="submit" class="pub-btn pub-btn--primary">Buscar</button>
         @if($search !== '')
-        <a href="{{ route('public.schedule', $tournament) }}" class="pub-btn">Limpiar</a>
+        <a href="{{ route('public.schedule', ['tournament' => $tournament, 'cat' => $categoryFilter, 'day' => $dayFilter]) }}" class="pub-btn">Limpiar</a>
         @endif
     </form>
+
+    {{-- Filters: category + day --}}
+    <div class="pub-filters">
+        <form method="GET" action="{{ route('public.schedule', $tournament) }}" class="pub-filter-cat">
+            @if($search)<input type="hidden" name="q" value="{{ $search }}">@endif
+            @if($dayFilter)<input type="hidden" name="day" value="{{ $dayFilter }}">@endif
+            <select name="cat" onchange="this.form.submit()" class="pub-select">
+                <option value="">Todas las categorías</option>
+                @foreach($allCategories as $c)
+                <option value="{{ $c->id }}" @selected((string)$categoryFilter===(string)$c->id)>{{ $c->name }}</option>
+                @endforeach
+            </select>
+        </form>
+        @if($allDays->count() > 1)
+        <div class="pub-day-chips">
+            <a href="{{ route('public.schedule', ['tournament' => $tournament, 'q' => $search ?: null, 'cat' => $categoryFilter ?: null]) }}"
+                class="pub-day-chip {{ !$dayFilter ? 'is-active' : '' }}">Todos</a>
+            @foreach($allDays as $day)
+            @php $d = \Carbon\Carbon::parse($day, 'America/Mexico_City'); @endphp
+            <a href="{{ route('public.schedule', ['tournament' => $tournament, 'q' => $search ?: null, 'cat' => $categoryFilter ?: null, 'day' => $day]) }}"
+                class="pub-day-chip {{ $dayFilter === $day ? 'is-active' : '' }}">{{ $d->translatedFormat('D d M') }}</a>
+            @endforeach
+        </div>
+        @endif
+    </div>
 
     @if($search !== '')
     <div class="pub-search-meta">

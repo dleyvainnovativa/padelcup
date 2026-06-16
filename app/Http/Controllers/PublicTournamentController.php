@@ -124,7 +124,7 @@ class PublicTournamentController extends Controller
         // Results (group matches, confirmed + pending).
         $groupResults = $category->matches()
             ->whereNotNull('group_id')
-            ->with(['group', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->with(['group', 'court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
             ->orderBy('round')->orderBy('slot')->orderBy('id')
             ->get()
             ->groupBy('group_id');
@@ -146,6 +146,8 @@ class PublicTournamentController extends Controller
         $this->ensurePublic($tournament);
 
         $search = trim((string) $request->query('q', ''));
+        $categoryFilter = $request->query('cat'); // category id
+        $dayFilter = $request->query('day');      // Y-m-d
 
         $matches = $tournament->categories()
             ->with(['matches' => function ($q) {
@@ -157,6 +159,19 @@ class PublicTournamentController extends Controller
             ->flatMap->matches
             ->sortBy('starts_at')
             ->values();
+
+        // Filter options (before narrowing).
+        $allCategories = $tournament->categories()->orderBy('name')->get(['id', 'name']);
+        $allDays = $matches->map(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'))->unique()->values();
+
+        // Apply category filter.
+        if ($categoryFilter) {
+            $matches = $matches->where('category_id', (int) $categoryFilter)->values();
+        }
+        // Apply day filter.
+        if ($dayFilter) {
+            $matches = $matches->filter(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d') === $dayFilter)->values();
+        }
 
         // "Buscar mi partido": filter to matches involving a player/pair name.
         $matchedPlayers = collect();
@@ -200,6 +215,10 @@ class PublicTournamentController extends Controller
             'search' => $search,
             'total' => $matches->count(),
             'matchedPlayers' => $matchedPlayers,
+            'allCategories' => $allCategories,
+            'allDays' => $allDays,
+            'categoryFilter' => $categoryFilter,
+            'dayFilter' => $dayFilter,
         ]);
     }
 
