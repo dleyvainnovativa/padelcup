@@ -49,14 +49,14 @@ class TournamentImportService
             $data = str_getcsv($rawLine);
 
             if ($header === null) {
-                $header = array_map(fn ($h) => strtolower(trim($h)), $data);
+                $header = array_map(fn($h) => strtolower(trim($h)), $data);
                 // Validate required columns exist.
                 $required = ['category', 'player1_name', 'player2_name'];
                 $missing = array_diff($required, $header);
                 if (! empty($missing)) {
                     return ['groups' => [], 'errors' => [
-                        'Faltan columnas requeridas: '.implode(', ', $missing).'. '
-                        .'Encabezado esperado: category, player1_name, player1_email, player1_phone, player2_name, player2_email, player2_phone',
+                        'Faltan columnas requeridas: ' . implode(', ', $missing) . '. '
+                            . 'Encabezado esperado: category, player1_name, player1_email, player1_phone, player2_name, player2_email, player2_phone',
                     ], 'total' => 0];
                 }
                 continue;
@@ -105,12 +105,12 @@ class TournamentImportService
     public function preview(Tournament $tournament, array $groups): array
     {
         $existingNames = $tournament->categories()->pluck('name')
-            ->mapWithKeys(fn ($n) => [mb_strtolower(trim($n)) => true])
+            ->mapWithKeys(fn($n) => [mb_strtolower(trim($n)) => true])
             ->all();
 
         $out = [];
         foreach ($groups as $categoryName => $rows) {
-            $players = collect($rows)->flatMap(fn ($r) => [
+            $players = collect($rows)->flatMap(fn($r) => [
                 mb_strtolower($r['player1']['name']),
                 mb_strtolower($r['player2']['name']),
             ])->unique()->count();
@@ -143,7 +143,9 @@ class TournamentImportService
                 ->first();
 
             if (! $category) {
-                $category = $this->createCategoryWithDefaults($tournament, $categoryName);
+                // Sequential tint: existing count + 1 (model wraps via % 6).
+                $tint = $tournament->categories()->count() + 1;
+                $category = $this->createCategoryWithDefaults($tournament, $categoryName, $tint);
                 $created++;
             }
 
@@ -156,10 +158,11 @@ class TournamentImportService
     }
 
     /** A new category with sensible defaults the manager can edit later. */
-    private function createCategoryWithDefaults(Tournament $tournament, string $name): Category
+    private function createCategoryWithDefaults(Tournament $tournament, string $name, int $tint = 1): Category
     {
         return $tournament->categories()->create([
             'name' => trim($name),
+            'tint' => $tint,
             'format' => CategoryFormat::Hybrid,
             'group_format' => \App\Enums\GroupFormat::RoundRobin,
             'preferred_group_size' => 3,

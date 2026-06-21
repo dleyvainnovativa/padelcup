@@ -65,17 +65,44 @@ class RegistrationService
         });
     }
 
-    /** Resolve an existing player by id, or create a new one (manager-owned). */
+    /** Resolve an existing player by id, or reuse one matched by email/phone
+     *  (manager-owned), or create a new one. */
     private function resolvePlayer(array $def, User $manager): Player
     {
         if (! empty($def['player_id'])) {
             return Player::findOrFail($def['player_id']);
         }
 
+        // Reuse an existing player created by THIS manager when a contact field
+        // matches (email or phone). A bare name is never enough to dedup — two
+        // different people can share a name — so we only match on contact info.
+        $email = $def['email'] ?? null;
+        $phone = $def['phone'] ?? null;
+
+        if (filled($email) || filled($phone)) {
+            $existing = Player::query()
+                ->where('created_by', $manager->id)
+                ->where(function ($q) use ($email, $phone) {
+                    if (filled($email)) $q->orWhere('email', $email);
+                    if (filled($phone)) $q->orWhere('phone', $phone);
+                })
+                ->first();
+
+            if ($existing) {
+                // Backfill a missing contact field if this row supplies it.
+                $patch = [];
+                if (blank($existing->email) && filled($email)) $patch['email'] = $email;
+                if (blank($existing->phone) && filled($phone)) $patch['phone'] = $phone;
+                if ($patch) $existing->update($patch);
+
+                return $existing;
+            }
+        }
+
         return Player::create([
             'name' => $def['name'],
-            'email' => $def['email'] ?? null,
-            'phone' => $def['phone'] ?? null,
+            'email' => $email,
+            'phone' => $phone,
             'created_by' => $manager->id,
         ]);
     }

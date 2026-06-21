@@ -768,8 +768,10 @@ input:-webkit-autofill:focus {
 }
 .public-main {
   flex: 1;
-  width: 100%; max-width: 600px; margin: 0 auto;
-  padding: 28px 20px;
+  width: 100%; 
+  /* max-width: 600px;  */
+  margin: 0 auto;
+  /* padding: 28px 20px; */
 }
 .public-footer {
   text-align: center; padding: 18px; font-size: 12px;
@@ -1038,3 +1040,40 @@ input:-webkit-autofill:focus {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+/* === #2 Multi-category players cheatsheet === */
+.mc-cheatsheet { margin-bottom: 16px; }
+.mc-cheatsheet__list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+.mc-player { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; }
+.mc-player__count { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.mc-player__name { font-weight: 600; }
+.mc-player__cats { color: var(--text-muted); font-size: 12px; }
+
+/* === #3 Category highlight filter === */
+.cat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.cat-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; cursor: pointer; background: var(--surface); user-select: none; }
+.cat-chip__dot { width: 10px; height: 10px; border-radius: 50%; }
+.cat-chip.is-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); font-weight: 600; }
+
+/* Dimming: when highlighting, non-selected match cells fade. */
+[data-sched-board].is-highlighting [data-match-cat].is-dimmed { opacity: 0.25; filter: grayscale(0.6); transition: opacity .12s, filter .12s; }
+[data-sched-board].is-highlighting [data-match-cat]:not(.is-dimmed) { transition: opacity .12s; }
+
+/* Reuse the 6 category tints for the chip dots (matches Category::tintClass). */
+.cat-chips .cat-tint-1 { background: #635bff; }
+.cat-chips .cat-tint-2 { background: #30a46c; }
+.cat-chips .cat-tint-3 { background: #e5484d; }
+.cat-chips .cat-tint-4 { background: #f5a623; }
+.cat-chips .cat-tint-5 { background: #8e4ec6; }
+.cat-chips .cat-tint-6 { background: #0091ff; }
+
+/* Player search-highlight bar (sits with the category chips) */
+.sched-highlight-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.sched-player-search { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--border-strong, var(--border)); border-radius: var(--radius); background: var(--surface); }
+.sched-player-search i { color: var(--text-faint); font-size: 12px; }
+.sched-player-search input { border: 0; outline: 0; background: transparent; color: var(--text); font-size: 13px; min-width: 220px; }
+.sched-player-search__clear { border: 0; background: transparent; color: var(--text-faint); cursor: pointer; padding: 0 2px; }
+.sched-player-search__clear:hover { color: var(--accent); }
+
+/* Player-page match share button spacing (reuses .pub-share-btn base style) */
+.pub-pmatch .pub-share-btn { margin-left: 8px; flex-shrink: 0; }

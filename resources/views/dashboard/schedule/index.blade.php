@@ -48,8 +48,26 @@
                 @csrf
                 <button class="btn btn-soft"><i class="fa-solid fa-trash-can me-1"></i> Limpiar</button>
             </form>
+
         </div>
     </div>
+    @if($multiCategoryPlayers->isNotEmpty())
+
+    <details class="panel mc-cheatsheet">
+        <summary style="cursor:pointer;font-weight:600;">
+            Jugadores en 2+ categorías ({{ $multiCategoryPlayers->count() }})
+        </summary>
+        <div class="mc-cheatsheet__list" style="margin-top:10px;">
+            @foreach($multiCategoryPlayers as $row)
+            <div class="mc-player">
+                <span class="mc-player__count">{{ count($row['categories']) }}</span>
+                <span class="mc-player__name">{{ $row['name'] }}</span>
+                <span class="mc-player__cats">— {{ implode(', ', $row['categories']) }}</span>
+            </div>
+            @endforeach
+        </div>
+    </details>
+    @endif
 
     {{-- Capacity preview panel --}}
     <div x-show="showCapacity" x-cloak class="tc-card mb-3">
@@ -266,6 +284,25 @@
 @endif
 @endif
 
+@if($categories->count() > 1)
+
+<div class="sched-highlight-bar">
+    <div class="sched-player-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" data-player-highlight placeholder="Resaltar jugador por nombre…" autocomplete="off">
+        <button type="button" data-player-highlight-clear class="sched-player-search__clear" title="Limpiar" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="cat-chips">
+        @foreach($categories as $cat)
+        <span class="cat-chip" data-cat-chip="{{ $cat->id }}">
+            <span class="cat-chip__dot {{ $cat->tintClass() }}"></span>
+            {{ $cat->name }}
+        </span>
+        @endforeach
+    </div>
+</div>
+@endif
+
 @if($courts->isEmpty())
 <div class="tc-card">
     <div class="tc-card__body" style="color:var(--text-muted);">
@@ -422,6 +459,17 @@ if ($startMin >= $min && $startMin < $min + $step) {
                                                 data-match-id="{{ $m->id }}"
                                                 data-ready="{{ $m->isReadyForResult() ? '1' : '0' }}"
                                                 data-status="{{ $status }}"
+                                                data-match-cat="{{ $m->category_id }}"
+                                                data-match-players="@php
+                                                    $names = [];
+                                                    foreach ([$m->pairA, $m->pairB] as $pp) {
+                                                        if (! $pp) continue;
+                                                        foreach ([$pp->player1 ?? null, $pp->player2 ?? null] as $pl) {
+                                                            if ($pl) $names[] = \Illuminate\Support\Str::lower($pl->name);
+                                                        }
+                                                    }
+                                                    echo e(implode('|', $names));
+                                                @endphp"
                                                 draggable="true">
                                                 <div class="sched-match__context">
                                                     {{ $m->contextLabel() }}

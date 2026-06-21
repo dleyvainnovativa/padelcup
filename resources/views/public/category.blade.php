@@ -25,7 +25,7 @@
         @if($category->format->hasBracket())
         <button class="pub-tab" :class="{ 'is-active': tab === 'bracket' }" @click="tab = 'bracket'">Llave</button>
         @endif
-        @if($groupResults->isNotEmpty())
+        @if($groupResults->isNotEmpty() || $bracketResults->isNotEmpty())
         <button class="pub-tab" :class="{ 'is-active': tab === 'results' }" @click="tab = 'results'">Resultados</button>
         @endif
     </div>
@@ -122,11 +122,11 @@
                 @php $played = $m->state->value === 'confirmed'; @endphp
                 <div class="pub-bmatch {{ $played ? 'is-played' : '' }}">
                     <div class="pub-bmatch__side {{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? 'is-win' : '' }}">
-                        <span>{{ $m->pairA?->name() ?? '—' }}</span>
+                        <span>{{ $m->sideLabel('a') }}</span>
                         @if($played && $m->sets)<span class="pub-bmatch__sc">{{ collect($m->sets)->map(fn($s) => $s[0])->implode(' ') }}</span>@endif
                     </div>
                     <div class="pub-bmatch__side {{ $m->winner_pair_id === $m->pair_b_id && $m->pair_b_id ? 'is-win' : '' }}">
-                        <span>{{ $m->pairB?->name() ?? '—' }}</span>
+                        <span>{{ $m->sideLabel('b') }}</span>
                         @if($played && $m->sets)<span class="pub-bmatch__sc">{{ collect($m->sets)->map(fn($s) => $s[1])->implode(' ') }}</span>@endif
                     </div>
                 </div>
@@ -139,50 +139,103 @@
     @endif
 
     {{-- RESULTS --}}
-    @if($groupResults->isNotEmpty())
-    <div x-show="tab === 'results'" x-cloak class="pub-results">
-        @foreach($groupResults as $groupId => $matches)
-        <div class="pub-card">
-            <div class="pub-card__head">{{ $matches->first()->group->name }}</div>
-            <div class="pub-card__body">
-                @foreach($matches as $m)
-                @php $played = $m->state->value === 'confirmed'; @endphp
-                <div class="pub-result-wrap">
-                    <div class="pub-result-row">
-                        <span class="pub-result-row__a {{ $played && $m->winner_pair_id === $m->pair_a_id ? 'is-win' : '' }}">{{ $m->pairA?->name() ?? '—' }}</span>
-                        <span class="pub-result-row__sc pub-mono">
-                            @if($played)@foreach($m->sets ?? [] as $s){{ $s[0] }}-{{ $s[1] }}@if(!$loop->last) @endif @endforeach
-                            @else <span class="pub-muted">—</span>@endif
-                        </span>
-                        <span class="pub-result-row__b {{ $played && $m->winner_pair_id === $m->pair_b_id ? 'is-win' : '' }}">{{ $m->pairB?->name() ?? '—' }}</span>
-                        @if($played)
-                        @php
-                        $shareData = [
-                        'tournament' => $tournament->name,
-                        'category' => $category->name,
-                        'context' => $m->contextLabel(),
-                        'pairA' => $m->pairA?->name() ?? '—',
-                        'pairB' => $m->pairB?->name() ?? '—',
-                        'sets' => $m->sets ?? [],
-                        'winner' => $m->winner_pair_id === $m->pair_a_id ? 'a' : ($m->winner_pair_id === $m->pair_b_id ? 'b' : null),
-                        ];
-                        @endphp
-                        <button type="button" class="pub-share-btn" data-share-match='@json($shareData)' title="Compartir imagen">
-                            <i class="fa-solid fa-image"></i>
-                        </button>
+    @if($groupResults->isNotEmpty() || $bracketResults->isNotEmpty())
+    <div x-show="tab === 'results'" x-cloak class="pub-results"
+        x-data="{ rview: '{{ $groupResults->isNotEmpty() ? 'groups' : 'elim' }}' }">
+        @if($groupResults->isNotEmpty() && $bracketResults->isNotEmpty())
+        <div class="pub-subtabs">
+            <button class="pub-subtab" :class="{ 'is-active': rview === 'groups' }" @click="rview = 'groups'">Grupos</button>
+            <button class="pub-subtab" :class="{ 'is-active': rview === 'elim' }" @click="rview = 'elim'">Eliminación</button>
+        </div>
+        @endif
+
+        <div x-show="rview === 'groups'" @if($bracketResults->isNotEmpty()) x-cloak @endif>
+            @foreach($groupResults as $groupId => $matches)
+            <div class="pub-card">
+                <div class="pub-card__head">{{ $matches->first()->group->name }}</div>
+                <div class="pub-card__body">
+                    @foreach($matches as $m)
+                    @php $played = $m->state->value === 'confirmed'; @endphp
+                    <div class="pub-result-wrap">
+                        <div class="pub-result-row">
+                            <span class="pub-result-row__a {{ $played && $m->winner_pair_id === $m->pair_a_id ? 'is-win' : '' }}">{{ $m->pairA?->name() ?? '—' }}</span>
+                            <span class="pub-result-row__sc pub-mono">
+                                @if($played)@foreach($m->sets ?? [] as $s){{ $s[0] }}-{{ $s[1] }}@if(!$loop->last) @endif @endforeach
+                                @else <span class="pub-muted">—</span>@endif
+                            </span>
+                            <span class="pub-result-row__b {{ $played && $m->winner_pair_id === $m->pair_b_id ? 'is-win' : '' }}">{{ $m->pairB?->name() ?? '—' }}</span>
+                            @if($played)
+                            @php
+                            $shareData = [
+                            'tournament' => $tournament->name,
+                            'category' => $category->name,
+                            'context' => $m->contextLabel(),
+                            'pairA' => $m->pairA?->name() ?? '—',
+                            'pairB' => $m->pairB?->name() ?? '—',
+                            'sets' => $m->sets ?? [],
+                            'winner' => $m->winner_pair_id === $m->pair_a_id ? 'a' : ($m->winner_pair_id === $m->pair_b_id ? 'b' : null),
+                            ];
+                            @endphp
+                            <button type="button" class="pub-share-btn" data-share-match='@json($shareData)' title="Compartir imagen">
+                                <i class="fa-solid fa-image"></i>
+                            </button>
+                            @endif
+                        </div>
+                        @if($m->starts_at || $m->court)
+                        <div class="pub-result-meta">
+                            @if($m->court)<span><i class="fa-solid fa-location-dot"></i> {{ $m->court->name }}</span>@endif
+                            @if($m->starts_at)<span><i class="fa-regular fa-clock"></i> {{ $m->starts_at->timezone('America/Mexico_City')->translatedFormat('D d M · H:i') }}</span>@endif
+                        </div>
                         @endif
                     </div>
-                    @if($m->starts_at || $m->court)
-                    <div class="pub-result-meta">
-                        @if($m->court)<span><i class="fa-solid fa-location-dot"></i> {{ $m->court->name }}</span>@endif
-                        @if($m->starts_at)<span><i class="fa-regular fa-clock"></i> {{ $m->starts_at->timezone('America/Mexico_City')->translatedFormat('D d M · H:i') }}</span>@endif
-                    </div>
-                    @endif
+                    @endforeach
                 </div>
-                @endforeach
             </div>
+            @endforeach
         </div>
-        @endforeach
+
+        {{-- Elimination results (played bracket matches), grouped by round --}}
+        <div x-show="rview === 'elim'" @if($groupResults->isNotEmpty()) x-cloak @endif>
+            @foreach($bracketResults as $round => $matches)
+            <div class="pub-card">
+                <div class="pub-card__head">{{ $matches->first()->bracketRoundName() }}</div>
+                <div class="pub-card__body">
+                    @foreach($matches as $m)
+                    @php $played = $m->state->value === 'confirmed'; @endphp
+                    <div class="pub-result-wrap">
+                        <div class="pub-result-row">
+                            <span class="pub-result-row__a {{ $m->winner_pair_id === $m->pair_a_id ? 'is-win' : '' }}">{{ $m->sideLabel('a') }}</span>
+                            <span class="pub-result-row__sc pub-mono">
+                                @foreach($m->sets ?? [] as $s){{ $s[0] }}-{{ $s[1] }}@if(!$loop->last) @endif @endforeach
+                            </span>
+                            <span class="pub-result-row__b {{ $m->winner_pair_id === $m->pair_b_id ? 'is-win' : '' }}">{{ $m->sideLabel('b') }}</span>
+                            @php
+                            $shareData = [
+                            'tournament' => $tournament->name,
+                            'category' => $category->name,
+                            'context' => $m->bracketRoundName(),
+                            'pairA' => $m->sideLabel('a'),
+                            'pairB' => $m->sideLabel('b'),
+                            'sets' => $m->sets ?? [],
+                            'winner' => $m->winner_pair_id === $m->pair_a_id ? 'a' : ($m->winner_pair_id === $m->pair_b_id ? 'b' : null),
+                            ];
+                            @endphp
+                            <button type="button" class="pub-share-btn" data-share-match='@json($shareData)' title="Compartir imagen">
+                                <i class="fa-solid fa-image"></i>
+                            </button>
+                        </div>
+                        @if($m->starts_at || $m->court)
+                        <div class="pub-result-meta">
+                            @if($m->court)<span><i class="fa-solid fa-location-dot"></i> {{ $m->court->name }}</span>@endif
+                            @if($m->starts_at)<span><i class="fa-regular fa-clock"></i> {{ $m->starts_at->timezone('America/Mexico_City')->translatedFormat('D d M · H:i') }}</span>@endif
+                        </div>
+                        @endif
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endforeach
+        </div>
     </div>
     @endif
 </div>

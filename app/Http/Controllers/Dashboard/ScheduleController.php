@@ -36,18 +36,9 @@ class ScheduleController extends Controller
 
         $scheduled = $matches->whereNotNull('starts_at');
         $unscheduled = $matches->whereNull('starts_at')
-            // Schedulable when: both pairs known; OR fed by earlier matches
-            // (Mexicano R2, later bracket rounds); OR a positional bracket match
-            // with two real seed labels (e.g. "Grupo G - 1 vs Grupo J - 1") whose
-            // pairs bind once groups finish. Genuine byes (a side = 'BYE') are
-            // excluded — nobody plays them.
-            ->filter(function ($m) {
-                if ($m->pair_a_id && $m->pair_b_id) return true;
-                if ($m->feeder_a_id || $m->feeder_b_id) return true;
-                $a = $m->seed_label_a;
-                $b = $m->seed_label_b;
-                return $a && $b && $a !== 'BYE' && $b !== 'BYE';
-            })
+            // Ready matches (both pairs) OR placeholder matches that will be
+            // fed later (Mexicano R2: has feeders but pairs not yet known).
+            ->filter(fn($m) => ($m->pair_a_id && $m->pair_b_id) || $m->feeder_a_id || $m->feeder_b_id)
             ->values();
 
         // Phases that actually exist in this tournament + any saved windows.
@@ -57,6 +48,12 @@ class ScheduleController extends Controller
         $proposal = app(\App\Services\Tournament\CapacityService::class)->proposeWindows($tournament);
         $proposedWindows = $proposal['windows'];
         $proposalOverflow = $proposal['overflow'];
+
+        // Categories in this tournament (for the highlight filter chips), with tint.
+        $categories = $tournament->categories()->orderBy('name')->get(['id', 'name', 'tint']);
+
+        // Cheatsheet: players registered in 2+ categories (collision risk).
+        $multiCategoryPlayers = $this->multiCategoryPlayers($tournament);
 
         return view('dashboard.schedule.index', [
             'tournament' => $tournament,
@@ -70,7 +67,39 @@ class ScheduleController extends Controller
             'capacity' => $capacity,
             'proposedWindows' => $proposedWindows,
             'proposalOverflow' => $proposalOverflow,
+            'categories' => $categories,
+            'multiCategoryPlayers' => $multiCategoryPlayers,
         ]);
+    }
+
+    /** Players who appear in 2+ categories of this tournament, with their
+     *  category names. Informative cheatsheet for avoiding scheduling clashes. */
+    private function multiCategoryPlayers(Tournament $tournament): \Illuminate\Support\Collection
+    {
+        $pairs = \App\Models\Pair::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->with(['category:id,name', 'player1:id,name', 'player2:id,name'])
+            ->get();
+
+        // Group by NORMALIZED NAME (not player id): the same person is often a
+        // separate Player record in each category, so id-grouping would miss
+        // them. Name-grouping matches how registration is validated in-tournament.
+        $byName = [];
+        foreach ($pairs as $pair) {
+            $catName = $pair->category?->name;
+            foreach ([$pair->player1, $pair->player2] as $p) {
+                if (! $p) continue;
+                $key = \App\Models\Player::normalize($p->name);
+                $byName[$key] ??= ['name' => $p->name, 'categories' => []];
+                if ($catName && ! in_array($catName, $byName[$key]['categories'], true)) {
+                    $byName[$key]['categories'][] = $catName;
+                }
+            }
+        }
+
+        return collect($byName)
+            ->filter(fn($row) => count($row['categories']) >= 2)
+            ->sortByDesc(fn($row) => count($row['categories']))
+            ->values();
     }
 
     /** Run the greedy auto-scheduler over unscheduled matches. */

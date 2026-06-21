@@ -68,7 +68,6 @@ class PublicTournamentController extends Controller
         ]);
     }
 
-    /** Category page: standings (per-group + general) / bracket / results. */
     public function category(Tournament $tournament, Category $category)
     {
         $this->ensurePublic($tournament);
@@ -124,10 +123,23 @@ class PublicTournamentController extends Controller
         // Results (group matches, confirmed + pending).
         $groupResults = $category->matches()
             ->whereNotNull('group_id')
-            ->with(['group', 'court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->with(['group', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
             ->orderBy('round')->orderBy('slot')->orderBy('id')
             ->get()
             ->groupBy('group_id');
+
+        // Elimination results (played bracket matches) for the results tab,
+        // grouped by round so each phase has its own section.
+        $bracketResults = collect();
+        if ($category->format->hasBracket()) {
+            $bracketResults = $category->matches()
+                ->whereNull('group_id')
+                ->where('state', 'confirmed')
+                ->with(['court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+                ->orderBy('round')->orderBy('slot')->orderBy('id')
+                ->get()
+                ->groupBy('round');
+        }
 
         return view('public.category', [
             'tournament' => $tournament,
@@ -137,6 +149,7 @@ class PublicTournamentController extends Controller
             'qualifierIds' => $qualifierIds,
             'bracketMatches' => $bracketMatches,
             'groupResults' => $groupResults,
+            'bracketResults' => $bracketResults,
         ]);
     }
 

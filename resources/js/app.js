@@ -57,6 +57,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initSidebar();
 
+  if (document.querySelector('[data-cat-chip]')) {
+import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
+}
+
   // Declarative themed confirmations (replaces native confirm()).
   import('./modules/confirms').then((m) => m.initConfirms());
 

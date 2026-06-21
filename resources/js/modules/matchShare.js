@@ -1,5 +1,6 @@
-// Strava-style match result image. Renders a branded PNG card from a confirmed
-// match's data attributes and downloads it — no server round-trip, no libraries.
+// Match result share image. Renders a branded 16:9 PNG card (rounded corners,
+// transparent outside the corners) from a confirmed match's data attributes and
+// downloads it — no server round-trip, no libraries.
 
 export function initMatchShare() {
   document.addEventListener('click', (e) => {
@@ -13,78 +14,91 @@ export function initMatchShare() {
 
 function renderAndDownload(d) {
   // d = { tournament, category, context, pairA, pairB, sets:[[a,b],...], winner:'a'|'b' }
-  const scale = 2; // retina
-  const W = 1080, H = 1080;
+  const scale = 2;                 // retina
+  const W = 1200, H = 675;         // 16:9
+  const R = 48;                    // corner radius
   const canvas = document.createElement('canvas');
   canvas.width = W * scale;
   canvas.height = H * scale;
   const ctx = canvas.getContext('2d');
   ctx.scale(scale, scale);
 
-  // Theme colors.
   const indigo = '#635bff';
   const dark = '#13131f';
   const gold = '#d4af37';
 
-  // Background gradient.
+  // Transparent everywhere by default; clip to a rounded rect so the corners
+  // outside the radius stay transparent.
+  ctx.clearRect(0, 0, W, H);
+  roundRectPath(ctx, 0, 0, W, H, R);
+  ctx.clip();
+
+  // Background gradient (only fills inside the clip).
   const g = ctx.createLinearGradient(0, 0, W, H);
   g.addColorStop(0, '#1a1a2e');
   g.addColorStop(1, dark);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 
-  // Accent corner band.
+  // Top accent bar.
   ctx.fillStyle = indigo;
-  ctx.fillRect(0, 0, W, 12);
+  ctx.fillRect(0, 0, W, 10);
 
-  // Header: tournament + category.
-  ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(255,255,255,0.65)';
-  ctx.font = '600 30px Inter, Arial, sans-serif';
-  ctx.fillText(truncate(d.tournament, 36).toUpperCase(), W / 2, 110);
+  const padX = 70;
+
+  // Header: tournament (muted) + category (indigo) + context (faint).
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '600 24px Inter, Arial, sans-serif';
+  ctx.fillText(truncate(d.tournament, 46).toUpperCase(), padX, 78);
 
   ctx.fillStyle = indigo;
   ctx.font = '700 40px Inter, Arial, sans-serif';
-  ctx.fillText(d.category || '', W / 2, 165);
+  ctx.fillText(truncate(d.category || '', 32), padX, 124);
 
-  ctx.fillStyle = 'rgba(255,255,255,0.45)';
-  ctx.font = '500 26px Inter, Arial, sans-serif';
-  ctx.fillText((d.context || '').toUpperCase(), W / 2, 210);
+  if (d.context) {
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font = '500 22px Inter, Arial, sans-serif';
+    ctx.fillText(d.context.toUpperCase(), padX, 158);
+  }
 
-  // "RESULTADO FINAL" tag.
+  // "RESULTADO FINAL" tag, right-aligned.
+  ctx.textAlign = 'right';
   ctx.fillStyle = gold;
-  ctx.font = '700 24px Inter, Arial, sans-serif';
-  ctx.fillText('RESULTADO FINAL', W / 2, 300);
+  ctx.font = '700 22px Inter, Arial, sans-serif';
+  ctx.fillText('RESULTADO FINAL', W - padX, 100);
 
-  // Pairs + scores.
+  // Two pair rows in the middle band.
   const winA = d.winner === 'a';
   const winB = d.winner === 'b';
-  drawPairRow(ctx, W, 400, d.pairA, d.sets.map((s) => s[0]), winA, { indigo, gold });
-  // VS divider
+  drawPairRow(ctx, W, padX, 290, d.pairA, d.sets.map((s) => s[0]), winA, { indigo, gold });
+
+  // Divider + VS.
   ctx.strokeStyle = 'rgba(255,255,255,0.1)';
   ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(120, 560); ctx.lineTo(W - 120, 560); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(padX, 345); ctx.lineTo(W - padX, 345); ctx.stroke();
+  ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
-  ctx.font = '700 28px Inter, Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('VS', W / 2, 570);
-  drawPairRow(ctx, W, 660, d.pairB, d.sets.map((s) => s[1]), winB, { indigo, gold });
+  ctx.font = '700 22px Inter, Arial, sans-serif';
+  ctx.fillText('VS', padX, 352);
+
+  drawPairRow(ctx, W, padX, 430, d.pairB, d.sets.map((s) => s[1]), winB, { indigo, gold });
 
   // Winner ribbon.
   const wName = winA ? d.pairA : winB ? d.pairB : null;
   if (wName) {
+    ctx.textAlign = 'left';
     ctx.fillStyle = gold;
-    ctx.font = '700 30px Inter, Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('\u{1F3C6} ' + truncate(wName, 34), W / 2, 880);
+    ctx.font = '700 26px Inter, Arial, sans-serif';
+    ctx.fillText('\u{1F3C6} ' + truncate(wName, 40), padX, 560);
   }
 
-  // Footer brand.
+  // Brand bottom-right.
+  ctx.textAlign = 'right';
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  ctx.font = '600 26px Inter, Arial, sans-serif';
-  ctx.fillText('PadelCup', W / 2, 1010);
+  ctx.font = '600 24px Inter, Arial, sans-serif';
+  ctx.fillText('PadelCup', W - padX, 615);
 
-  // Download.
   canvas.toBlob((blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -97,34 +111,34 @@ function renderAndDownload(d) {
   }, 'image/png');
 }
 
-function drawPairRow(ctx, W, y, name, scores, isWinner, c) {
-  // Name.
+function drawPairRow(ctx, W, padX, y, name, scores, isWinner, c) {
   ctx.textAlign = 'left';
-  ctx.fillStyle = isWinner ? '#fff' : 'rgba(255,255,255,0.7)';
-  ctx.font = (isWinner ? '700 ' : '500 ') + '44px Inter, Arial, sans-serif';
-  ctx.fillText(truncate(name, 22), 120, y);
-
+  let nameX = padX;
   if (isWinner) {
-    // small gold dot
     ctx.fillStyle = c.gold;
-    ctx.beginPath(); ctx.arc(96, y - 14, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(padX + 8, y - 14, 8, 0, Math.PI * 2); ctx.fill();
+    nameX = padX + 30;
   }
+  ctx.fillStyle = isWinner ? '#fff' : 'rgba(255,255,255,0.7)';
+  ctx.font = (isWinner ? '700 ' : '500 ') + '40px Inter, Arial, sans-serif';
+  ctx.fillText(truncate(name, 26), nameX, y);
 
-  // Scores on the right.
   ctx.textAlign = 'center';
-  const startX = W - 120 - (scores.length - 1) * 70;
-  scores.forEach((s, i) => {
-    const x = startX + i * 70;
+  const box = 56, gap = 14;
+  const totalW = scores.length * box + (scores.length - 1) * gap;
+  let x = W - padX - totalW + box / 2;
+  scores.forEach((s) => {
     ctx.fillStyle = isWinner ? c.indigo : 'rgba(255,255,255,0.12)';
-    roundRect(ctx, x - 28, y - 48, 56, 60, 10);
+    roundRectPath(ctx, x - box / 2, y - 44, box, 56, 10);
     ctx.fill();
     ctx.fillStyle = '#fff';
-    ctx.font = '700 38px Inter, Arial, sans-serif';
-    ctx.fillText(String(s), x, y - 6);
+    ctx.font = '700 34px Inter, Arial, sans-serif';
+    ctx.fillText(String(s), x, y - 4);
+    x += box + gap;
   });
 }
 
-function roundRect(ctx, x, y, w, h, r) {
+function roundRectPath(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
