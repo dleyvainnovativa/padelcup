@@ -112,7 +112,7 @@ class ScheduleController extends Controller
             return back()->withErrors(['schedule' => 'Agrega canchas y horarios antes de programar.']);
         }
 
-        $duration = (int) $request->input('duration', $tournament->match_duration_minutes ?: 90);
+        $duration = (int) $request->input('duration', $tournament->match_duration_minutes ?: 75);
         $result = $this->scheduler->autoSchedule($tournament, $courts, $duration, $duration);
 
         $msg = "{$result['scheduled']} partidos programados.";

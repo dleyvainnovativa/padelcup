@@ -17,8 +17,8 @@ return new class extends Migration
     {
         Schema::table('tournaments', function (Blueprint $table) {
             $table->time('play_start')->default('08:00')->after('ends_on');
-            $table->time('play_end')->default('22:00')->after('play_start');
-            $table->unsignedSmallInteger('match_duration_minutes')->default(90)->after('play_end');
+            $table->time('play_end')->default('23:00')->after('play_start');
+            $table->unsignedSmallInteger('match_duration_minutes')->default(75)->after('play_end');
         });
     }
 

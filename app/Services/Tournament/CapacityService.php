@@ -184,7 +184,7 @@ class CapacityService
     private function playableMinutes(Carbon $start, Carbon $end, Tournament $tournament): int
     {
         $ps = Carbon::parse($tournament->play_start ?? '08:00', 'America/Mexico_City');
-        $pe = Carbon::parse($tournament->play_end ?? '22:00', 'America/Mexico_City');
+        $pe = Carbon::parse($tournament->play_end ?? '23:00', 'America/Mexico_City');
         $startMin = $ps->hour * 60 + $ps->minute;
         $endMin = $pe->hour * 60 + $pe->minute;
 
@@ -230,7 +230,7 @@ class CapacityService
         if ($days->isEmpty()) return [];
 
         $playStart = Carbon::parse($tournament->play_start ?? '08:00', 'America/Mexico_City');
-        $playEnd = Carbon::parse($tournament->play_end ?? '22:00', 'America/Mexico_City');
+        $playEnd = Carbon::parse($tournament->play_end ?? '23:00', 'America/Mexico_City');
         $startMin = $playStart->hour * 60 + $playStart->minute;
         $endMin = $playEnd->hour * 60 + $playEnd->minute;
 

@@ -157,9 +157,9 @@ class Tournament extends Model
     public function timeSlots(): array
     {
         $slots = [];
-        $step = (int) ($this->match_duration_minutes ?: 90);
+        $step = (int) ($this->match_duration_minutes ?: 75);
         $start = \Carbon\Carbon::parse($this->play_start ?? '08:00', 'America/Mexico_City');
-        $end = \Carbon\Carbon::parse($this->play_end ?? '22:00', 'America/Mexico_City');
+        $end = \Carbon\Carbon::parse($this->play_end ?? '23:00', 'America/Mexico_City');
 
         $cursor = $start->copy();
         while ($cursor->copy()->addMinutes($step)->lte($end)) {

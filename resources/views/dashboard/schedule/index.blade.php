@@ -319,7 +319,7 @@
 @else
 @php
 // Precompute slot start-minutes for range matching.
-$step = $tournament->match_duration_minutes ?: 90;
+$step = $tournament->match_duration_minutes ?: 75;
 $slotMins = [];
 foreach ($slots as $s) {
 [$h, $mi] = explode(':', $s);
