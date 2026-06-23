@@ -1077,3 +1077,31 @@ input:-webkit-autofill:focus {
 
 /* Player-page match share button spacing (reuses .pub-share-btn base style) */
 .pub-pmatch .pub-share-btn { margin-left: 8px; flex-shrink: 0; }
+
+/* === Public ad carousel (16:9) === */
+.pub-ads { margin: 24px 0; }
+.pub-ads__label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); margin-bottom: 6px; }
+.pub-ads__track { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+.pub-ads__track::-webkit-scrollbar { height: 6px; }
+.pub-ads__track::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.pub-ad { flex: 0 0 auto; width: min(100%, 480px); scroll-snap-align: start; }
+.pub-ad img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--radius); display: block; border: 1px solid var(--border); }
+.pub-ad a { display: block; }
+
+/* === Admin ad management === */
+.ad-item { display: flex; align-items: center; gap: 14px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); }
+.ad-item__img { width: 120px; aspect-ratio: 16 / 9; object-fit: cover; background: var(--bg-subtle); border-radius: 6px; flex-shrink: 0; }
+.ad-item__info { flex: 1; min-width: 0; }
+.ad-item__title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ad-item__meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+.ad-item__meta a { color: var(--accent); text-decoration: none; }
+.ad-item__actions { display: flex; gap: 6px; }
+
+@media (min-width: 768px) {
+  .pub-ads__track > .pub-ad:only-child { width: 480px; }
+}
+/* Tournament-context header + back link in sidebar */
+.nav-back { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.nav-back:hover { color: var(--accent); }
+.nav-tournament { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 8px; font-weight: 700; font-size: 14px; color: var(--text); background: var(--bg-subtle); border-radius: var(--radius); border-left: 3px solid var(--accent); }
+.nav-tournament i { color: var(--accent); }

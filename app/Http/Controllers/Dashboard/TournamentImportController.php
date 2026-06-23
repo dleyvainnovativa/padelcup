@@ -64,11 +64,17 @@ class TournamentImportController extends Controller
                 ->withErrors(['file' => 'La sesión de importación expiró. Vuelve a subir el archivo.']);
         }
 
-        $result = $this->import->commit($tournament, $groups, $request->user());
+        // Per-category settings from the editable preview table (keyed by name).
+        $settings = $request->input('settings', []);
+        $autoGenerate = $request->boolean('auto_generate', true);
+
+        $result = $this->import->commit($tournament, $groups, $request->user(), $settings, $autoGenerate);
         session()->forget('import_groups_' . $tournament->id);
 
         $msg = "Importación completa: {$result['imported']} parejas";
         if ($result['categories_created'] > 0) $msg .= ", {$result['categories_created']} categorías creadas";
+        if (($result['groups_built'] ?? 0) > 0) $msg .= ", grupos generados en {$result['groups_built']}";
+        if (($result['brackets_built'] ?? 0) > 0) $msg .= ", llaves en {$result['brackets_built']}";
         if ($result['skipped'] > 0) $msg .= ", {$result['skipped']} omitidas";
         $msg .= '.';
 

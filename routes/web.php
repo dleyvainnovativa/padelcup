@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ManagerController;
+use App\Http\Controllers\Admin\AdController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Dashboard\CategoryController;
 use App\Http\Controllers\Dashboard\PairController;
@@ -130,12 +131,25 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/managers', [ManagerController::class, 'index'])->name('managers.index');
     Route::get('/managers/create', [ManagerController::class, 'create'])->name('managers.create');
     Route::post('/managers', [ManagerController::class, 'store'])->name('managers.store');
+
+    // Platform ads (16:9 carousel on public pages)
+    Route::get('/anuncios', [AdController::class, 'index'])->name('ads.index');
+    Route::post('/anuncios', [AdController::class, 'store'])->name('ads.store');
+    Route::post('/anuncios/{ad}', [AdController::class, 'update'])->name('ads.update');
+    Route::delete('/anuncios/{ad}', [AdController::class, 'destroy'])->name('ads.destroy');
+
+    // Platform sponsors (admin: global or per-tournament)
+    Route::get('/patrocinadores', [\App\Http\Controllers\Admin\SponsorController::class, 'index'])->name('sponsors.index');
+    Route::post('/patrocinadores', [\App\Http\Controllers\Admin\SponsorController::class, 'store'])->name('sponsors.store');
+    Route::post('/patrocinadores/{sponsor}', [\App\Http\Controllers\Admin\SponsorController::class, 'update'])->name('sponsors.update');
+    Route::delete('/patrocinadores/{sponsor}', [\App\Http\Controllers\Admin\SponsorController::class, 'destroy'])->name('sponsors.destroy');
 });
 
 Route::get('/', fn() => redirect()->route('dashboard'));
 
 // Public, read-only tournament pages (Phase 8) — no auth.
 Route::get('/torneos', [\App\Http\Controllers\PublicTournamentController::class, 'directory'])->name('public.directory');
+Route::get('/anuncio/{ad}/clic', [\App\Http\Controllers\Admin\AdController::class, 'click'])->name('ads.click');
 Route::get('/t/{tournament}', [\App\Http\Controllers\PublicTournamentController::class, 'show'])->name('public.tournament');
 Route::get('/t/{tournament}/calendario', [\App\Http\Controllers\PublicTournamentController::class, 'schedule'])->name('public.schedule');
 Route::get('/t/{tournament}/jugador/{player}', [\App\Http\Controllers\PublicTournamentController::class, 'player'])->name('public.player');

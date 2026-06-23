@@ -32,6 +32,7 @@ class StoreTournamentRequest extends FormRequest
             'expiry_policy' => ['nullable', new Enum(ExpiryPolicy::class)],
             'platform_fee_centavos' => ['nullable', 'integer', 'min:0'],
             'is_listed' => ['nullable', 'boolean'],
+            'hide_global_ads' => ['nullable', 'boolean'],
         ];
     }
 

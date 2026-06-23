@@ -5,22 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
-class Sponsor extends Model
+class Ad extends Model
 {
     protected $fillable = [
-        'tournament_id',
-        'name',
-        'image_path',
-        'link_url',
-        'sort_order',
-        'is_active',
-        'is_admin',
-        'scope',
+        'title', 'image_path', 'link_url', 'scope', 'tournament_id',
+        'is_active', 'sort_order', 'clicks',
     ];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean', 'is_admin' => 'boolean'];
+        return ['is_active' => 'boolean'];
     }
 
     public function tournament()
@@ -40,20 +34,21 @@ class Sponsor extends Model
     }
 
     /**
-     * Active sponsors to show on a tournament's public page: the tournament's
-     * own sponsors (manager-created) + admin sponsors for it + admin GLOBAL
-     * sponsors. Ordered. (Admin globals can be opted out via the same
-     * hide_global_ads flag if you want; here they always show unless inactive.)
+     * Active ads to display on a given tournament's public pages: the
+     * tournament's own ads, plus global ads unless the tournament opts out.
+     * Ordered by sort_order then id.
      */
     public static function forTournament(Tournament $tournament): \Illuminate\Support\Collection
     {
         return static::query()
             ->where('is_active', true)
             ->where(function ($q) use ($tournament) {
-                // This tournament's sponsors (manager or admin, scope=tournament).
-                $q->where('tournament_id', $tournament->id)
-                    // OR admin global sponsors.
-                    ->orWhere(fn($q) => $q->where('is_admin', true)->where('scope', 'global'));
+                $q->where(function ($q) use ($tournament) {
+                        $q->where('scope', 'tournament')->where('tournament_id', $tournament->id);
+                    });
+                if (! $tournament->hide_global_ads) {
+                    $q->orWhere('scope', 'global');
+                }
             })
             ->orderBy('sort_order')->orderBy('id')
             ->get();

@@ -81,6 +81,12 @@
                 </label>
             </div>
 
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
+                <input type="checkbox" name="hide_global_ads" value="1"
+                    @checked(old('hide_global_ads', $tournament->hide_global_ads ?? false))>
+                Ocultar anuncios globales en este torneo
+            </label>
+
             <div class="d-flex justify-content-between align-items-center mt-4">
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-accent">Guardar</button>

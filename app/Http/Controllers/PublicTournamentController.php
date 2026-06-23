@@ -59,15 +59,17 @@ class PublicTournamentController extends Controller
 
         $tournament->loadCount('categories');
         $categories = $tournament->categories()->withCount('pairs')->orderBy('name')->get();
-        $sponsors = $tournament->sponsors()->where('is_active', true)->get();
+        $sponsors = \App\Models\Sponsor::forTournament($tournament);
 
         return view('public.tournament', [
             'tournament' => $tournament,
             'categories' => $categories,
             'sponsors' => $sponsors,
+            'ads' => \App\Models\Ad::forTournament($tournament),
         ]);
     }
 
+    /** Category page: standings (per-group + general) / bracket / results. */
     public function category(Tournament $tournament, Category $category)
     {
         $this->ensurePublic($tournament);
@@ -150,6 +152,7 @@ class PublicTournamentController extends Controller
             'bracketMatches' => $bracketMatches,
             'groupResults' => $groupResults,
             'bracketResults' => $bracketResults,
+            'ads' => \App\Models\Ad::forTournament($tournament),
         ]);
     }
 

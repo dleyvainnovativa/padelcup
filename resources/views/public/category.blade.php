@@ -17,6 +17,8 @@
         </div>
     </div>
 
+    @include('public._ads')
+
     {{-- Tabs --}}
     <div class="pub-tabs">
         @if($groups->isNotEmpty())

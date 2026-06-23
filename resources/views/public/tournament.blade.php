@@ -29,6 +29,8 @@
         @endif
     </div>
 
+    @include('public._ads')
+
     <div class="pub-actions">
         <a href="{{ route('public.schedule', $tournament) }}" class="pub-btn pub-btn--primary">
             <i class="fa-solid fa-calendar-days"></i> Ver calendario

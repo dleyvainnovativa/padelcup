@@ -36,6 +36,7 @@ class Tournament extends Model
         'expiry_policy',
         'platform_fee_centavos',
         'iva_enabled',
+        'hide_global_ads',
     ];
 
     protected function casts(): array
@@ -50,6 +51,7 @@ class Tournament extends Model
             'expiry_policy' => ExpiryPolicy::class,
             'iva_enabled' => 'boolean',
             'is_listed' => 'boolean',
+            'hide_global_ads' => 'boolean',
         ];
     }
 
@@ -172,5 +174,9 @@ class Tournament extends Model
     public function getRouteKeyName(): string
     {
         return 'slug';
+    }
+    public function ads()
+    {
+        return $this->hasMany(\App\Models\Ad::class);
     }
 }
