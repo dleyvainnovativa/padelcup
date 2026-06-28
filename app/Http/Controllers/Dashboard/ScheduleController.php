@@ -77,7 +77,62 @@ class ScheduleController extends Controller
             'proposalOverflow' => $proposalOverflow,
             'categories' => $categories,
             'multiCategoryPlayers' => $multiCategoryPlayers,
+            'preferredSchedulePlayers' => $this->preferredSchedulePlayers($tournament),
         ]);
+    }
+
+    /** Players with availability rules, for the calendar cheatsheet. Each row:
+     *  name, rules (human strings like "Vie desde 19:00"), categories. */
+    private function preferredSchedulePlayers(Tournament $tournament): \Illuminate\Support\Collection
+    {
+        $map = \App\Models\PlayerAvailability::mapFor($tournament); // [normName => ['Y-m-d'=>'HH:MM']]
+        if (empty($map)) return collect();
+
+        // Build name + categories per normalized name (same approach as the
+        // multi-category cheatsheet) so we can show context.
+        $pairs = \App\Models\Pair::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->with(['category:id,name', 'player1:id,name', 'player2:id,name'])
+            ->get();
+
+        $info = []; // normName => ['name'=>display, 'categories'=>[]]
+        foreach ($pairs as $pair) {
+            $catName = $pair->category?->name;
+            foreach ([$pair->player1, $pair->player2] as $p) {
+                if (! $p) continue;
+                $key = \App\Models\Player::normalize($p->name);
+                if (! isset($map[$key])) continue; // only players with rules
+                $info[$key] ??= ['name' => $p->name, 'categories' => []];
+                if ($catName && ! in_array($catName, $info[$key]['categories'], true)) {
+                    $info[$key]['categories'][] = $catName;
+                }
+            }
+        }
+
+        // Spanish weekday label for each rule day.
+        $dayLabel = function (string $ymd) {
+            return \Illuminate\Support\Str::ucfirst(
+                \Carbon\Carbon::parse($ymd, 'America/Mexico_City')->locale('es')->isoFormat('ddd')
+            );
+        };
+
+        $out = [];
+        foreach ($map as $key => $days) {
+            ksort($days); // chronological
+            $rules = [];
+            foreach ($days as $ymd => $hhmm) {
+                $rules[] = $dayLabel($ymd) . ' desde ' . $hhmm; // e.g. "Vie desde 19:00"
+            }
+            $out[] = [
+                'name' => $info[$key]['name'] ?? $key,
+                'categories' => $info[$key]['categories'] ?? [],
+                'rules' => $rules,
+            ];
+        }
+
+        // Sort by name.
+        usort($out, fn($a, $b) => strcasecmp($a['name'], $b['name']));
+
+        return collect($out);
     }
 
     /** Players who appear in 2+ categories of this tournament, with their

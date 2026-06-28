@@ -1148,3 +1148,41 @@ input:-webkit-autofill:focus {
 /* Add / generate courts row */
 .court-add-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
 .court-add-sep { font-size: 12px; color: var(--text-faint); padding-bottom: 6px; }
+
+/* Tournament dashboard actions: desktop row vs mobile grid.
+   Breakpoint 768px (Bootstrap md). */
+
+.dash-actions-mobile { display: none; }
+.dash-edit-caution { color: var(--warning-text, #b7791f); }
+.dash-edit-caution:hover { background: color-mix(in srgb, var(--warning, #f5a623) 14%, var(--surface)); }
+
+@media (max-width: 767.98px) {
+  .dash-actions-desktop { display: none !important; }
+  .dash-actions-mobile { display: block; width: 100%; }
+
+  /* Two primary buttons side by side */
+  .dash-primary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .dash-primary__btn { display: flex; align-items: center; justify-content: center; padding: 12px 10px; font-weight: 600; border-radius: var(--radius); }
+  /* Calendario shares accent but reads as a distinct secondary-primary */
+  .dash-primary__btn--alt { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+
+  /* Icon+label grid (app-launcher style) */
+  .dash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .dash-tile {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    padding: 14px 6px; min-height: 76px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); text-decoration: none; cursor: pointer; font: inherit;
+    text-align: center; transition: background .12s, border-color .12s;
+  }
+  .dash-tile:active { background: var(--bg-subtle); }
+  .dash-tile i { font-size: 19px; color: var(--accent); }
+  .dash-tile span { font-size: 11px; line-height: 1.2; color: var(--text-muted); }
+  .dash-tile--caution i { color: var(--warning-text, #b7791f); }
+  .dash-tile--caution span { color: var(--warning-text, #b7791f); }
+}
+
+/* Very narrow phones: 2 columns instead of 3 */
+@media (max-width: 360px) {
+  .dash-grid { grid-template-columns: repeat(2, 1fr); }
+}

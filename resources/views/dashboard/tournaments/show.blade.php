@@ -21,7 +21,8 @@
                 </x-pill>
             </div>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
+        {{-- Desktop: original single-row actions (unchanged) --}}
+        <div class="d-flex gap-2 flex-wrap dash-actions-desktop">
             <a href="{{ route('tournaments.summary', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-chart-simple me-1"></i> Resumen</a>
             <a href="{{ route('sponsors.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-handshake me-1"></i> Patrocinadores</a>
             <a href="{{ route('tournaments.import.form', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-file-import me-1"></i> Importar</a>
@@ -31,8 +32,41 @@
             @endif
             <a href="{{ route('venues.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-location-dot me-1"></i> Sedes</a>
             <a href="{{ route('schedule.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-calendar-days me-1"></i> Calendario</a>
-            <a href="{{ route('tournaments.edit', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-pen me-1"></i> Editar</a>
+            <a href="{{ route('tournaments.edit', $tournament) }}" class="btn btn-soft dash-edit-caution"><i class="fa-solid fa-pen me-1"></i> Editar</a>
             <a href="{{ route('categories.create', $tournament) }}" class="btn btn-accent"><i class="fa-solid fa-plus me-1"></i> Nueva categoría</a>
+        </div>
+
+        {{-- Mobile: two primary buttons + an icon grid for the rest --}}
+        <div class="dash-actions-mobile">
+            <div class="dash-primary">
+                <a href="{{ route('categories.create', $tournament) }}" class="btn btn-accent dash-primary__btn"><i class="fa-solid fa-plus me-1"></i> Nueva categoría</a>
+                <a href="{{ route('schedule.index', $tournament) }}" class="btn btn-accent dash-primary__btn dash-primary__btn--alt"><i class="fa-solid fa-calendar-days me-1"></i> Calendario</a>
+            </div>
+            <div class="dash-grid">
+                <a href="{{ route('tournaments.summary', $tournament) }}" class="dash-tile">
+                    <i class="fa-solid fa-chart-simple"></i><span>Resumen</span>
+                </a>
+                <a href="{{ route('venues.index', $tournament) }}" class="dash-tile">
+                    <i class="fa-solid fa-location-dot"></i><span>Sedes</span>
+                </a>
+                <a href="{{ route('tournaments.import.form', $tournament) }}" class="dash-tile">
+                    <i class="fa-solid fa-file-import"></i><span>Importar</span>
+                </a>
+                <!-- <a href="{{ route('sponsors.index', $tournament) }}" class="dash-tile">
+                    <i class="fa-solid fa-handshake"></i><span>Patrocinadores</span>
+                </a> -->
+                @if($tournament->is_listed)
+                <a href="{{ route('public.tournament', $tournament) }}" target="_blank" class="dash-tile">
+                    <i class="fa-solid fa-globe"></i><span>Página pública</span>
+                </a>
+                <button type="button" class="dash-tile" @click="showShare = !showShare">
+                    <i class="fa-solid fa-share-nodes"></i><span>Compartir / QR</span>
+                </button>
+                @endif
+                <a href="{{ route('tournaments.edit', $tournament) }}" class="dash-tile dash-tile--caution">
+                    <i class="fa-solid fa-pen"></i><span>Editar</span>
+                </a>
+            </div>
         </div>
     </div>
 

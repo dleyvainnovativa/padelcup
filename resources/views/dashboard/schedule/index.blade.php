@@ -46,7 +46,7 @@
                 data-confirm="Se quitarán TODOS los partidos del calendario (los resultados se conservan). ¿Continuar?"
                 data-confirm-title="Limpiar calendario" data-confirm-ok="Limpiar" data-confirm-variant="danger">
                 @csrf
-                <button class="btn btn-soft"><i class="fa-solid fa-trash-can me-1"></i> Limpiar</button>
+                <button class="btn btn-danger"><i class="fa-solid fa-trash-can me-1"></i> Limpiar</button>
             </form>
 
         </div>
@@ -55,6 +55,7 @@
 
     <details class="panel mc-cheatsheet">
         <summary style="cursor:pointer;font-weight:600;">
+            <i class="fa-solid fa-user-group me-1"></i>
             Jugadores en 2+ categorías ({{ $multiCategoryPlayers->count() }})
         </summary>
         <div class="mc-cheatsheet__list" style="margin-top:10px;">
@@ -69,7 +70,28 @@
     </details>
     @endif
 
-    {{-- Capacity preview panel --}}
+    @if(!empty($preferredSchedulePlayers) && $preferredSchedulePlayers->isNotEmpty())
+    <details class="panel mc-cheatsheet">
+        <summary style="cursor:pointer;font-weight:600;">
+            <i class="fa-solid fa-user-clock me-1"></i>
+            Jugadores con horario preferido ({{ $preferredSchedulePlayers->count() }})
+        </summary>
+        <div class="mc-cheatsheet__list" style="margin-top:10px;">
+            @foreach($preferredSchedulePlayers as $row)
+            <div class="mc-player">
+                <span class="mc-player__count">{{ count($row['rules']) }}</span>
+                <span class="mc-player__name">{{ $row['name'] }}</span>
+                <span class="mc-player__cats">
+                    — {{ implode(' · ', $row['rules']) }}
+                    @if(!empty($row['categories']))
+                    <span style="color:var(--text-faint);">({{ implode(', ', $row['categories']) }})</span>
+                    @endif
+                </span>
+            </div>
+            @endforeach
+        </div>
+    </details>
+    @endif
     <div x-show="showCapacity" x-cloak class="tc-card mb-3">
         <div class="tc-card__head">
             <h3><i class="fa-solid fa-calculator me-1"></i> Vista previa de capacidad</h3>
