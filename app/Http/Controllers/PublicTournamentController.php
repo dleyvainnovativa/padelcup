@@ -51,6 +51,10 @@ class PublicTournamentController extends Controller
             'search' => $search,
         ]);
     }
+    public function landing(Request $request)
+    {
+        return view('public.landing', []);
+    }
 
     /** Tournament overview: status + category cards. */
     public function show(Tournament $tournament)

@@ -1186,3 +1186,60 @@ input:-webkit-autofill:focus {
 @media (max-width: 360px) {
   .dash-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ===== Landing ===== */
+.landing-hero { text-align: center; padding: 48px 0 40px; }
+.landing-hero__badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); padding: 5px 12px; border-radius: 999px; margin-bottom: 20px; }
+.landing-hero__title { font-size: clamp(28px, 5vw, 44px); font-weight: 800; letter-spacing: -1px; line-height: 1.1; margin: 0 0 16px; }
+.landing-hero__sub { font-size: clamp(15px, 2.2vw, 18px); color: var(--text-muted); max-width: 600px; margin: 0 auto 28px; line-height: 1.55; }
+.landing-hero__cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+.landing-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 24px 0 48px; }
+.landing-feature { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
+.landing-feature i { font-size: 22px; color: var(--accent); margin-bottom: 12px; }
+.landing-feature h3 { font-size: 15px; font-weight: 700; margin: 0 0 6px; }
+.landing-feature p { font-size: 13.5px; color: var(--text-muted); line-height: 1.5; margin: 0; }
+
+.landing-cta-band { text-align: center; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); border-radius: var(--radius); padding: 36px 24px; margin-bottom: 48px; }
+.landing-cta-band h2 { font-size: 22px; font-weight: 700; margin: 0 0 6px; }
+.landing-cta-band p { color: var(--text-muted); margin: 0 0 20px; }
+
+/* ===== Search results ===== */
+.pub-result-card { display: flex; flex-direction: column; gap: 4px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); text-decoration: none; color: var(--text); transition: border-color .12s; }
+.pub-result-card:hover { border-color: var(--accent); }
+.pub-result-card__title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.pub-result-card__title i { color: var(--accent); }
+.pub-result-card__meta { font-size: 12px; color: var(--text-muted); }
+
+.pub-player-list { display: flex; flex-direction: column; gap: 8px; }
+.pub-player-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.pub-player-row__name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.pub-player-row__name i { color: var(--accent); }
+.pub-player-row__links { display: flex; flex-wrap: wrap; gap: 6px; }
+.pub-chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--bg-subtle); border: 1px solid var(--border); color: var(--text-muted); text-decoration: none; }
+.pub-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ===== Legal docs ===== */
+.legal-doc { max-width: 760px; }
+.legal-doc h1 { margin-bottom: 4px; }
+.legal-updated { font-size: 12px; color: var(--text-faint); margin: 0 0 20px; }
+.legal-doc h2 { font-size: 17px; font-weight: 700; margin: 26px 0 8px; }
+.legal-doc p { font-size: 14.5px; line-height: 1.6; color: var(--text); margin: 0 0 12px; }
+.legal-doc a { color: var(--accent); }
+.legal-draft-note { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--text-muted); background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 22px; }
+.legal-draft-note i { color: var(--accent); margin-top: 2px; }
+.legal-footer-links { margin-top: 32px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+
+/* ===== Footer with legal links ===== */
+.public-footer__links { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 8px; }
+.public-footer__links a { color: var(--text-faint); text-decoration: none; font-size: 12px; }
+.public-footer__links a:hover { color: var(--accent); }
+
+/* ===== Public top nav ===== */
+.public-nav { display: flex; align-items: center; gap: 16px; }
+.public-nav__link { color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 500; }
+.public-nav__link:hover { color: var(--accent); }
+@media (max-width: 480px) {
+  .public-nav { gap: 10px; }
+  .public-nav__link { font-size: 13px; }
+}

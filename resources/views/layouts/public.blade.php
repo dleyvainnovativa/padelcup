@@ -1,7 +1,7 @@
 {{-- resources/views/layouts/public.blade.php
-     Player-facing shell: no sidebar, no admin nav. Used for self-service
-     payment confirmation, quick-register, and (Phase 8) public tournament
-     pages. data-theme is server-rendered from the cookie. --}}
+     Player-facing shell: no sidebar, no admin nav. Used for the landing page,
+     public tournament pages, search, legal pages, self-service payment, and
+     quick-register. data-theme is server-rendered from the cookie. --}}
 <!DOCTYPE html>
 <html lang="es-MX" data-theme="{{ request()->cookie('tc_theme', 'light') }}">
 
@@ -28,9 +28,13 @@
                 <span class="logo"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
                 PadelCup
             </a>
-            <button class="icon-btn" data-theme-toggle aria-label="Cambiar tema" title="Cambiar tema">
-                <i class="fa-solid fa-moon"></i>
-            </button>
+            <nav class="public-nav">
+                <a href="{{ route('public.directory') }}" class="public-nav__link">Torneos</a>
+                <a href="{{ route('public.search') }}" class="public-nav__link">Buscar</a>
+                <button class="icon-btn" data-theme-toggle aria-label="Cambiar tema" title="Cambiar tema">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </nav>
         </header>
 
         <main class="public-main">
@@ -39,6 +43,14 @@
 
         <footer class="public-footer">
             <a href="{{ route('public.directory') }}" style="color:inherit;text-decoration:none;">PadelCup · Torneos de pádel</a>
+            <div class="public-footer__links">
+                <a href="{{ route('public.directory') }}">Torneos</a>
+                <a href="{{ route('public.search') }}">Buscar</a>
+                <a href="{{ route('legal.terminos') }}">Términos</a>
+                <a href="{{ route('legal.privacidad') }}">Privacidad</a>
+                <a href="{{ route('legal.aviso') }}">Aviso de Privacidad</a>
+                <a href="{{ route('legal.reembolsos') }}">Reembolsos</a>
+            </div>
         </footer>
     </div>
 </body>

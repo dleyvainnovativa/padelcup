@@ -154,7 +154,14 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::delete('/patrocinadores/{sponsor}', [\App\Http\Controllers\Admin\SponsorController::class, 'destroy'])->name('sponsors.destroy');
 });
 
-Route::get('/', fn() => redirect()->route('dashboard'));
+// Route::get('/', fn() => redirect()->route('dashboard'));
+Route::get('/', [\App\Http\Controllers\PublicTournamentController::class, 'landing'])->name('landing');
+//   Route::get('/', function () {
+//        return auth()->check()
+//            ? redirect()->route('dashboard')
+//            : view('public.landing');
+//    })->name('landing');
+
 
 // Public, read-only tournament pages (Phase 8) — no auth.
 Route::get('/torneos', [\App\Http\Controllers\PublicTournamentController::class, 'directory'])->name('public.directory');
@@ -165,6 +172,16 @@ Route::get('/t/{tournament}/jugador/{player}', [\App\Http\Controllers\PublicTour
 Route::get('/t/{tournament}/{category:slug}', [\App\Http\Controllers\PublicTournamentController::class, 'category'])
     ->scopeBindings()
     ->name('public.category');
+
+// Public search (players + tournaments across listed tournaments)
+Route::get('/buscar', [\App\Http\Controllers\PublicSearchController::class, 'index'])->name('public.search');
+
+// Legal
+Route::view('/terminos', 'legal.terminos')->name('legal.terminos');
+Route::view('/privacidad', 'legal.privacidad')->name('legal.privacidad');
+Route::view('/aviso-de-privacidad', 'legal.aviso')->name('legal.aviso');
+Route::view('/reembolsos', 'legal.reembolsos')->name('legal.reembolsos');
+
 
 // Quick-register (partner accepts invitation via token — PUBLIC, no auth)
 Route::get('/invitacion/{invitation}', [\App\Http\Controllers\Registration\QuickRegistrationController::class, 'show'])->name('quick.show');
