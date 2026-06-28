@@ -45,6 +45,8 @@ class PublicTournamentController extends Controller
         $active = $active->sortBy(fn($t) => $t->starts_on?->timestamp ?? PHP_INT_MAX)->values();
         $past = $past->values();
 
+
+
         return view('public.directory', [
             'active' => $active,
             'past' => $past,

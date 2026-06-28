@@ -2,11 +2,6 @@
 
 @section('title', 'PadelCup · Gestión de torneos de pádel')
 
-<!-- @push('head')
-<link rel="stylesheet" href="{{ asset('css/landing.css') }}">
-@endpush -->
-
-@vite(["resources/css/landing.css"])
 
 @section('content')
 <div class="lp">
