@@ -191,6 +191,13 @@ class SchedulingService
         }
         $hasPhases = ! empty($phaseWindows);
 
+        // Player availability rules (manager-entered), keyed by normalized name:
+        //   [ normalized_name => [ 'Y-m-d' => 'HH:MM' (available FROM) ] ]
+        // A match may only start, on a given day, at/after the LATEST "from" time
+        // among its participating players who have a rule that day ("all rules
+        // must hold"). Days/players without a rule impose nothing.
+        $availabilityMap = \App\Models\PlayerAvailability::mapFor($tournament);
+
         // Grid anchor: matches must align to the tournament's slot grid
         // (play_start stepping by match_duration_minutes) so they always land on
         // a visible row. We snap candidate start times to this grid.
@@ -286,6 +293,7 @@ class SchedulingService
 
         $placements = []; // [matchId => [courtId, startTs]]
         $byPhase = [];     // [phaseKey => [scheduled, unplaced]]
+        $availabilityBlocked = 0; // unplaced specifically due to player availability
 
         foreach ($matches as $match) {
             $phase = $match->phaseKey();
@@ -305,6 +313,13 @@ class SchedulingService
             }
 
             $playerIds = $match->playerIds();
+
+            // Per-day availability floor for THIS match: for each play day, the
+            // latest "available from" time among its players who have a rule that
+            // day (all rules must hold). [ 'Y-m-d' => earliestStartTs ]. Empty
+            // when no participating player has any rule (the common case).
+            $availFloors = $this->availabilityFloors($match, $availabilityMap);
+
             $slot = $this->findSlotInMemory(
                 $courts,
                 $courtWindows,
@@ -318,6 +333,7 @@ class SchedulingService
                 $anchorMinOfDay,
                 $gridStepSec,
                 $earliest,
+                $availFloors,
             );
 
             if ($slot) {
@@ -332,6 +348,31 @@ class SchedulingService
                 $byPhase[$phase]['scheduled']++;
             } else {
                 $byPhase[$phase]['unplaced']++;
+                // Distinguish "blocked by availability" from "didn't fit": if the
+                // match has availability floors AND would have fit ignoring them,
+                // attribute it to availability for clearer reporting.
+                if (! empty($availFloors)) {
+                    $slotIgnoringAvail = $this->findSlotInMemory(
+                        $courts,
+                        $courtWindows,
+                        $courtBusy,
+                        $playerBusy,
+                        $playerIds,
+                        $durSec,
+                        $stepSec,
+                        $restSec,
+                        $allowed,
+                        $anchorMinOfDay,
+                        $gridStepSec,
+                        $earliest,
+                        [],
+                    );
+                    if ($slotIgnoringAvail) {
+                        $byPhase[$phase]['unplaced_availability'] =
+                            ($byPhase[$phase]['unplaced_availability'] ?? 0) + 1;
+                        $availabilityBlocked++;
+                    }
+                }
             }
         }
 
@@ -348,6 +389,7 @@ class SchedulingService
         return [
             'scheduled' => count($placements),
             'unplaced' => $matches->count() - count($placements),
+            'availability_blocked' => $availabilityBlocked,
             'by_phase' => $byPhase,
         ];
     }
@@ -372,6 +414,7 @@ class SchedulingService
         int $anchorMinOfDay = 480,
         int $gridStepSec = 0,
         int $earliestStart = 0,
+        array $availFloors = [],
     ): ?array {
         $best = null;
 
@@ -398,6 +441,14 @@ class SchedulingService
                     $lastStart = $segEnd - $durSec;
                     for ($ts = $start; $ts <= $lastStart; $ts += $stepSec) {
                         $end = $ts + $durSec;
+
+                        // Player availability: on the candidate's day, the start
+                        // must be at/after the day's floor (latest "from" time
+                        // among participating players). Days with no floor are free.
+                        if (! empty($availFloors)) {
+                            $day = Carbon::createFromTimestamp($ts, 'America/Mexico_City')->format('Y-m-d');
+                            if (isset($availFloors[$day]) && $ts < $availFloors[$day]) continue;
+                        }
 
                         if ($this->intervalHits($courtBusy[$cid] ?? [], $ts, $end)) continue;
 
@@ -534,6 +585,55 @@ class SchedulingService
         usort($unique, fn($a, $b) => ($a['severity'] === 'overlap' ? 0 : 1) <=> ($b['severity'] === 'overlap' ? 0 : 1));
 
         return $unique;
+    }
+
+    /**
+     * Per-day availability floor for a match: for each day on which one or more
+     * of the match's players has an "available from" rule, the binding floor is
+     * the LATEST such time (all players' rules must hold). Returned as
+     * [ 'Y-m-d' => unixTimestampOfEarliestAllowedStartThatDay ].
+     *
+     * Players are matched by NORMALIZED NAME (rules are stored per name, since the
+     * same person may be separate Player records across categories). Matches with
+     * no known pairs (placeholders) or whose players have no rules → empty array
+     * (no constraint).
+     *
+     * @param  array<string, array<string, string>>  $availabilityMap
+     * @return array<string, int>
+     */
+    private function availabilityFloors(GameMatch $match, array $availabilityMap): array
+    {
+        if (empty($availabilityMap)) return [];
+
+        // Collect participating players' normalized names.
+        $names = [];
+        foreach ([$match->pairA, $match->pairB] as $pair) {
+            if (! $pair) continue;
+            foreach ([$pair->player1, $pair->player2] as $p) {
+                if ($p && filled($p->name)) {
+                    $names[] = \App\Models\Player::normalize($p->name);
+                }
+            }
+        }
+        if (empty($names)) return [];
+
+        // For each day any of these players restricts, take the LATEST from-time.
+        $floorsHHMM = []; // ['Y-m-d' => 'HH:MM']
+        foreach ($names as $key) {
+            foreach ($availabilityMap[$key] ?? [] as $day => $hhmm) {
+                if (! isset($floorsHHMM[$day]) || $hhmm > $floorsHHMM[$day]) {
+                    $floorsHHMM[$day] = $hhmm; // string compare ok for zero-padded HH:MM
+                }
+            }
+        }
+        if (empty($floorsHHMM)) return [];
+
+        // Convert each day+time to a CDMX timestamp.
+        $floors = [];
+        foreach ($floorsHHMM as $day => $hhmm) {
+            $floors[$day] = Carbon::parse("$day $hhmm", 'America/Mexico_City')->timestamp;
+        }
+        return $floors;
     }
 
     /** Resolve a player's display name from a match's pairs. */

@@ -54,6 +54,10 @@ $isAdmin = $user && method_exists($user, 'isAdmin') && $user->isAdmin();
     <a href="{{ $to('tournaments.summary', $ctxTournament) }}" class="nav-item {{ $isActive('tournaments.summary') }}">
         <i class="fa-solid fa-chart-simple"></i> Resumen general
     </a>
+    <a href="{{ $to('availability.player.index', $ctxTournament) }}" class="nav-item {{ $isActive('availability.player.*') }}">
+        <i class="fa-solid fa-user-clock"></i> Disponibilidad
+    </a>
+
 
     <div class="nav-label">Promoción</div>
     <a href="{{ $to('sponsors.index', $ctxTournament) }}" class="nav-item {{ $isActive('sponsors.*') }}">

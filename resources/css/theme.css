@@ -1105,3 +1105,46 @@ input:-webkit-autofill:focus {
 .nav-back:hover { color: var(--accent); }
 .nav-tournament { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 8px; font-weight: 700; font-size: 14px; color: var(--text); background: var(--bg-subtle); border-radius: var(--radius); border-left: 3px solid var(--accent); }
 .nav-tournament i { color: var(--accent); }
+
+/* Per-court availability window editor */
+.court-block { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 12px; }
+.court-block__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.court-wins { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.court-win-day { display: flex; align-items: flex-start; gap: 10px; }
+.court-win-day__label { flex: 0 0 96px; font-size: 12px; font-weight: 600; color: var(--text-muted); padding-top: 3px; }
+.court-win-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.court-win-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-family: var(--font-mono, monospace); background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 999px; padding: 2px 4px 2px 10px; }
+.court-win-tag__x { border: 0; background: transparent; color: var(--text-faint); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 4px; }
+.court-win-tag__x:hover { color: var(--danger-text, #e5484d); }
+.court-win-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+
+/* Player availability editor */
+.avail-person { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; background: var(--surface); }
+.avail-person > details > summary { list-style: none; cursor: pointer; }
+.avail-person > details > summary::-webkit-details-marker { display: none; }
+.avail-person__head { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.avail-person__name { font-weight: 600; font-size: 14px; }
+.avail-person__cats { font-size: 12px; color: var(--text-muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avail-badge { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent); white-space: nowrap; }
+.avail-badge--empty { background: var(--bg-subtle); color: var(--text-faint); }
+.avail-days { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); }
+.avail-day { display: flex; align-items: center; gap: 8px; }
+.avail-day__label { flex: 0 0 110px; font-size: 13px; font-weight: 500; }
+.avail-day__from { font-size: 12px; color: var(--text-faint); }
+.avail-day__status { font-size: 13px; width: 16px; }
+.avail-day__status.is-ok { color: var(--success, #30a46c); }
+.avail-day__status.is-err { color: var(--danger-text, #e5484d); }
+.avail-day__status.is-saving { color: var(--text-faint); }
+
+/* Inline court rename */
+.court-rename { display: flex; align-items: center; gap: 4px; }
+.court-rename__input { font-size: 14px; font-weight: 600; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 3px 8px; max-width: 220px; color: var(--text); }
+.court-rename__input:hover { border-color: var(--border); }
+.court-rename__input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.court-rename__save { border: 0; background: transparent; color: var(--text-faint); cursor: pointer; opacity: 0; transition: opacity .12s, color .12s; padding: 2px 6px; }
+.court-rename.is-dirty .court-rename__save { opacity: 1; color: var(--accent); }
+.court-rename__save.is-ok { opacity: 1; color: var(--success, #30a46c); }
+
+/* Add / generate courts row */
+.court-add-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.court-add-sep { font-size: 12px; color: var(--text-faint); padding-bottom: 6px; }

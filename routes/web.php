@@ -67,7 +67,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('sedes', [\App\Http\Controllers\Dashboard\VenueController::class, 'index'])->name('venues.index');
         Route::post('sedes', [\App\Http\Controllers\Dashboard\VenueController::class, 'storeVenue'])->name('venues.store');
         Route::post('sedes/{venue}/canchas', [\App\Http\Controllers\Dashboard\VenueController::class, 'storeCourt'])->name('courts.store');
+        Route::post('sedes/{venue}/canchas/generar', [\App\Http\Controllers\Dashboard\VenueController::class, 'generateCourts'])->name('courts.generate');
         Route::delete('canchas/{court}', [\App\Http\Controllers\Dashboard\VenueController::class, 'destroyCourt'])->name('courts.destroy');
+        Route::patch('canchas/{court}', [\App\Http\Controllers\Dashboard\VenueController::class, 'updateCourt'])->name('courts.update');
+
+
+
         Route::post('horarios/resync', [\App\Http\Controllers\Dashboard\VenueController::class, 'resyncAvailability'])->name('availability.resync');
         Route::post('canchas/{court}/horarios', [\App\Http\Controllers\Dashboard\VenueController::class, 'storeAvailability'])->name('availability.store');
         Route::delete('horarios/{availability}', [\App\Http\Controllers\Dashboard\VenueController::class, 'destroyAvailability'])->name('availability.destroy');
@@ -95,6 +100,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('importar', [\App\Http\Controllers\Dashboard\TournamentImportController::class, 'form'])->name('tournaments.import.form');
         Route::post('importar/previsualizar', [\App\Http\Controllers\Dashboard\TournamentImportController::class, 'preview'])->name('tournaments.import.preview');
         Route::post('importar/confirmar', [\App\Http\Controllers\Dashboard\TournamentImportController::class, 'commit'])->name('tournaments.import.commit');
+
+        // Player availability (manager-entered, per player per tournament)
+        Route::get('disponibilidad', [\App\Http\Controllers\Dashboard\PlayerAvailabilityController::class, 'index'])->name('availability.player.index');
+        Route::post('disponibilidad', [\App\Http\Controllers\Dashboard\PlayerAvailabilityController::class, 'store'])->name('availability.player.store');
     });
 
     // Stripe Connect onboarding (managers)
