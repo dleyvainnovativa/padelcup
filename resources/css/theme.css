@@ -1084,7 +1084,7 @@ input:-webkit-autofill:focus {
 .pub-ads__track { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
 .pub-ads__track::-webkit-scrollbar { height: 6px; }
 .pub-ads__track::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-.pub-ad { flex: 0 0 auto; width: min(100%, 480px); scroll-snap-align: start; }
+.pub-ad { flex: 0 0 auto; width: min(60%, 480px); scroll-snap-align: start; }
 .pub-ad img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--radius); display: block; border: 1px solid var(--border); }
 .pub-ad a { display: block; }
 
