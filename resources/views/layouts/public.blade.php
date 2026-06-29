@@ -18,7 +18,6 @@
     <meta name="apple-mobile-web-app-title" content="PadelCup" />
     <link rel="manifest" href="{{asset('img/icons/site.webmanifest')}}" />
     @vite(['resources/css/app.css','resources/css/landing.css', 'resources/js/app.js'])
-    {{-- Shared public/landing styles (footer + any page that opts in via @push reuses the same file) --}}
     @stack('head')
 </head>
 
@@ -35,16 +34,18 @@
                 <nav class="ph__nav">
                     <a href="{{ route('public.directory') }}" class="ph__link">Torneos</a>
                     <a href="{{ route('public.search') }}" class="ph__link">Buscar</a>
-                    <button class="ph__theme icon-btn" data-theme-toggle aria-label="Cambiar tema" title="Cambiar tema">
-                        <i class="fa-solid fa-moon"></i>
-                    </button>
                     <a href="{{ route('dashboard') }}" class="ph__cta">Soy organizador</a>
                 </nav>
 
-                {{-- Mobile hamburger --}}
-                <button class="ph__burger" data-ph-open aria-label="Abrir menú" aria-expanded="false">
-                    <span></span><span></span><span></span>
-                </button>
+                {{-- Always-visible actions (theme toggle + mobile hamburger) --}}
+                <div class="ph__actions">
+                    <button class="ph__theme icon-btn" data-theme-toggle aria-label="Cambiar tema" title="Cambiar tema">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
+                    <button class="ph__burger" data-ph-open aria-label="Abrir menú" aria-expanded="false">
+                        <span></span><span></span><span></span>
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -62,9 +63,6 @@
                 <nav class="ph-oc__nav">
                     <a href="{{ route('public.directory') }}" class="ph-oc__link"><i class="fa-solid fa-trophy"></i> Torneos</a>
                     <a href="{{ route('public.search') }}" class="ph-oc__link"><i class="fa-solid fa-magnifying-glass"></i> Buscar</a>
-                    <button class="ph-oc__link ph-oc__link--btn" data-theme-toggle>
-                        <i class="fa-solid fa-moon"></i> Cambiar tema
-                    </button>
                 </nav>
                 <a href="{{ route('dashboard') }}" class="ph-oc__cta">Soy organizador</a>
             </aside>

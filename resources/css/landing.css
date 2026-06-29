@@ -314,6 +314,9 @@
 /* ==========================================================================
    MODERN PUBLIC HEADER + MOBILE OFFCANVAS
    ========================================================================== */
+:root{
+  --ph-indigo: #635bff; --ph-indigo3: #921adc; --ph-gold: #dcb51a;
+}
 .ph {
   --ph-indigo: #635bff; --ph-indigo3: #921adc; --ph-gold: #dcb51a;
   position: sticky; top: 0; z-index: 50;
@@ -340,6 +343,7 @@
 .ph__link { font-size: 14px; font-weight: 500; color: var(--text-muted, #6b7280); text-decoration: none; padding: 8px 12px; border-radius: 8px; transition: color .12s, background .12s; }
 .ph__link:hover { color: var(--ph-indigo); background: color-mix(in srgb, var(--ph-indigo) 8%, transparent); }
 .ph__theme { margin: 0 2px; }
+.ph__actions { display: flex; align-items: center; gap: 8px; }
 .ph__cta { font-size: 14px; font-weight: 600; color: #fff; text-decoration: none; padding: 9px 16px; border-radius: 9px;
   background: linear-gradient(120deg, var(--ph-indigo), #4f47e0); box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--ph-indigo) 70%, transparent); transition: transform .12s, box-shadow .12s; }
 .ph__cta:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -10px color-mix(in srgb, var(--ph-indigo) 75%, transparent); }
