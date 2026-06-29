@@ -101,7 +101,7 @@
             </div>
             <div class="pf__bottom">
                 <span class="pf__copy">© {{ date('Y') }} PadelCup. Todos los derechos reservados.</span>
-                <span class="pf__made">Hecho con <i class="fa-solid fa-heart"></i> para el pádel mexicano</span>
+                <span class="pf__made">Desarrollado por <a href="https://innovativa.mx">Innovativa</a></span>
             </div>
         </footer>
     </div>
