@@ -131,16 +131,16 @@ export function initSchedule() {
   }
 
   // --- helpers ------------------------------------------------------
+  // Each day is its own <tbody> (x-show toggled); a cell carries a static
+  // data-date and is "visible" when its tbody is shown (offsetParent != null).
   function cellIsFree(cell) {
-    const wrap = visibleWrap(cell);
-    return wrap && !wrap.querySelector('.sched-match');
+    return isVisible(cell) && !cell.querySelector('.sched-match');
   }
-  function visibleWrap(cell) {
-    return [...cell.querySelectorAll('[data-day]')].find((w) => w.offsetParent !== null) || null;
+  function isVisible(cell) {
+    return cell.offsetParent !== null;
   }
   function visibleDate(cell) {
-    const w = visibleWrap(cell);
-    return w ? w.dataset.day : null;
+    return cell.dataset.date || null;
   }
 }
 
@@ -153,15 +153,13 @@ function initDrag(board, place) {
   });
   board.querySelectorAll('[data-cell]').forEach((cell) => {
     cell.addEventListener('dragover', (e) => {
-      const wrap = [...cell.querySelectorAll('[data-day]')].find((w) => w.offsetParent !== null);
-      if (wrap && !wrap.querySelector('.sched-match')) { e.preventDefault(); cell.classList.add('drop-target'); }
+      if (cell.offsetParent !== null && !cell.querySelector('.sched-match')) { e.preventDefault(); cell.classList.add('drop-target'); }
     });
     cell.addEventListener('dragleave', () => cell.classList.remove('drop-target'));
     cell.addEventListener('drop', async (e) => {
       e.preventDefault(); cell.classList.remove('drop-target');
       if (!draggedId) return;
-      const wrap = [...cell.querySelectorAll('[data-day]')].find((w) => w.offsetParent !== null);
-      const date = wrap?.dataset.day;
+      const date = cell.dataset.date;
       const res = await place(draggedId, cell.dataset.court, date, cell.dataset.slot, false);
       if (res && res.conflicts) {
         if (window.confirm(res.conflicts.join('\n') + '\n\n¿Programar de todos modos?')) {

@@ -548,10 +548,16 @@ a:hover { color: var(--accent-hover); }
 .sched-ctrl-pairlabels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
 .sched-set-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .sched-set-row__label { font-size: 12px; color: var(--text-faint); width: 44px; }
-.sched-set-row__dash { color: var(--text-faint); }
+.sched-set-row__dash { color: var(--text-faint); margin-left: auto !important; }
 .sched-set-input {
   width: 52px; text-align: center; border: 1px solid var(--border-strong);
   border-radius: var(--radius); padding: 6px; background: var(--surface); color: var(--text);
+}
+.sched-set-row .sched-set-input:last-of-type {
+  margin-left: auto !important;
+}
+.sched-ctrl-pairlabels span:last-of-type {
+  text-align:right;
 }
 .sched-ctrl-err { color: var(--danger-text); font-size: 12px; margin: 6px 0; white-space: pre-line; }
 .sched-ctrl-save {
@@ -912,7 +918,7 @@ input:-webkit-autofill:focus {
 .pub-result-row { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 10px; align-items: center; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
 .pub-result-row:last-child { border-bottom: 0; }
 .pub-result-row__a { text-align: right; }
-.pub-result-row__a.is-win, .pub-result-row__b.is-win { font-weight: 700; }
+.pub-result-row__a.is-win, .pub-result-row__b.is-win { font-weight: 700; color: var(--accent); }
 .pub-result-row__sc { text-align: center; color: var(--text-muted); min-width: 70px; }
 .pub-share-btn {
   border: 1px solid var(--border); background: var(--surface); color: var(--text-muted);
@@ -1242,4 +1248,12 @@ input:-webkit-autofill:focus {
 @media (max-width: 480px) {
   .public-nav { gap: 10px; }
   .public-nav__link { font-size: 13px; }
+}
+/* Availability day row now has from + until inputs; tighten label width so the
+   row fits comfortably. Append to theme.css (adjust if your .avail-day differs). */
+.avail-day__label { flex: 0 0 96px; }
+.avail-day .avail-input { width: auto; min-width: 96px; }
+@media (max-width: 560px) {
+  .avail-day { flex-wrap: wrap; }
+  .avail-day__label { flex-basis: 100%; }
 }

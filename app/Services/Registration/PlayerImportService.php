@@ -15,7 +15,9 @@ use Illuminate\Support\Facades\DB;
  *
  * Expected CSV columns (header row, case-insensitive):
  *   player1_name (required), player1_email, player1_phone,
- *   player2_name (required), player2_email, player2_phone
+ *   player2_name (required), player2_email, player2_phone,
+ *   leader (optional — any non-empty value marks the pair as a group leader:
+ *           top-seeded and distributed one per group during group generation)
  *
  * Each player gets a duplicate check; the manager resolves link-vs-create on
  * the preview screen. Committing delegates to RegistrationService so capacity,
@@ -68,6 +70,9 @@ class PlayerImportService
 
             $rows[] = [
                 'line' => $lineNo,
+                // Any non-empty value in a "leader" column marks this pair as a
+                // group leader (top seed, distributed one-per-group).
+                'leader' => trim((string) ($row['leader'] ?? '')) !== '',
                 'player1' => [
                     'name' => $p1Name,
                     'email' => trim((string) ($row['player1_email'] ?? '')) ?: null,
@@ -143,7 +148,12 @@ class PlayerImportService
             ];
 
             try {
-                $this->registrations->createManagerPair($category, $p1, $p2, $manager);
+                $pair = $this->registrations->createManagerPair($category, $p1, $p2, $manager);
+                // Mark leaders via the pair's seed (1 = leader). Group generation
+                // distributes seeded pairs one-per-group as top seeds.
+                if (($row['leader'] ?? false) && $pair) {
+                    $pair->update(['seed' => 1]);
+                }
                 $imported++;
             } catch (\Throwable $e) {
                 $skipped++;

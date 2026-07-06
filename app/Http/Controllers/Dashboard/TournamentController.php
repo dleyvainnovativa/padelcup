@@ -72,7 +72,7 @@ class TournamentController extends Controller
 
         // Detect whether scheduling-affecting fields changed (to know if we need
         // to re-derive availability and prune now-invalid placements).
-        $schedFields = ['play_start', 'play_end', 'match_duration_minutes', 'starts_on', 'ends_on'];
+        $schedFields = ['play_start', 'play_end', 'match_duration_minutes', 'starts_on', 'ends_on', 'day_durations'];
         $before = $tournament->only($schedFields);
 
         $data = $request->validated();
@@ -88,13 +88,20 @@ class TournamentController extends Controller
                 ->store('tournament-covers', $disk);
         }
 
+        $dayDurations = collect($request->input('day_durations', []))
+            ->filter(fn($v) => filled($v))          // drop empty inputs
+            ->map(fn($v) => (int) $v)
+            ->all();
+
+        $data['day_durations'] = $dayDurations ?: null;   // null when none set
+
         $tournament->update([
             ...$data,
             'is_listed' => $request->boolean('is_listed'),
         ]);
 
         $schedChanged = collect($schedFields)->contains(
-            fn($f) => (string) data_get($before, $f) !== (string) $tournament->{$f}
+            fn($f) => json_encode(data_get($before, $f)) !== json_encode($tournament->{$f})
         );
 
         $status = 'Torneo actualizado.';

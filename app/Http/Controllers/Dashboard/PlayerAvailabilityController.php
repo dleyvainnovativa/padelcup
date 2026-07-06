@@ -18,7 +18,7 @@ class PlayerAvailabilityController extends Controller
 
         // Every player in the tournament, deduped by normalized name, with the
         // categories they appear in (for context).
-        $pairs = Pair::whereHas('category', fn ($q) => $q->where('tournament_id', $tournament->id))
+        $pairs = Pair::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->with(['category:id,name', 'player1:id,name', 'player2:id,name'])
             ->get();
 
@@ -37,9 +37,9 @@ class PlayerAvailabilityController extends Controller
 
         $people = collect($people)->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
-        // Existing availability map + tournament play days.
-        $availability = PlayerAvailability::mapFor($tournament);
-        $playDays = collect($tournament->playDays())->map(fn ($d) => [
+        // Existing availability windows (from–until) + tournament play days.
+        $availability = PlayerAvailability::windowsFor($tournament);
+        $playDays = collect($tournament->playDays())->map(fn($d) => [
             'ymd' => $d->format('Y-m-d'),
             'label' => \Illuminate\Support\Str::ucfirst($d->locale('es')->isoFormat('ddd D MMM')),
         ]);
@@ -63,16 +63,20 @@ class PlayerAvailabilityController extends Controller
             'normalized_name' => ['required', 'string', 'max:255'],
             'day' => ['required', 'date', 'in:' . implode(',', $validDays)],
             'earliest_time' => ['nullable', 'date_format:H:i'],
+            'latest_time' => ['nullable', 'date_format:H:i', 'after:earliest_time'],
         ]);
 
         $key = ['tournament_id' => $tournament->id, 'normalized_name' => $data['normalized_name'], 'day' => $data['day']];
 
         if (blank($data['earliest_time'] ?? null)) {
-            // Empty time → clear the rule for that day.
+            // No "from" time → clear the rule for that day entirely.
             PlayerAvailability::where($key)->delete();
             $msg = 'Disponibilidad quitada.';
         } else {
-            PlayerAvailability::updateOrCreate($key, ['earliest_time' => $data['earliest_time']]);
+            PlayerAvailability::updateOrCreate($key, [
+                'earliest_time' => $data['earliest_time'],
+                'latest_time' => $data['latest_time'] ?? null,
+            ]);
             $msg = 'Disponibilidad guardada.';
         }
 

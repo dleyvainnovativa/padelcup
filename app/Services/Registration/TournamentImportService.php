@@ -83,6 +83,9 @@ class TournamentImportService
 
             $groups[$category][] = [
                 'line' => $lineNo,
+                // Any non-empty "leader" value marks a group leader (top seed,
+                // one distributed per group during group generation).
+                'leader' => trim((string) ($row['leader'] ?? '')) !== '',
                 'player1' => [
                     'name' => $p1Name,
                     'email' => trim((string) ($row['player1_email'] ?? '')) ?: null,
@@ -123,6 +126,7 @@ class TournamentImportService
                 'category' => $categoryName,
                 'pairs' => count($rows),
                 'players' => $players,
+                'leaders' => collect($rows)->filter(fn($r) => $r['leader'] ?? false)->count(),
                 'exists' => isset($existingNames[mb_strtolower(trim($categoryName))]),
             ];
         }

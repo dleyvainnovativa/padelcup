@@ -104,10 +104,42 @@ class GroupGenerationService
     {
         $groups = array_map(fn() => [], $sizes);
         $warnings = [];
+        $groupCount = count($sizes);
 
-        // Order pairs so the most "constrained" (sharing players) are placed
-        // first — those with shared players are harder to fit.
-        $ordered = $this->orderByConstraint($pairs);
+        // --- Leader seeding -------------------------------------------------
+        // Pairs flagged as leaders (seed set) are top-seeded one per group, in
+        // distinct groups (A1, B1, C1…), like tournament seeds. If there are more
+        // leaders than groups, the surplus fall back to the normal pool and are
+        // distributed like any other pair. Leader placement takes precedence over
+        // shared-player separation; conflicts are surfaced as warnings.
+        $leaders = $pairs->filter(fn(Pair $p) => (int) ($p->seed ?? 0) > 0)->values();
+        $rest = $pairs->reject(fn(Pair $p) => (int) ($p->seed ?? 0) > 0)->values();
+
+        $seatedLeaders = $leaders->take($groupCount);
+        $overflowLeaders = $leaders->slice($groupCount)->values();
+
+        // Overflow leaders join the normal pool (treated like any other pair).
+        if ($overflowLeaders->isNotEmpty()) {
+            $rest = $rest->concat($overflowLeaders)->values();
+            $warnings[] = "Hay más líderes ({$leaders->count()}) que grupos ({$groupCount}); "
+                . "los líderes sobrantes se distribuyen como parejas normales.";
+        }
+
+        // Place one leader at the TOP of each successive group.
+        foreach ($seatedLeaders as $gi => $leader) {
+            if ($gi >= $groupCount) break;
+            // Warn if a leader collides with an already-seated leader on a shared
+            // player (rare) — leader placement still wins.
+            if ($this->groupHasSharedPlayer($groups[$gi], $leader)) {
+                $warnings[] = "El líder «{$leader->name()}» comparte jugador con otra pareja del grupo; se respetó la posición de líder.";
+            }
+            $groups[$gi][] = $leader; // top seed of this group
+        }
+
+        // --- Normal greedy placement for the rest --------------------------
+        // Order remaining pairs so the most "constrained" (sharing players) are
+        // placed first — those with shared players are harder to fit.
+        $ordered = $this->orderByConstraint($rest);
 
         foreach ($ordered as $pair) {
             $placed = false;

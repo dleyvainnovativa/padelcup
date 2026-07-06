@@ -73,6 +73,35 @@
             <div style="font-size:12px;color:var(--text-faint);margin-top:6px;">
                 El calendario usa estos valores para crear los espacios (slots) y el horario disponible de todas las canchas.
             </div>
+
+            @php
+            $playDays = $tournament->playDays();
+            $dayDur = $tournament->day_durations ?? [];
+            @endphp
+            @if($playDays->count() > 1)
+            <details class="mt-3" style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;">
+                <summary style="cursor:pointer;font-size:13px;font-weight:600;">
+                    <i class="fa-solid fa-clock me-1"></i> Duración por día (opcional)
+                </summary>
+                <div style="font-size:12px;color:var(--text-faint);margin:8px 0 12px;">
+                    Deja vacío para usar la duración general ({{ $tournament->match_duration_minutes }} min).
+                    Útil para alargar el último día (semifinales y final).
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    @foreach($playDays as $d)
+                    @php $ymd = $d->format('Y-m-d'); $val = $dayDur[$ymd] ?? ''; @endphp
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="flex:0 0 150px;font-size:13px;">{{ \Illuminate\Support\Str::ucfirst($d->locale('es')->isoFormat('ddd D MMM')) }}</span>
+                        <input type="number" name="day_durations[{{ $ymd }}]" min="30" max="240" step="5"
+                            value="{{ old('day_durations.'.$ymd, $val) }}"
+                            placeholder="{{ $tournament->match_duration_minutes }}"
+                            class="form-control form-control-sm" style="width:110px;border-radius:var(--radius);">
+                        <span style="font-size:12px;color:var(--text-faint);">min</span>
+                    </div>
+                    @endforeach
+                </div>
+            </details>
+            @endif
             <div class="form-check mt-3">
                 <input type="checkbox" name="is_listed" id="is_listed" value="1" class="form-check-input" @checked(old('is_listed', $tournament->is_listed))>
                 <label for="is_listed" class="form-check-label" style="font-size:13px;">

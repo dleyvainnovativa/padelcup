@@ -191,12 +191,18 @@ class SchedulingService
         }
         $hasPhases = ! empty($phaseWindows);
 
-        // Player availability rules (manager-entered), keyed by normalized name:
-        //   [ normalized_name => [ 'Y-m-d' => 'HH:MM' (available FROM) ] ]
-        // A match may only start, on a given day, at/after the LATEST "from" time
-        // among its participating players who have a rule that day ("all rules
+        // Player availability WINDOWS (manager-entered), keyed by normalized name:
+        //   [ normalized_name => [ 'Y-m-d' => ['from'=>'HH:MM','until'=>'HH:MM'|null] ] ]
+        // A match may only start at/after the LATEST "from" among its players on
+        // that day, and must FINISH by the EARLIEST "until" among them ("all rules
         // must hold"). Days/players without a rule impose nothing.
-        $availabilityMap = \App\Models\PlayerAvailability::mapFor($tournament);
+        $availabilityMap = \App\Models\PlayerAvailability::windowsFor($tournament);
+
+        // Per-day match duration: [ 'Y-m-d' => minutes ]. A day may override the
+        // tournament default (e.g. the last day runs 90 min for SF/F). Used to
+        // size each match by the day it lands on.
+        $dayDurations = $tournament->dayDurationMap();
+        $defaultDurSec = ((int) ($tournament->match_duration_minutes ?: $duration)) * 60;
 
         // Grid anchor: matches must align to the tournament's slot grid
         // (play_start stepping by match_duration_minutes) so they always land on
@@ -314,11 +320,11 @@ class SchedulingService
 
             $playerIds = $match->playerIds();
 
-            // Per-day availability floor for THIS match: for each play day, the
-            // latest "available from" time among its players who have a rule that
-            // day (all rules must hold). [ 'Y-m-d' => earliestStartTs ]. Empty
-            // when no participating player has any rule (the common case).
-            $availFloors = $this->availabilityFloors($match, $availabilityMap);
+            // Per-day availability WINDOW for THIS match: for each restricted day,
+            // ['from'=>ts, 'until'=>ts|null] — the binding "from" is the latest
+            // among players, the binding "until" is the earliest among them (all
+            // rules hold). Empty when no participating player has a rule.
+            $availWindows = $this->availabilityWindows($match, $availabilityMap);
 
             $slot = $this->findSlotInMemory(
                 $courts,
@@ -326,39 +332,40 @@ class SchedulingService
                 $courtBusy,
                 $playerBusy,
                 $playerIds,
-                $durSec,
+                $defaultDurSec,
                 $stepSec,
                 $restSec,
                 $allowed,
                 $anchorMinOfDay,
                 $gridStepSec,
                 $earliest,
-                $availFloors,
+                $availWindows,
+                $dayDurations,
             );
 
             if ($slot) {
-                [$courtId, $startTs] = $slot;
-                $endTs = $startTs + $durSec;
+                [$courtId, $startTs, $slotDurSec] = $slot;
+                $endTs = $startTs + $slotDurSec;
                 $courtBusy[$courtId][] = [$startTs, $endTs];
                 foreach ($playerIds as $pid) {
                     $playerBusy[$pid][] = [$startTs, $endTs];
                 }
-                $placements[$match->id] = [$courtId, $startTs];
+                $placements[$match->id] = [$courtId, $startTs, intdiv($slotDurSec, 60)];
                 $endOf[$match->id] = $endTs;
                 $byPhase[$phase]['scheduled']++;
             } else {
                 $byPhase[$phase]['unplaced']++;
                 // Distinguish "blocked by availability" from "didn't fit": if the
-                // match has availability floors AND would have fit ignoring them,
+                // match has availability windows AND would have fit ignoring them,
                 // attribute it to availability for clearer reporting.
-                if (! empty($availFloors)) {
+                if (! empty($availWindows)) {
                     $slotIgnoringAvail = $this->findSlotInMemory(
                         $courts,
                         $courtWindows,
                         $courtBusy,
                         $playerBusy,
                         $playerIds,
-                        $durSec,
+                        $defaultDurSec,
                         $stepSec,
                         $restSec,
                         $allowed,
@@ -366,6 +373,7 @@ class SchedulingService
                         $gridStepSec,
                         $earliest,
                         [],
+                        $dayDurations,
                     );
                     if ($slotIgnoringAvail) {
                         $byPhase[$phase]['unplaced_availability'] =
@@ -376,12 +384,12 @@ class SchedulingService
             }
         }
 
-        DB::transaction(function () use ($placements, $duration) {
-            foreach ($placements as $matchId => [$courtId, $startTs]) {
+        DB::transaction(function () use ($placements) {
+            foreach ($placements as $matchId => [$courtId, $startTs, $durMin]) {
                 GameMatch::where('id', $matchId)->update([
                     'court_id' => $courtId,
                     'starts_at' => Carbon::createFromTimestamp($startTs, 'America/Mexico_City'),
-                    'duration_minutes' => $duration,
+                    'duration_minutes' => $durMin,
                 ]);
             }
         });
@@ -414,7 +422,8 @@ class SchedulingService
         int $anchorMinOfDay = 480,
         int $gridStepSec = 0,
         int $earliestStart = 0,
-        array $availFloors = [],
+        array $availWindows = [],
+        array $dayDurations = [],
     ): ?array {
         $best = null;
 
@@ -433,24 +442,47 @@ class SchedulingService
                     if ($segStart >= $segEnd) continue;
 
                     // Snap the segment start UP to the next grid-aligned slot so
-                    // placements always land on a visible row (08:00, 09:15, ...).
-                    $start = $gridStepSec > 0
-                        ? $this->snapToGrid($segStart, $anchorMinOfDay, $gridStepSec)
+                    // placements always land on a visible row. Use THIS DAY's step
+                    // (a court segment is within one day), so the snap matches the
+                    // per-day grid the calendar draws (e.g. 90-min day → 08:00,
+                    // 09:30, 11:00…), not the global default step.
+                    $segDay = Carbon::createFromTimestamp($segStart, 'America/Mexico_City')->format('Y-m-d');
+                    $segStepSec = isset($dayDurations[$segDay]) ? $dayDurations[$segDay] * 60 : $gridStepSec;
+
+                    $start = $segStepSec > 0
+                        ? $this->snapToGrid($segStart, $anchorMinOfDay, $segStepSec)
                         : $segStart;
 
-                    $lastStart = $segEnd - $durSec;
-                    for ($ts = $start; $ts <= $lastStart; $ts += $stepSec) {
-                        $end = $ts + $durSec;
+                    // Duration depends on the DAY of the candidate slot (the last
+                    // day may run longer). Look it up per candidate; the step also
+                    // follows the day's duration so rows stay aligned within a day.
+                    for ($ts = $start; $ts < $segEnd;) {
+                        $day = Carbon::createFromTimestamp($ts, 'America/Mexico_City')->format('Y-m-d');
+                        $dayDurSec = isset($dayDurations[$day]) ? $dayDurations[$day] * 60 : $durSec;
+                        $end = $ts + $dayDurSec;
+                        $stepThis = $dayDurSec > 0 ? $dayDurSec : $stepSec;
 
-                        // Player availability: on the candidate's day, the start
-                        // must be at/after the day's floor (latest "from" time
-                        // among participating players). Days with no floor are free.
-                        if (! empty($availFloors)) {
-                            $day = Carbon::createFromTimestamp($ts, 'America/Mexico_City')->format('Y-m-d');
-                            if (isset($availFloors[$day]) && $ts < $availFloors[$day]) continue;
+                        // Must fit inside the court/phase segment.
+                        if ($end > $segEnd) break;
+
+                        // Player availability window on this day: start >= from,
+                        // and end <= until (match must FINISH by "until").
+                        if (! empty($availWindows) && isset($availWindows[$day])) {
+                            $win = $availWindows[$day];
+                            if (isset($win['from']) && $win['from'] !== null && $ts < $win['from']) {
+                                $ts += $stepThis;
+                                continue;
+                            }
+                            if (isset($win['until']) && $win['until'] !== null && $end > $win['until']) {
+                                $ts += $stepThis;
+                                continue;
+                            }
                         }
 
-                        if ($this->intervalHits($courtBusy[$cid] ?? [], $ts, $end)) continue;
+                        if ($this->intervalHits($courtBusy[$cid] ?? [], $ts, $end)) {
+                            $ts += $stepThis;
+                            continue;
+                        }
 
                         $clash = false;
                         foreach ($playerIds as $pid) {
@@ -459,9 +491,12 @@ class SchedulingService
                                 break;
                             }
                         }
-                        if ($clash) continue;
+                        if ($clash) {
+                            $ts += $stepThis;
+                            continue;
+                        }
 
-                        if ($best === null || $ts < $best[1]) $best = [$cid, $ts];
+                        if ($best === null || $ts < $best[1]) $best = [$cid, $ts, $dayDurSec];
                         break 2;
                     }
                 }
@@ -588,24 +623,22 @@ class SchedulingService
     }
 
     /**
-     * Per-day availability floor for a match: for each day on which one or more
-     * of the match's players has an "available from" rule, the binding floor is
-     * the LATEST such time (all players' rules must hold). Returned as
-     * [ 'Y-m-d' => unixTimestampOfEarliestAllowedStartThatDay ].
+     * Per-day availability WINDOW for a match: for each day one or more of its
+     * players restricts, the binding window is ['from'=>ts, 'until'=>ts|null] —
+     * "from" is the LATEST start among players (all must be available), "until"
+     * is the EARLIEST end among players (all must be gone by then). A day where
+     * no player sets an "until" has 'until'=>null (no upper bound).
      *
-     * Players are matched by NORMALIZED NAME (rules are stored per name, since the
-     * same person may be separate Player records across categories). Matches with
-     * no known pairs (placeholders) or whose players have no rules → empty array
-     * (no constraint).
+     * Players matched by NORMALIZED NAME. Placeholder matches (no known pairs) or
+     * players with no rules → empty (no constraint).
      *
-     * @param  array<string, array<string, string>>  $availabilityMap
-     * @return array<string, int>
+     * @param  array<string, array<string, array{from:string, until:?string}>>  $availabilityMap
+     * @return array<string, array{from:int, until:?int}>
      */
-    private function availabilityFloors(GameMatch $match, array $availabilityMap): array
+    private function availabilityWindows(GameMatch $match, array $availabilityMap): array
     {
         if (empty($availabilityMap)) return [];
 
-        // Collect participating players' normalized names.
         $names = [];
         foreach ([$match->pairA, $match->pairB] as $pair) {
             if (! $pair) continue;
@@ -617,23 +650,39 @@ class SchedulingService
         }
         if (empty($names)) return [];
 
-        // For each day any of these players restricts, take the LATEST from-time.
-        $floorsHHMM = []; // ['Y-m-d' => 'HH:MM']
+        // Per day: latest "from" (string compare ok, zero-padded) and earliest
+        // "until" among the participating players who restrict that day.
+        $fromHHMM = [];   // ['Y-m-d' => 'HH:MM']
+        $untilHHMM = [];  // ['Y-m-d' => 'HH:MM']
         foreach ($names as $key) {
-            foreach ($availabilityMap[$key] ?? [] as $day => $hhmm) {
-                if (! isset($floorsHHMM[$day]) || $hhmm > $floorsHHMM[$day]) {
-                    $floorsHHMM[$day] = $hhmm; // string compare ok for zero-padded HH:MM
+            foreach ($availabilityMap[$key] ?? [] as $day => $win) {
+                $from = is_array($win) ? ($win['from'] ?? null) : $win; // tolerate old shape
+                $until = is_array($win) ? ($win['until'] ?? null) : null;
+
+                if ($from !== null) {
+                    if (! isset($fromHHMM[$day]) || $from > $fromHHMM[$day]) $fromHHMM[$day] = $from;
+                }
+                if ($until !== null) {
+                    if (! isset($untilHHMM[$day]) || $until < $untilHHMM[$day]) $untilHHMM[$day] = $until;
                 }
             }
         }
-        if (empty($floorsHHMM)) return [];
 
-        // Convert each day+time to a CDMX timestamp.
-        $floors = [];
-        foreach ($floorsHHMM as $day => $hhmm) {
-            $floors[$day] = Carbon::parse("$day $hhmm", 'America/Mexico_City')->timestamp;
+        $days = array_unique(array_merge(array_keys($fromHHMM), array_keys($untilHHMM)));
+        if (empty($days)) return [];
+
+        $out = [];
+        foreach ($days as $day) {
+            $out[$day] = [
+                'from' => isset($fromHHMM[$day])
+                    ? Carbon::parse("$day {$fromHHMM[$day]}", 'America/Mexico_City')->timestamp
+                    : 0,
+                'until' => isset($untilHHMM[$day])
+                    ? Carbon::parse("$day {$untilHHMM[$day]}", 'America/Mexico_City')->timestamp
+                    : null,
+            ];
         }
-        return $floors;
+        return $out;
     }
 
     /** Resolve a player's display name from a match's pairs. */

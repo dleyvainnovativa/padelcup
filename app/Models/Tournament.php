@@ -37,6 +37,7 @@ class Tournament extends Model
         'platform_fee_centavos',
         'iva_enabled',
         'hide_global_ads',
+        'day_durations',
     ];
 
     protected function casts(): array
@@ -52,6 +53,7 @@ class Tournament extends Model
             'iva_enabled' => 'boolean',
             'is_listed' => 'boolean',
             'hide_global_ads' => 'boolean',
+            'day_durations' => 'array',
         ];
     }
 
@@ -158,8 +160,23 @@ class Tournament extends Model
      */
     public function timeSlots(): array
     {
+        return $this->timeSlotsForDuration((int) ($this->match_duration_minutes ?: 75));
+    }
+
+    /**
+     * Slot labels for a SPECIFIC day, stepping by that day's duration (per-day
+     * override or default). Lets a longer-duration day draw its own rows.
+     */
+    public function timeSlotsForDay(\Carbon\Carbon|string $day): array
+    {
+        return $this->timeSlotsForDuration($this->durationForDay($day));
+    }
+
+    /** Slot labels from play_start to play_end stepping by $step minutes. */
+    private function timeSlotsForDuration(int $step): array
+    {
+        $step = max(1, $step);
         $slots = [];
-        $step = (int) ($this->match_duration_minutes ?: 75);
         $start = \Carbon\Carbon::parse($this->play_start ?? '08:00', 'America/Mexico_City');
         $end = \Carbon\Carbon::parse($this->play_end ?? '23:00', 'America/Mexico_City');
 
@@ -169,6 +186,54 @@ class Tournament extends Model
             $cursor->addMinutes($step);
         }
         return $slots;
+    }
+
+    /**
+     * [ 'Y-m-d' => ['slots' => [...], 'step' => minutes] ] for every play day —
+     * each day's own grid rows + step, for the schedule view.
+     *
+     * @return array<string, array{slots: array<int,string>, step: int}>
+     */
+    public function daySlotMap(): array
+    {
+        $map = [];
+        foreach ($this->playDays() as $d) {
+            $step = $this->durationForDay($d);
+            $map[$d->format('Y-m-d')] = [
+                'slots' => $this->timeSlotsForDuration($step),
+                'step' => $step,
+            ];
+        }
+        return $map;
+    }
+
+    /**
+     * Match duration (minutes) for a specific play day. Uses a per-day override
+     * from day_durations ({'Y-m-d' => minutes}) if present, else the tournament
+     * default (match_duration_minutes). Lets the last day run longer for SF/F.
+     */
+    public function durationForDay(\Carbon\Carbon|string $day): int
+    {
+        $default = (int) ($this->match_duration_minutes ?: 75);
+        $key = $day instanceof \Carbon\Carbon ? $day->format('Y-m-d') : (string) $day;
+        $overrides = $this->day_durations ?? [];
+        $val = $overrides[$key] ?? null;
+        return $val ? (int) $val : $default;
+    }
+
+    /**
+     * [ 'Y-m-d' => durationMinutes ] for every play day — the resolved duration
+     * (override or default) per day, for the scheduler.
+     *
+     * @return array<string,int>
+     */
+    public function dayDurationMap(): array
+    {
+        $map = [];
+        foreach ($this->playDays() as $d) {
+            $map[$d->format('Y-m-d')] = $this->durationForDay($d);
+        }
+        return $map;
     }
 
     public function getRouteKeyName(): string

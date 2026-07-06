@@ -340,39 +340,46 @@
 </div>
 @else
 @php
-// Precompute slot start-minutes for range matching.
-$step = $tournament->match_duration_minutes ?: 75;
-$slotMins = [];
-foreach ($slots as $s) {
-[$h, $mi] = explode(':', $s);
-$slotMins[$s] = ((int) $h) * 60 + (int) $mi;
-}
+// Per-day slot map: each day has its own slots + step (a longer-duration day
+// draws its own rows). [ 'Y-m-d' => ['slots'=>[...], 'step'=>min] ].
+$daySlots = $tournament->daySlotMap();
 
-// Bucket each scheduled match into the SLOT whose window contains
-// its start time (so a 12:00 match shows in the 11:45 slot, not
-// vanishing because 12:00 isn't an exact slot label).
+// Bucket each scheduled match into the SLOT (on ITS day) whose window contains
+// its start time (so a 12:00 match shows in the 11:45 slot, not vanishing
+// because 12:00 isn't an exact slot label). Uses that day's step.
 $byCell = [];
 foreach ($scheduled as $m) {
 $local = $m->starts_at->timezone('America/Mexico_City');
+$dayKey = $local->format('Y-m-d');
 $startMin = $local->hour * 60 + $local->minute;
 
-// Find the slot this start time falls into.
+$daySlotList = $daySlots[$dayKey]['slots'] ?? ($slots ?? []);
+$dayStep = $daySlots[$dayKey]['step'] ?? ($tournament->match_duration_minutes ?: 75);
+
+// Build this day's slot-minute map.
+$dayMins = [];
+foreach ($daySlotList as $s) {
+[$h, $mi] = explode(':', $s);
+$dayMins[$s] = ((int) $h) * 60 + (int) $mi;
+}
+
+// Find the slot this start time falls into (on its day).
 $matchedSlot = null;
-foreach ($slotMins as $label => $min) {
-if ($startMin >= $min && $startMin < $min + $step) {
+foreach ($dayMins as $label => $min) {
+if ($startMin >= $min && $startMin < $min + $dayStep) {
     $matchedSlot=$label;
     break;
     }
     }
     // Off-grid (before first / after last slot): clamp to nearest.
-    if ($matchedSlot===null && ! empty($slotMins)) {
-    $matchedSlot=$startMin < reset($slotMins)
-    ? array_key_first($slotMins)
-    : array_key_last($slotMins);
+    if ($matchedSlot===null && ! empty($dayMins)) {
+    $matchedSlot=$startMin < reset($dayMins)
+    ? array_key_first($dayMins)
+    : array_key_last($dayMins);
     }
 
     if ($matchedSlot !==null) {
-    $key=$m->court_id.'|'.$local->format('Y-m-d').'|'.$matchedSlot;
+    $key=$m->court_id.'|'.$dayKey.'|'.$matchedSlot;
     $byCell[$key][] = $m; // a cell can hold more than one match
     }
     }
@@ -458,67 +465,68 @@ if ($startMin >= $min && $startMin < $min + $step) {
                                     @endforeach
                                 </tr>
                             </thead>
-                            <tbody>
-                                @foreach($slots as $slot)
+                            @foreach($days as $day)
+                            @php
+                            $dk = $day->format('Y-m-d');
+                            $daySlotList = $daySlots[$dk]['slots'] ?? [];
+                            @endphp
+                            <tbody data-day-body="{{ $dk }}" x-show="day === '{{ $dk }}'">
+                                @foreach($daySlotList as $slot)
                                 <tr>
                                     <td class="sched-grid__timecol font-mono">{{ $slot }}</td>
                                     @foreach($courts as $court)
                                     <td class="sched-cell" data-cell
                                         data-court="{{ $court->id }}"
                                         data-slot="{{ $slot }}"
-                                        x-bind:data-date="day">
-                                        <template x-for="d in []"></template>
-                                        @foreach($days as $day)
-                                        @php $key = $court->id.'|'.$day->format('Y-m-d').'|'.$slot; $cellMatches = $byCell[$key] ?? []; @endphp
-                                        <div x-show="day === '{{ $day->format('Y-m-d') }}'" data-day="{{ $day->format('Y-m-d') }}">
-                                            @forelse($cellMatches as $m)
-                                            @php
-                                            $status = $m->scheduleStatus();
-                                            $mLocal = $m->starts_at->timezone('America/Mexico_City');
-                                            $offGrid = $mLocal->format('H:i') !== $slot;
-                                            @endphp
-                                            <div class="sched-match is-{{ $status }} {{ $offGrid ? 'is-offgrid' : '' }}"
-                                                data-match-id="{{ $m->id }}"
-                                                data-ready="{{ $m->isReadyForResult() ? '1' : '0' }}"
-                                                data-status="{{ $status }}"
-                                                data-match-cat="{{ $m->category_id }}"
-                                                data-match-players="@php
-                                                    $names = [];
-                                                    foreach ([$m->pairA, $m->pairB] as $pp) {
-                                                        if (! $pp) continue;
-                                                        foreach ([$pp->player1 ?? null, $pp->player2 ?? null] as $pl) {
-                                                            if ($pl) $names[] = \Illuminate\Support\Str::lower($pl->name);
-                                                        }
+                                        data-date="{{ $dk }}">
+                                        @php $key = $court->id.'|'.$dk.'|'.$slot; $cellMatches = $byCell[$key] ?? []; @endphp
+                                        @forelse($cellMatches as $m)
+                                        @php
+                                        $status = $m->scheduleStatus();
+                                        $mLocal = $m->starts_at->timezone('America/Mexico_City');
+                                        $offGrid = $mLocal->format('H:i') !== $slot;
+                                        @endphp
+                                        <div class="sched-match is-{{ $status }} {{ $offGrid ? 'is-offgrid' : '' }}"
+                                            data-match-id="{{ $m->id }}"
+                                            data-ready="{{ $m->isReadyForResult() ? '1' : '0' }}"
+                                            data-status="{{ $status }}"
+                                            data-match-cat="{{ $m->category_id }}"
+                                            data-match-players="@php
+                                                $names = [];
+                                                foreach ([$m->pairA, $m->pairB] as $pp) {
+                                                    if (! $pp) continue;
+                                                    foreach ([$pp->player1 ?? null, $pp->player2 ?? null] as $pl) {
+                                                        if ($pl) $names[] = \Illuminate\Support\Str::lower($pl->name);
                                                     }
-                                                    echo e(implode('|', $names));
-                                                @endphp"
-                                                draggable="true">
-                                                <div class="sched-match__context">
-                                                    {{ $m->contextLabel() }}
-                                                    @if($offGrid)<span class="sched-match__time" title="Horario fuera de la cuadrícula">{{ $mLocal->format('H:i') }}</span>@endif
-                                                </div>
-                                                <div style="font-weight:600;">{{ $m->sideLabel('a') }}</div>
-                                                <div style="font-size:10px;color:var(--text-faint);">vs</div>
-                                                <div style="font-weight:600;">{{ $m->sideLabel('b') }}</div>
-                                                @if($status === 'played' && $m->sets)
-                                                <div class="sched-match__scores">
-                                                    @foreach($m->sets as $i => $s)
-                                                    <span class="sched-score-badge">{{ $s[0] }}-{{ $s[1] }}</span>
-                                                    @endforeach
-                                                </div>
-                                                @endif
-                                                <button type="button" class="sched-match__remove" data-unplace="{{ $m->id }}" title="Quitar">&times;</button>
+                                                }
+                                                echo e(implode('|', $names));
+                                            @endphp"
+                                            draggable="true">
+                                            <div class="sched-match__context">
+                                                {{ $m->contextLabel() }}
+                                                @if($offGrid)<span class="sched-match__time" title="Horario fuera de la cuadrícula">{{ $mLocal->format('H:i') }}</span>@endif
                                             </div>
-                                            @empty
-                                            <span class="sched-cell__add"><i class="fa-solid fa-plus"></i></span>
-                                            @endforelse
+                                            <div style="font-weight:600;">{{ $m->sideLabel('a') }}</div>
+                                            <div style="font-size:10px;color:var(--text-faint);">vs</div>
+                                            <div style="font-weight:600;">{{ $m->sideLabel('b') }}</div>
+                                            @if($status === 'played' && $m->sets)
+                                            <div class="sched-match__scores">
+                                                @foreach($m->sets as $i => $s)
+                                                <span class="sched-score-badge">{{ $s[0] }}-{{ $s[1] }}</span>
+                                                @endforeach
+                                            </div>
+                                            @endif
+                                            <button type="button" class="sched-match__remove" data-unplace="{{ $m->id }}" title="Quitar">&times;</button>
                                         </div>
-                                        @endforeach
+                                        @empty
+                                        <span class="sched-cell__add"><i class="fa-solid fa-plus"></i></span>
+                                        @endforelse
                                     </td>
                                     @endforeach
                                 </tr>
                                 @endforeach
                             </tbody>
+                            @endforeach
                         </table>
                     </div>
                 </div>

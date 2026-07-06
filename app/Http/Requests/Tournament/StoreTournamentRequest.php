@@ -33,6 +33,8 @@ class StoreTournamentRequest extends FormRequest
             'platform_fee_centavos' => ['nullable', 'integer', 'min:0'],
             'is_listed' => ['nullable', 'boolean'],
             'hide_global_ads' => ['nullable', 'boolean'],
+            'day_durations' => ['nullable', 'array'],
+            'day_durations.*' => ['nullable', 'integer', 'min:30', 'max:240'],
         ];
     }
 

@@ -21,9 +21,9 @@
 
 <div class="alert py-2 px-3 mb-3" style="font-size:13px;border-radius:var(--radius);background:var(--bg-subtle);color:var(--text-muted);">
     <i class="fa-solid fa-circle-info me-1"></i>
-    Indica desde qué hora puede jugar cada jugador en un día (ej. «disponible desde las 19:00 el viernes»).
-    Un día sin hora no tiene restricción. Solo necesitas configurar a quienes tengan horarios especiales.
-    El calendario automático respetará estas reglas.
+    Indica el rango horario en que cada jugador puede jugar un día (ej. «de 18:00 a 22:00 el viernes»).
+    Deja «hasta» vacío si solo hay hora de inicio. Un día sin hora no tiene restricción.
+    Solo configura a quienes tengan horarios especiales; el calendario automático los respeta.
 </div>
 
 <div class="tc-card mb-3">
@@ -54,13 +54,24 @@
             </summary>
             <div class="avail-days">
                 @foreach($playDays as $d)
-                @php $val = $rules[$d['ymd']] ?? ''; @endphp
+                @php
+                $rule = $rules[$d['ymd']] ?? null;
+                $from = is_array($rule) ? ($rule['from'] ?? '') : ($rule ?? '');
+                $until = is_array($rule) ? ($rule['until'] ?? '') : '';
+                @endphp
                 <label class="avail-day">
                     <span class="avail-day__label">{{ $d['label'] }}</span>
-                    <span class="avail-day__from">desde</span>
+                    <span class="avail-day__from">de</span>
                     <input type="time"
-                        class="form-control form-control-sm avail-input"
-                        value="{{ $val }}"
+                        class="form-control form-control-sm avail-input avail-input--from"
+                        value="{{ $from }}"
+                        data-name="{{ $person['key'] }}"
+                        data-day="{{ $d['ymd'] }}"
+                        style="width:auto;border-radius:var(--radius);">
+                    <span class="avail-day__from">a</span>
+                    <input type="time"
+                        class="form-control form-control-sm avail-input avail-input--until"
+                        value="{{ $until }}"
                         data-name="{{ $person['key'] }}"
                         data-day="{{ $d['ymd'] }}"
                         style="width:auto;border-radius:var(--radius);">
@@ -96,10 +107,24 @@
             });
         }
 
+        // Save when either the "from" or "until" input of a day changes; we send both.
         root.addEventListener('change', function(e) {
             var input = e.target.closest('.avail-input');
             if (!input) return;
-            var statusEl = input.parentElement.querySelector('[data-status]');
+            var label = input.closest('.avail-day');
+            var fromEl = label.querySelector('.avail-input--from');
+            var untilEl = label.querySelector('.avail-input--until');
+            var statusEl = label.querySelector('[data-status]');
+
+            // "until" without "from" is invalid — ignore until a from is set.
+            if (!fromEl.value && untilEl.value) {
+                if (statusEl) {
+                    statusEl.textContent = '⚠';
+                    statusEl.className = 'avail-day__status is-err';
+                }
+                return;
+            }
+
             if (statusEl) {
                 statusEl.textContent = '…';
                 statusEl.className = 'avail-day__status is-saving';
@@ -115,7 +140,8 @@
                 body: JSON.stringify({
                     normalized_name: input.dataset.name,
                     day: input.dataset.day,
-                    earliest_time: input.value || null,
+                    earliest_time: fromEl.value || null,
+                    latest_time: untilEl.value || null,
                 }),
             }).then(function(r) {
                 if (!r.ok) throw new Error();
@@ -137,7 +163,8 @@
 
         function updateBadge(input) {
             var person = input.closest('.avail-person');
-            var count = [...person.querySelectorAll('.avail-input')].filter(function(i) {
+            // A day counts as a rule if its "from" input has a value.
+            var count = [...person.querySelectorAll('.avail-input--from')].filter(function(i) {
                 return i.value;
             }).length;
             var badge = person.querySelector('.avail-badge');

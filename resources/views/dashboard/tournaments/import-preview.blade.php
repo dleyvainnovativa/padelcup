@@ -63,6 +63,12 @@ $existingCats = collect($preview)->where('exists', true)->count();
                     <tr data-cat-row data-pairs="{{ $row['pairs'] }}">
                         <td style="font-weight:600;">
                             {{ $row['category'] }}
+                            @if(($row['leaders'] ?? 0) > 0)
+                            <span title="Parejas líderes (cabezas de serie, una por grupo)"
+                                style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;color:var(--gold,#d4af37);margin-left:6px;">
+                                <i class="fa-solid fa-crown"></i> {{ $row['leaders'] }}
+                            </span>
+                            @endif
                             <input type="hidden" name="settings[{{ $row['category'] }}][_]" value="1">
                         </td>
                         <td>
