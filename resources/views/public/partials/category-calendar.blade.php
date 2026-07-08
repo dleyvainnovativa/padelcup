@@ -3,9 +3,9 @@
      Filters submit via GET with tab=calendar so this tab stays active on reload. --}}
 
 @php
-    // Helper to render one player's name as a link to their public page, or plain
-    // text if the player record isn't available.
-    $catBase = ['tournament' => $tournament, 'category' => $category];
+// Helper to render one player's name as a link to their public page, or plain
+// text if the player record isn't available.
+$catBase = ['tournament' => $tournament, 'category' => $category];
 @endphp
 
 {{-- Buscar mi partido --}}
@@ -24,7 +24,7 @@
 
 {{-- Day chips --}}
 @if($calAllDays->count() > 1)
-<div class="pub-day-chips">
+<div class="pub-day-chips pb-3">
     <a href="{{ route('public.category', $catBase + ['tab' => 'calendar', 'q' => $calSearch ?: null]) }}"
         class="pub-day-chip {{ !$calDay ? 'is-active' : '' }}">Todos</a>
     @foreach($calAllDays as $day)
@@ -61,28 +61,28 @@
     @endif
 </div>
 @else
-    {{-- Scheduled matches, grouped by day --}}
-    @foreach($calByDay as $day => $matches)
-    @php $d = \Carbon\Carbon::parse($day, 'America/Mexico_City'); @endphp
-    <div class="pub-day">
-        <div class="pub-day__title">{{ $d->translatedFormat('l d \d\e F') }}</div>
-        <div class="pub-day__matches">
-            @foreach($matches as $m)
-            @include('public.partials.category-calendar-match', ['m' => $m, 'showTime' => true])
-            @endforeach
-        </div>
+{{-- Scheduled matches, grouped by day --}}
+@foreach($calByDay as $day => $matches)
+@php $d = \Carbon\Carbon::parse($day, 'America/Mexico_City'); @endphp
+<div class="pub-day">
+    <div class="pub-day__title">{{ $d->translatedFormat('l d \d\e F') }}</div>
+    <div class="pub-day__matches">
+        @foreach($matches as $m)
+        @include('public.partials.category-calendar-match', ['m' => $m, 'showTime' => true])
+        @endforeach
     </div>
-    @endforeach
+</div>
+@endforeach
 
-    {{-- Unscheduled matches (no day filter applied to these) --}}
-    @if($calUnscheduled->isNotEmpty() && !$calDay)
-    <div class="pub-day">
-        <div class="pub-day__title pub-day__title--muted"><i class="fa-regular fa-clock"></i> Sin programar</div>
-        <div class="pub-day__matches">
-            @foreach($calUnscheduled as $m)
-            @include('public.partials.category-calendar-match', ['m' => $m, 'showTime' => false])
-            @endforeach
-        </div>
+{{-- Unscheduled matches (no day filter applied to these) --}}
+@if($calUnscheduled->isNotEmpty() && !$calDay)
+<div class="pub-day">
+    <div class="pub-day__title pub-day__title--muted"><i class="fa-regular fa-clock"></i> Sin programar</div>
+    <div class="pub-day__matches">
+        @foreach($calUnscheduled as $m)
+        @include('public.partials.category-calendar-match', ['m' => $m, 'showTime' => false])
+        @endforeach
     </div>
-    @endif
+</div>
+@endif
 @endif
