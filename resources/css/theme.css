@@ -1257,3 +1257,41 @@ input:-webkit-autofill:focus {
   .avail-day { flex-wrap: wrap; }
   .avail-day__label { flex-basis: 100%; }
 }
+
+/* Category calendar tab: share button at the right of each match, muted
+   "Sin programar" header. Append to your public/landing CSS or theme.css. */
+.pub-match { position: relative; }
+.pub-match__share {
+    position: absolute; top: 8px; right: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 8px;
+    /* border: 1px solid var(--pub-border, #e8e8ef); */
+    /* background: var(--pub-surface, #fff); color: var(--pub-muted, #6b7280); */
+    cursor: pointer; transition: color .12s, border-color .12s;
+}
+.pub-match__share:hover { color: var(--pub-indigo, #635bff); border-color: var(--pub-indigo, #635bff); }
+.pub-match__player { color: inherit; text-decoration: none; border-bottom: 1px dotted transparent; }
+.pub-match__player:hover { border-bottom-color: currentColor; }
+.pub-day__title--muted { color: var(--pub-muted, #6b7280); opacity: .85; }
+/* Give the pairs row room so long names don't slip under the share button. */
+.pub-match--played .pub-match__body, .pub-match__body { padding-right: 40px; }
+
+/* ── Responsive pub-tabs ──────────────────────────────────────────────
+   Normal: icon + text. Extra-small (≤400px, e.g. iPhone SE): icon-only so
+   4 tabs never overflow the viewport. Append after your existing .pub-tabs rule. */
+
+/* icon spacing when text is showing */
+.pub-tab { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.pub-tab i { font-size: 13px; }
+
+@media (max-width: 600px) {
+  /* Let the bar span the row and share space evenly instead of fit-content. */
+  .pub-tabs { width: 100%; justify-content: space-between; }
+  .pub-tabs .pub-tab { flex: 1 1 0; justify-content: center; padding-left: 0; padding-right: 0; }
+  /* Hide the words, keep the icons. */
+  .pub-tabs .pub-tab__label { display: none; }
+  .pub-tabs .pub-tab i { font-size: 15px; }
+  .pub-match__pairs{
+    display:grid;
+  }
+}

@@ -3,7 +3,8 @@
 @section('title', $category->name.' · '.$tournament->name)
 
 @section('content')
-<div class="pub-wrap" data-auto-refresh="60" x-data="{ tab: '{{ $groups->isNotEmpty() ? 'standings' : 'bracket' }}' }">
+<div class="pub-wrap" data-auto-refresh="60"
+    x-data="{ tab: new URLSearchParams(location.search).get('tab') || 'calendar' }">
     <div class="pub-crumb">
         <a href="{{ route('public.tournament', $tournament) }}"><i class="fa-solid fa-chevron-left"></i> {{ $tournament->name }}</a>
     </div>
@@ -21,15 +22,29 @@
 
     {{-- Tabs --}}
     <div class="pub-tabs">
+        <button class="pub-tab" :class="{ 'is-active': tab === 'calendar' }" @click="tab = 'calendar'" title="Calendario" aria-label="Calendario">
+            <i class="fa-regular fa-calendar-days"></i><span class="pub-tab__label">Calendario</span>
+        </button>
         @if($groups->isNotEmpty())
-        <button class="pub-tab" :class="{ 'is-active': tab === 'standings' }" @click="tab = 'standings'">Posiciones</button>
+        <button class="pub-tab" :class="{ 'is-active': tab === 'standings' }" @click="tab = 'standings'" title="Posiciones" aria-label="Posiciones">
+            <i class="fa-solid fa-ranking-star"></i><span class="pub-tab__label">Posiciones</span>
+        </button>
         @endif
         @if($category->format->hasBracket())
-        <button class="pub-tab" :class="{ 'is-active': tab === 'bracket' }" @click="tab = 'bracket'">Llave</button>
+        <button class="pub-tab" :class="{ 'is-active': tab === 'bracket' }" @click="tab = 'bracket'" title="Llave" aria-label="Llave">
+            <i class="fa-solid fa-sitemap"></i><span class="pub-tab__label">Llave</span>
+        </button>
         @endif
         @if($groupResults->isNotEmpty() || $bracketResults->isNotEmpty())
-        <button class="pub-tab" :class="{ 'is-active': tab === 'results' }" @click="tab = 'results'">Resultados</button>
+        <button class="pub-tab" :class="{ 'is-active': tab === 'results' }" @click="tab = 'results'" title="Resultados" aria-label="Resultados">
+            <i class="fa-solid fa-list-check"></i><span class="pub-tab__label">Resultados</span>
+        </button>
         @endif
+    </div>
+
+    {{-- CALENDAR (this category) --}}
+    <div x-show="tab === 'calendar'" x-cloak>
+        @include('public.partials.category-calendar')
     </div>
 
     {{-- STANDINGS --}}

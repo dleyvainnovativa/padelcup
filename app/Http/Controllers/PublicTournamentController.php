@@ -75,13 +75,76 @@ class PublicTournamentController extends Controller
         ]);
     }
 
-    /** Category page: standings (per-group + general) / bracket / results. */
-    public function category(Tournament $tournament, Category $category)
+    /** Category page: calendar / standings (per-group + general) / bracket / results. */
+    public function category(Request $request, Tournament $tournament, Category $category)
     {
         $this->ensurePublic($tournament);
         abort_unless($category->tournament_id === $tournament->id, 404);
 
         $category->load(['groups.pairs.player1', 'groups.pairs.player2']);
+
+        // --- Calendar (this category only) ------------------------------------
+        // All of this category's matches that have real pairs, with day + player
+        // search filters. Scheduled matches group by day; unscheduled ones fall
+        // into a "Sin programar" bucket shown at the end.
+        $calSearch = trim((string) $request->query('q', ''));
+        $calDay = $request->query('day'); // Y-m-d
+
+        $calMatches = $category->matches()
+            ->with(['court', 'group', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->orderBy('starts_at')
+            ->orderBy('round')->orderBy('slot')->orderBy('id')
+            ->get();
+
+        // Day options come from scheduled matches (before narrowing by day).
+        $calAllDays = $calMatches
+            ->filter(fn($m) => $m->starts_at)
+            ->map(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'))
+            ->unique()->values();
+
+        // Player search: keep matches whose pair/player names contain the needle,
+        // and collect the distinct matched players for quick profile links.
+        $calMatchedPlayers = collect();
+        if ($calSearch !== '') {
+            $needle = mb_strtolower($calSearch);
+            $calMatches = $calMatches->filter(function ($m) use ($needle) {
+                foreach ([$m->pairA, $m->pairB] as $pair) {
+                    if (! $pair) continue;
+                    if (str_contains(mb_strtolower($pair->name()), $needle)) return true;
+                    foreach ([$pair->player1, $pair->player2] as $p) {
+                        if ($p && str_contains(mb_strtolower($p->name), $needle)) return true;
+                    }
+                }
+                return false;
+            })->values();
+
+            foreach ($calMatches as $m) {
+                foreach ([$m->pairA, $m->pairB] as $pair) {
+                    if (! $pair) continue;
+                    foreach ([$pair->player1, $pair->player2] as $p) {
+                        if ($p && str_contains(mb_strtolower($p->name), $needle)) {
+                            $calMatchedPlayers->put($p->id, $p);
+                        }
+                    }
+                }
+            }
+            $calMatchedPlayers = $calMatchedPlayers->values();
+        }
+
+        // Split scheduled vs unscheduled; apply the day filter to scheduled ones.
+        $calScheduled = $calMatches->filter(fn($m) => $m->starts_at);
+        $calUnscheduled = $calMatches->filter(fn($m) => ! $m->starts_at)->values();
+
+        if ($calDay) {
+            $calScheduled = $calScheduled->filter(
+                fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d') === $calDay
+            );
+        }
+
+        $calByDay = $calScheduled
+            ->groupBy(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'));
+
+        $calTotal = $calScheduled->count() + $calUnscheduled->count();
 
         // Per-group standings.
         $groups = $category->groups->map(function ($group) {
@@ -134,7 +197,8 @@ class PublicTournamentController extends Controller
             ->with(['group', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
             ->orderBy('round')->orderBy('slot')->orderBy('id')
             ->get()
-            ->groupBy('group_id');
+            ->groupBy('group_id')
+            ->sortBy(fn($matches) => $matches->first()->group?->name ?? '', SORT_NATURAL);
 
         // Elimination results (played bracket matches) for the results tab,
         // grouped by round so each phase has its own section.
@@ -159,6 +223,14 @@ class PublicTournamentController extends Controller
             'groupResults' => $groupResults,
             'bracketResults' => $bracketResults,
             'ads' => \App\Models\Ad::forTournament($tournament),
+            // Calendar tab
+            'calByDay' => $calByDay,
+            'calUnscheduled' => $calUnscheduled,
+            'calAllDays' => $calAllDays,
+            'calSearch' => $calSearch,
+            'calDay' => $calDay,
+            'calMatchedPlayers' => $calMatchedPlayers,
+            'calTotal' => $calTotal,
         ]);
     }
 
