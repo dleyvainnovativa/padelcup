@@ -8,7 +8,6 @@ use App\Models\Category;
 use App\Models\GameMatch;
 use App\Models\Group;
 use App\Models\Pair;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -28,6 +27,8 @@ use Illuminate\Support\Facades\DB;
  */
 class BracketService
 {
+    use \App\Services\Tournament\Concerns\RanksCrossGroupQualifiers;
+
     public function __construct(private StandingsService $standings) {}
 
     // --- Qualification (hybrid) ---------------------------------------
@@ -82,20 +83,6 @@ class BracketService
     }
 
     /**
-     * Rank boundary finishers across groups. Head-to-head doesn't apply (they
-     * didn't play), so: points → set diff → game diff → games won.
-     */
-    private function rankCrossGroup(Collection $rows): array
-    {
-        return $rows->sort(function ($x, $y) {
-            if ($x['points'] !== $y['points'])       return $y['points'] <=> $x['points'];
-            if ($x['set_diff'] !== $y['set_diff'])   return $y['set_diff'] <=> $x['set_diff'];
-            if ($x['game_diff'] !== $y['game_diff']) return $y['game_diff'] <=> $x['game_diff'];
-            return $y['games_for'] <=> $x['games_for'];
-        })->values()->all();
-    }
-
-    /**
      * If the pairs straddling the cut (positions `need-1` and `need`) are tied
      * on every automatic criterion, return the tied set for manual resolution.
      */
@@ -106,12 +93,12 @@ class BracketService
         $last = $ranked[$need - 1];   // last auto-in
         $first = $ranked[$need];      // first out
 
-        if (! $this->rowsTied($last, $first)) {
+        if (! $this->crossGroupRowsTied($last, $first)) {
             return null;
         }
 
         // Collect everyone tied with the boundary on the automatic criteria.
-        $tiedRows = array_values(array_filter($ranked, fn($r) => $this->rowsTied($r, $last)));
+        $tiedRows = array_values(array_filter($ranked, fn($r) => $this->crossGroupRowsTied($r, $last)));
 
         return [
             'pairs' => collect($tiedRows)->pluck('pair_id')->all(),
@@ -122,19 +109,13 @@ class BracketService
 
     private function countStrictlyAbove(array $ranked, array $ref): int
     {
-        return count(array_filter($ranked, fn($r) => ! $this->rowsTied($r, $ref)
+        return count(array_filter($ranked, fn($r) => ! $this->crossGroupRowsTied($r, $ref)
             && ($r['points'] > $ref['points']
                 || ($r['points'] === $ref['points'] && $r['set_diff'] > $ref['set_diff'])
                 || ($r['points'] === $ref['points'] && $r['set_diff'] === $ref['set_diff'] && $r['game_diff'] > $ref['game_diff']))));
     }
 
-    private function rowsTied(array $a, array $b): bool
-    {
-        return $a['points'] === $b['points']
-            && $a['set_diff'] === $b['set_diff']
-            && $a['game_diff'] === $b['game_diff']
-            && $a['games_for'] === $b['games_for'];
-    }
+
 
     // --- Bracket construction -----------------------------------------
 

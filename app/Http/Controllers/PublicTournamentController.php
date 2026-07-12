@@ -213,6 +213,9 @@ class PublicTournamentController extends Controller
                 ->groupBy('round');
         }
 
+         $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
+        ->mapFor($category);
+
         return view('public.category', [
             'tournament' => $tournament,
             'category' => $category,
@@ -231,6 +234,7 @@ class PublicTournamentController extends Controller
             'calDay' => $calDay,
             'calMatchedPlayers' => $calMatchedPlayers,
             'calTotal' => $calTotal,
+            'ghostQualifiers' => $ghostQualifiers,
         ]);
     }
 
@@ -302,7 +306,8 @@ class PublicTournamentController extends Controller
 
         // Group by day for display.
         $byDay = $matches->groupBy(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'));
-
+$ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
+        ->mapForTournament($tournament);
         return view('public.schedule', [
             'tournament' => $tournament,
             'byDay' => $byDay,
@@ -313,6 +318,7 @@ class PublicTournamentController extends Controller
             'allDays' => $allDays,
             'categoryFilter' => $categoryFilter,
             'dayFilter' => $dayFilter,
+            'ghostQualifiers' => $ghostQualifiers,
         ]);
     }
 
@@ -329,6 +335,8 @@ class PublicTournamentController extends Controller
             ->pluck('id');
 
         abort_if($pairIds->isEmpty(), Response::HTTP_NOT_FOUND);
+
+        
 
         // Matches involving any of those pairs.
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
@@ -360,6 +368,67 @@ class PublicTournamentController extends Controller
             \App\Models\Pair::whereIn('id', $pairIds)->pluck('category_id')
         )->get();
 
+        // Projected knockout matches: for each category the player is in, resolve the
+    // ghost map; find bracket matches where an unbound side's seed label resolves
+    // to one of the player's pairs. Shown as provisional until real binding.
+    $ghost = app(\App\Services\Tournament\GhostQualifierResolver::class);
+    $projectedMatches = [];
+
+    // Names of this player's pairs (to match against resolved ghost names).
+    $myPairNames = \App\Models\Pair::with(['player1', 'player2'])
+        ->whereIn('id', $pairIds)
+        ->get()
+        ->mapWithKeys(fn ($p) => [$p->id => $p->name()]);
+
+    foreach ($categories as $category) {
+        if (! $category->format->hasBracket()) continue;
+        $map = $ghost->mapForCached($category); // [seedLabel => pairName]
+        if (empty($map)) continue;
+
+        // Which seed labels resolve to one of MY pair names?
+        $myLabels = [];
+        foreach ($map as $label => $pairName) {
+            if ($myPairNames->contains($pairName)) $myLabels[] = $label;
+        }
+        if (empty($myLabels)) continue;
+
+        // Bracket matches in this category with an unbound side carrying one of
+        // those labels — but only where the pair isn't already bound (still a
+        // real projection, not an actual scheduled match).
+        // $bracket = \App\Models\GameMatch::where('category_id', $category->id)
+        //     ->whereNull('group_id')
+        //     ->whereNull('pair_a_id')->orWhereNull('pair_b_id')
+        //     ->where('category_id', $category->id)   // keep scope after orWhere
+        //     ->whereNull('group_id')
+        //     ->with(['pairA', 'pairB'])
+        //     ->get();
+
+            $bracket = \App\Models\GameMatch::where('category_id', $category->id)
+        ->whereNull('group_id')
+        ->where(fn ($q) => $q->whereNull('pair_a_id')->orWhereNull('pair_b_id'))
+        ->with(['pairA', 'pairB'])
+        ->get();
+
+        foreach ($bracket as $m) {
+            $aLabel = $m->seed_label_a;
+            $bLabel = $m->seed_label_b;
+            $mineOnA = $aLabel && in_array($aLabel, $myLabels, true) && ! $m->pair_a_id;
+            $mineOnB = $bLabel && in_array($bLabel, $myLabels, true) && ! $m->pair_b_id;
+            if (! $mineOnA && ! $mineOnB) continue;
+
+            // Resolve both sides for display (ghost name if available, else label text).
+            $aName = $m->ghostFor('a', $map) ?? $m->sideLabel('a');
+            $bName = $m->ghostFor('b', $map) ?? $m->sideLabel('b');
+
+            $projectedMatches[] = [
+                'category' => $category->name,
+                'round' => $m->bracketRoundName(),
+                'a' => $aName,
+                'b' => $bName,
+            ];
+        }
+    }
+
         // Upcoming (scheduled, not yet played) vs past.
         $now = now('America/Mexico_City');
         $upcoming = $matches->filter(fn($m) => $m->starts_at && $m->starts_at->gt($now) && $m->state->value !== 'confirmed')->values();
@@ -371,6 +440,7 @@ class PublicTournamentController extends Controller
             'categories' => $categories,
             'upcoming' => $upcoming,
             'pairIds' => $pairIds->all(),
+            'projectedMatches' => $projectedMatches,
             'stats' => [
                 'played' => $played,
                 'won' => $won,

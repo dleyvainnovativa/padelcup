@@ -89,6 +89,19 @@
             font-size: 9px;
         }
 
+        .ghost {
+            display: block;
+            color: #635bff;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        .unsched {
+            color: #999;
+            font-style: italic;
+            white-space: nowrap;
+        }
+
         .score {
             font-weight: bold;
             white-space: nowrap;
@@ -137,10 +150,24 @@
                 @foreach($matches as $m)
                 @php $played = $m->state->value === 'confirmed'; @endphp
                 <tr>
-                    <td class="when">{{ $m->starts_at->timezone('America/Mexico_City')->translatedFormat('D d M · H:i') }}</td>
+                    <td class="when">
+                        @if($m->starts_at)
+                            {{ $m->starts_at->timezone('America/Mexico_City')->translatedFormat('D d M · H:i') }}
+                        @else
+                            <span class="unsched">Sin programar</span>
+                        @endif
+                    </td>
                     <td class="court">{{ $m->court?->name ?? '—' }}</td>
                     <td class="ctx">{{ $m->contextLabel() }}</td>
-                    <td>{{ $m->sideLabel('a') }} <span class="vs">vs</span> {{ $m->sideLabel('b') }}</td>
+                    <td>
+                        {{ $m->sideLabel('a') }}
+                        @php $ghostA = $m->ghostForIn('a', $ghostQualifiers ?? []); @endphp
+                        @if($ghostA)<span class="ghost">{{ $ghostA }}</span>@endif
+                        <span class="vs">vs</span>
+                        {{ $m->sideLabel('b') }}
+                        @php $ghostB = $m->ghostForIn('b', $ghostQualifiers ?? []); @endphp
+                        @if($ghostB)<span class="ghost">{{ $ghostB }}</span>@endif
+                    </td>
                     <td class="score">
                         @if($played && $m->sets)
                         @foreach($m->sets as $s){{ $s[0] }}-{{ $s[1] }}@if(!$loop->last), @endif @endforeach

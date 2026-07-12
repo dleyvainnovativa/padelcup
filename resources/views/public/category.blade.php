@@ -68,6 +68,8 @@
                                 <th>Pareja</th>
                                 <th>PJ</th>
                                 <th>Pts</th>
+                                <th>G+</th>
+                                <th>G-</th>
                                 <th>Dif</th>
                             </tr>
                         </thead>
@@ -82,6 +84,8 @@
                                 </td>
                                 <td>{{ $row['played'] }}</td>
                                 <td><strong>{{ $row['points'] }}</strong></td>
+                                <td><strong>{{ $row['games_for'] }}</strong></td>
+                                <td><strong>{{ $row['games_against'] }}</strong></td>
                                 <td class="pub-mono">{{ $row['game_diff'] > 0 ? '+' : '' }}{{ $row['game_diff'] }}</td>
                             </tr>
                             @endforeach
@@ -102,6 +106,8 @@
                                 <th>Grupo</th>
                                 <th>PJ</th>
                                 <th>Pts</th>
+                                <th>G+</th>
+                                <th>G-</th>
                                 <th>Dif</th>
                             </tr>
                         </thead>
@@ -114,6 +120,8 @@
                                 <td class="pub-muted">{{ $row['group_name'] }}</td>
                                 <td>{{ $row['played'] }}</td>
                                 <td><strong>{{ $row['points'] }}</strong></td>
+                                <td><strong>{{ $row['games_for'] }}</strong></td>
+                                <td><strong>{{ $row['games_against'] }}</strong></td>
                                 <td class="pub-mono">{{ $row['game_diff'] > 0 ? '+' : '' }}{{ $row['game_diff'] }}</td>
                             </tr>
                             @endforeach
@@ -139,11 +147,19 @@
                 @php $played = $m->state->value === 'confirmed'; @endphp
                 <div class="pub-bmatch {{ $played ? 'is-played' : '' }}">
                     <div class="pub-bmatch__side {{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? 'is-win' : '' }}">
-                        <span>{{ $m->sideLabel('a') }}</span>
+                        <span>
+                            {{ $m->sideLabel('a') }}
+                            @php $ghostA = $m->ghostFor('a', $ghostQualifiers ?? []); @endphp
+                            @if($ghostA)<span class="pub-bmatch__ghost" title="Clasificado (grupo terminado)">{{ $ghostA }}</span>@endif
+                        </span>
                         @if($played && $m->sets)<span class="pub-bmatch__sc">{{ collect($m->sets)->map(fn($s) => $s[0])->implode(' ') }}</span>@endif
                     </div>
                     <div class="pub-bmatch__side {{ $m->winner_pair_id === $m->pair_b_id && $m->pair_b_id ? 'is-win' : '' }}">
-                        <span>{{ $m->sideLabel('b') }}</span>
+                        <span>
+                            {{ $m->sideLabel('b') }}
+                            @php $ghostB = $m->ghostFor('b', $ghostQualifiers ?? []); @endphp
+                            @if($ghostB)<span class="pub-bmatch__ghost" title="Clasificado (grupo terminado)">{{ $ghostB }}</span>@endif
+                        </span>
                         @if($played && $m->sets)<span class="pub-bmatch__sc">{{ collect($m->sets)->map(fn($s) => $s[1])->implode(' ') }}</span>@endif
                     </div>
                 </div>

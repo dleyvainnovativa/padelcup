@@ -95,6 +95,13 @@
             font-size: 9px;
         }
 
+        .ghost {
+            display: block;
+            color: #635bff;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
         .score {
             font-weight: bold;
             white-space: nowrap;
@@ -151,7 +158,13 @@
                         <span class="ctx">{{ $m->contextLabel() }}</span>
                     </td>
                     <td>
-                        {{ $m->sideLabel('a') }} <span class="vs">vs</span> {{ $m->sideLabel('b') }}
+                        {{ $m->sideLabel('a') }}
+                        @php $ghostA = $m->ghostForIn('a', $ghostQualifiers ?? []); @endphp
+                        @if($ghostA)<span class="ghost">{{ $ghostA }}</span>@endif
+                        <span class="vs">vs</span>
+                        {{ $m->sideLabel('b') }}
+                        @php $ghostB = $m->ghostForIn('b', $ghostQualifiers ?? []); @endphp
+                        @if($ghostB)<span class="ghost">{{ $ghostB }}</span>@endif
                     </td>
                     <td class="score">
                         @if($played && $m->sets)
@@ -168,6 +181,43 @@
     @empty
     <div class="empty">Aún no hay partidos programados.</div>
     @endforelse
+
+    @if(!empty($unscheduled) && $unscheduled->count() > 0)
+    <div class="day">
+        <div class="day-title">Sin programar</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:70px;">Cancha</th>
+                    <th>Categoría / Fase</th>
+                    <th>Partido</th>
+                    <th style="width:90px;">Resultado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($unscheduled as $m)
+                <tr>
+                    <td class="court">{{ $m->court?->name ?? '—' }}</td>
+                    <td>
+                        <span class="cat">{{ $m->category->name }}</span><br>
+                        <span class="ctx">{{ $m->contextLabel() }}</span>
+                    </td>
+                    <td>
+                        {{ $m->sideLabel('a') }}
+                        @php $ghostA = $m->ghostForIn('a', $ghostQualifiers ?? []); @endphp
+                        @if($ghostA)<span class="ghost">{{ $ghostA }}</span>@endif
+                        <span class="vs">vs</span>
+                        {{ $m->sideLabel('b') }}
+                        @php $ghostB = $m->ghostForIn('b', $ghostQualifiers ?? []); @endphp
+                        @if($ghostB)<span class="ghost">{{ $ghostB }}</span>@endif
+                    </td>
+                    <td class="score">—</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+    @endif
 
     <div class="foot">
         Generado el {{ $generatedAt->translatedFormat('d M Y · H:i') }} · PadelCup

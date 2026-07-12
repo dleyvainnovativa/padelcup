@@ -45,6 +45,8 @@
         <div class="pub-match__pairs">
             <span class="{{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? 'is-win' : '' }}">
                 {!! $aLink ?? $m->sideLabel('a') !!}
+                @php $ghostA = $m->ghostFor('a', $ghostQualifiers ?? []); @endphp
+                @if($ghostA)<span class="pub-match__ghost" title="Clasificado (grupo terminado)">{{ $ghostA }}</span>@endif
             </span>
             @if($status === 'played' && $m->sets)
             <span class="pub-match__sc pub-mono">
@@ -55,6 +57,8 @@
             @endif
             <span class="{{ $m->winner_pair_id === $m->pair_b_id && $m->pair_b_id ? 'is-win' : '' }}">
                 {!! $bLink ?? $m->sideLabel('b') !!}
+                @php $ghostB = $m->ghostFor('b', $ghostQualifiers ?? []); @endphp
+                @if($ghostB)<span class="pub-match__ghost" title="Clasificado (grupo terminado)">{{ $ghostB }}</span>@endif
             </span>
         </div>
     </div>

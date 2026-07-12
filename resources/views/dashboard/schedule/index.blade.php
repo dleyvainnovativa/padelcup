@@ -36,6 +36,9 @@
                 <div x-show="open" x-cloak class="pdf-menu">
                     <a href="{{ route('schedule.pdf', $tournament) }}" class="pdf-menu__item"><i class="fa-regular fa-clock me-1"></i> Por horario</a>
                     <a href="{{ route('schedule.pdf', ['tournament' => $tournament, 'order' => 'category']) }}" class="pdf-menu__item"><i class="fa-solid fa-layer-group me-1"></i> Por categoría</a>
+                    <a href="{{ route('schedule.exportEliminationPdf', $tournament) }}" class="btn btn-soft btn-sm">
+        <i class="fa-solid fa-sitemap me-1"></i> PDF eliminación
+    </a>
                 </div>
             </div>
             <form method="POST" action="{{ route('schedule.conflicts', $tournament) }}">
@@ -92,6 +95,36 @@
         </div>
     </details>
     @endif
+
+    @if(!empty($busyDayPlayers) && $busyDayPlayers->isNotEmpty())
+    <details class="panel mc-cheatsheet">
+        <summary style="cursor:pointer;font-weight:600;">
+            <i class="fa-solid fa-gauge-high me-1"></i>
+            Jugadores con 3+ partidos en un día ({{ $busyDayPlayers->count() }})
+        </summary>
+        <div style="font-size:12px;color:var(--text-faint);margin-top:6px;">
+            Cuenta todos los partidos del jugador en el día, sumando sus categorías.
+        </div>
+        <div class="mc-cheatsheet__list" style="margin-top:10px;">
+            @foreach($busyDayPlayers as $row)
+            <div class="mc-player">
+                <span class="mc-player__count mc-player__count--warn">{{ $row['max'] }}</span>
+                <span class="mc-player__name">{{ $row['name'] }}</span>
+                <span class="mc-player__cats">
+                    @foreach($row['days'] as $d)
+                        — {{ $d['label'] }}: <strong>{{ $d['count'] }}</strong>
+                        <span style="color:var(--text-faint);">({{ implode(', ', $d['times']) }})</span>
+                    @endforeach
+                    @if(!empty($row['categories']))
+                    <span style="color:var(--text-faint);">· {{ implode(', ', $row['categories']) }}</span>
+                    @endif
+                </span>
+            </div>
+            @endforeach
+        </div>
+    </details>
+    @endif
+
     <div x-show="showCapacity" x-cloak class="tc-card mb-3">
         <div class="tc-card__head">
             <h3><i class="fa-solid fa-calculator me-1"></i> Vista previa de capacidad</h3>
@@ -386,6 +419,7 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
     $boardData = [
     'placeUrl' => route('schedule.place', $tournament),
     'unplaceUrl' => route('schedule.unplace', $tournament),
+    'unplaceManyUrl' => route('schedule.unplaceMany', $tournament),
     'duration' => $tournament->match_duration_minutes,
     'courts' => $courts->mapWithKeys(fn ($c) => [$c->id => $c->name])->all(),
     'scheduled' => $scheduled->mapWithKeys(fn ($m) => [$m->id => [
@@ -443,8 +477,20 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
                         <div class="sched-chip" draggable="true"
                             data-match-id="{{ $m->id }}"
                             data-title="{{ $m->sideLabel('a') }} vs {{ $m->sideLabel('b') }}">
-                            <span class="sched-chip__context">{{ $m->contextLabel() }}</span>
-                            <div>{{ $m->sideLabel('a') }} <span style="color:var(--text-faint);">vs</span> {{ $m->sideLabel('b') }}</div>
+                            <span class="sched-chip__context">
+                                {{ $m->contextLabel() }}
+                                @php $fmt = $m->groupFormatBadge(); @endphp
+                                @if($fmt)<span class="fmt-badge fmt-badge--{{ strtolower($fmt) }}" title="{{ $fmt === 'MEX' ? 'Mexicano (grupo de 4)' : 'Todos contra todos (grupo de '.$m->groupSize().')' }}">{{ $fmt }}</span>@endif
+                            </span>
+                            <div>
+                                {{ $m->sideLabel('a') }}
+                                @php $ghostA = $m->ghostForIn('a', $ghostQualifiers ?? []); @endphp
+                                @if($ghostA)<span class="sched-match__ghost">{{ $ghostA }}</span>@endif
+                                <span style="color:var(--text-faint);">vs</span>
+                                {{ $m->sideLabel('b') }}
+                                @php $ghostB = $m->ghostForIn('b', $ghostQualifiers ?? []); @endphp
+                                @if($ghostB)<span class="sched-match__ghost">{{ $ghostB }}</span>@endif
+                            </div>
                         </div>
                         @empty
                         <div style="font-size:12px;color:var(--text-faint);">Todo está programado.</div>
@@ -504,11 +550,21 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
                                             draggable="true">
                                             <div class="sched-match__context">
                                                 {{ $m->contextLabel() }}
+                                                @php $fmt = $m->groupFormatBadge(); @endphp
+                                                @if($fmt)<span class="fmt-badge fmt-badge--{{ strtolower($fmt) }}" title="{{ $fmt === 'MEX' ? 'Mexicano (grupo de 4)' : 'Todos contra todos (grupo de '.$m->groupSize().')' }}">{{ $fmt }}</span>@endif
                                                 @if($offGrid)<span class="sched-match__time" title="Horario fuera de la cuadrícula">{{ $mLocal->format('H:i') }}</span>@endif
                                             </div>
-                                            <div style="font-weight:600;">{{ $m->sideLabel('a') }}</div>
+                                            <div style="font-weight:600;">
+                                                {{ $m->sideLabel('a') }}
+                                                @php $ghostA = $m->ghostForIn('a', $ghostQualifiers ?? []); @endphp
+                                                @if($ghostA)<span class="sched-match__ghost">{{ $ghostA }}</span>@endif
+                                            </div>
                                             <div style="font-size:10px;color:var(--text-faint);">vs</div>
-                                            <div style="font-weight:600;">{{ $m->sideLabel('b') }}</div>
+                                            <div style="font-weight:600;">
+                                                {{ $m->sideLabel('b') }}
+                                                @php $ghostB = $m->ghostForIn('b', $ghostQualifiers ?? []); @endphp
+                                                @if($ghostB)<span class="sched-match__ghost">{{ $ghostB }}</span>@endif
+                                            </div>
                                             @if($status === 'played' && $m->sets)
                                             <div class="sched-match__scores">
                                                 @foreach($m->sets as $i => $s)

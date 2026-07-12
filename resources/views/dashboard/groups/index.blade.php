@@ -131,6 +131,8 @@
                                     <th>G</th>
                                     <th>P</th>
                                     <th>Pts</th>
+                                    <th>Games+</th>
+                                    <th>Games-</th>
                                     <th>Dif. sets</th>
                                     <th>Dif. games</th>
                                 </tr>
@@ -145,6 +147,8 @@
                                     <td>{{ $row['won'] }}</td>
                                     <td>{{ $row['lost'] }}</td>
                                     <td style="font-weight:700;">{{ $row['points'] }}</td>
+                                    <td style="font-weight:700;">{{ $row['games_for'] }}</td>
+                                    <td style="font-weight:700;">{{ $row['games_against'] }}</td>
                                     <td class="font-mono">{{ $row['set_diff'] > 0 ? '+' : '' }}{{ $row['set_diff'] }}</td>
                                     <td class="font-mono">{{ $row['game_diff'] > 0 ? '+' : '' }}{{ $row['game_diff'] }}</td>
                                 </tr>

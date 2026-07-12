@@ -51,6 +51,11 @@ export function initSchedule() {
     btn.addEventListener('click', (e) => { e.stopPropagation(); unplace(btn.dataset.unplace); });
   });
 
+  // --- Multi-select unschedule -------------------------------------
+  // A "selection mode" toggle turns match clicks into select/deselect instead of
+  // opening the control sheet. A floating bar shows the count + the action.
+  const selection = initMultiSelect(board, cfg);
+
   // --- Scheduled match click → match-control sheet ------------------
   const ctrlSheet = buildControlSheet({
     onUnplace: unplace,
@@ -62,6 +67,8 @@ export function initSchedule() {
       // The × remove button has its own handler.
       if (e.target.closest('[data-unplace]')) return;
       e.stopPropagation();
+      // In selection mode, clicking toggles selection instead of opening the sheet.
+      if (selection.isActive()) { selection.toggle(el); return; }
       const id = el.dataset.matchId;
       const data = cfg.scheduled[id];
       if (data) ctrlSheet.show(data);
@@ -88,13 +95,14 @@ export function initSchedule() {
     cell.addEventListener('click', (e) => {
       // Ignore clicks that land on an existing match block.
       if (e.target.closest('.sched-match')) return;
+      if (selection.isActive()) return; // selection mode: cells are inert
       if (!cellIsFree(cell)) return;
       openSheetFor(cell);
     });
   });
 
   // --- Desktop drag (bonus; sheet still available) ------------------
-  if (!isTouch) initDrag(board, place);
+  if (!isTouch) initDrag(board, place, selection);
 
   // --- Bottom sheet -------------------------------------------------
   function openSheetFor(cell) {
@@ -144,11 +152,120 @@ export function initSchedule() {
   }
 }
 
+// --- Multi-select unschedule -----------------------------------------
+// Adds a "Seleccionar" toggle. While active, clicking scheduled matches selects
+// them; a floating bar shows the count and unschedules them in one request.
+function initMultiSelect(board, cfg) {
+  const selected = new Set();
+  let active = false;
+
+  // Toggle button — placed next to the board if a host exists, else floated.
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'sched-select-toggle';
+  toggle.innerHTML = '<i class="fa-solid fa-object-group"></i> Seleccionar';
+
+  const host = document.querySelector('[data-sched-actions]') || board.parentElement;
+  if (host) host.insertBefore(toggle, host.firstChild);
+
+  // Floating action bar.
+  const bar = document.createElement('div');
+  bar.className = 'sched-selbar';
+  bar.innerHTML = `
+    <span class="sched-selbar__count"><strong data-sel-count>0</strong> seleccionados</span>
+    <button type="button" class="sched-selbar__all" data-sel-all>Seleccionar día</button>
+    <button type="button" class="sched-selbar__clear" data-sel-clear>Limpiar</button>
+    <button type="button" class="sched-selbar__go" data-sel-go>
+      <i class="fa-solid fa-eraser"></i> Quitar del calendario
+    </button>`;
+  document.body.appendChild(bar);
+
+  const countEl = bar.querySelector('[data-sel-count]');
+  const goBtn = bar.querySelector('[data-sel-go]');
+
+  function render() {
+    countEl.textContent = selected.size;
+    goBtn.disabled = selected.size === 0;
+    bar.classList.toggle('is-open', active);
+  }
+
+  function toggleMatch(el) {
+    const id = el.dataset.matchId;
+    if (!id) return;
+    if (selected.has(id)) { selected.delete(id); el.classList.remove('is-selected'); }
+    else { selected.add(id); el.classList.add('is-selected'); }
+    render();
+  }
+
+  function clear() {
+    selected.forEach((id) => {
+      const el = board.querySelector(`.sched-match[data-match-id="${id}"]`);
+      if (el) el.classList.remove('is-selected');
+    });
+    selected.clear();
+    render();
+  }
+
+  function setActive(on) {
+    active = on;
+    board.classList.toggle('is-selecting', on);
+    toggle.classList.toggle('is-on', on);
+    toggle.innerHTML = on
+      ? '<i class="fa-solid fa-xmark"></i> Salir de selección'
+      : '<i class="fa-solid fa-object-group"></i> Seleccionar';
+    if (!on) clear();
+    render();
+  }
+
+  toggle.addEventListener('click', () => setActive(!active));
+
+  // Select every VISIBLE scheduled match (i.e. the current day).
+  bar.querySelector('[data-sel-all]').addEventListener('click', () => {
+    board.querySelectorAll('.sched-match').forEach((el) => {
+      if (el.offsetParent === null) return; // hidden day
+      const id = el.dataset.matchId;
+      if (id && !selected.has(id)) { selected.add(id); el.classList.add('is-selected'); }
+    });
+    render();
+  });
+
+  bar.querySelector('[data-sel-clear]').addEventListener('click', clear);
+
+  goBtn.addEventListener('click', async () => {
+    if (!selected.size) return;
+    const n = selected.size;
+    if (!window.confirm(`¿Quitar ${n} ${n === 1 ? 'partido' : 'partidos'} del calendario?`)) return;
+
+    goBtn.disabled = true;
+    goBtn.textContent = 'Quitando…';
+    try {
+      await post(cfg.unplaceManyUrl, { match_ids: [...selected] });
+      toast.success(`${n} ${n === 1 ? 'partido quitado' : 'partidos quitados'}.`);
+      setTimeout(() => window.location.reload(), 450);
+    } catch (_) {
+      toast.error('No se pudieron quitar.');
+      goBtn.disabled = false;
+      goBtn.innerHTML = '<i class="fa-solid fa-eraser"></i> Quitar del calendario';
+    }
+  });
+
+  // Escape leaves selection mode.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && active) setActive(false);
+  });
+
+  render();
+  return { isActive: () => active, toggle: toggleMatch, clear };
+}
+
 // --- Desktop drag ---------------------------------------------------
-function initDrag(board, place) {
+function initDrag(board, place, selection) {
   let draggedId = null;
   board.querySelectorAll('.sched-match, .sched-chip').forEach((el) => {
-    el.addEventListener('dragstart', (e) => { draggedId = el.dataset.matchId; el.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+    el.addEventListener('dragstart', (e) => {
+      if (selection && selection.isActive()) { e.preventDefault(); return; }
+      draggedId = el.dataset.matchId; el.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move';
+    });
     el.addEventListener('dragend', () => el.classList.remove('dragging'));
   });
   board.querySelectorAll('[data-cell]').forEach((cell) => {

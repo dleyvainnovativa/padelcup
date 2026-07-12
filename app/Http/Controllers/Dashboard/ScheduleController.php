@@ -24,7 +24,7 @@ class ScheduleController extends Controller
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->with([
                 'category',
-                'group',
+                'group.pairs:id',
                 'pairA.player1',
                 'pairA.player2',
                 'pairB.player1',
@@ -62,7 +62,8 @@ class ScheduleController extends Controller
 
         // Cheatsheet: players registered in 2+ categories (collision risk).
         $multiCategoryPlayers = $this->multiCategoryPlayers($tournament);
-
+ $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
+        ->mapForTournament($tournament);
         return view('dashboard.schedule.index', [
             'tournament' => $tournament,
             'courts' => $courts,
@@ -78,14 +79,89 @@ class ScheduleController extends Controller
             'categories' => $categories,
             'multiCategoryPlayers' => $multiCategoryPlayers,
             'preferredSchedulePlayers' => $this->preferredSchedulePlayers($tournament),
+            'busyDayPlayers' => $this->busyDayPlayers($tournament, 3),
+            'ghostQualifiers' => $ghostQualifiers,
         ]);
+    }
+
+    /**
+     * Cheatsheet: players with 3+ matches on a SINGLE day, counted across ALL
+     * categories. Keyed by NORMALIZED NAME because the same human is usually a
+     * separate Player row per category — counting by player_id would split them
+     * and hide the real load (e.g. 2 matches in 5ta + 2 in 6ta = 4 in one day).
+     *
+     * Each row: name, categories, and per-day [day, count, times[]].
+     */
+    private function busyDayPlayers(Tournament $tournament, int $threshold = 3): \Illuminate\Support\Collection
+    {
+        $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->whereNotNull('starts_at')
+            ->with(['category:id,name', 'pairA.player1:id,name', 'pairA.player2:id,name', 'pairB.player1:id,name', 'pairB.player2:id,name'])
+            ->orderBy('starts_at')
+            ->get();
+
+        // [normName => ['name'=>, 'categories'=>[], 'days'=>['Y-m-d'=>['HH:MM', ...]]]]
+        $byName = [];
+        foreach ($matches as $m) {
+            $day = $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d');
+            $time = $m->starts_at->timezone('America/Mexico_City')->format('H:i');
+            $catName = $m->category?->name;
+
+            foreach ([$m->pairA, $m->pairB] as $pair) {
+                if (! $pair) continue;
+                foreach ([$pair->player1, $pair->player2] as $p) {
+                    if (! $p || blank($p->name)) continue;
+                    $key = \App\Models\Player::normalize($p->name);
+                    $byName[$key] ??= ['name' => $p->name, 'categories' => [], 'days' => []];
+                    $byName[$key]['days'][$day][] = $time;
+                    if ($catName && ! in_array($catName, $byName[$key]['categories'], true)) {
+                        $byName[$key]['categories'][] = $catName;
+                    }
+                }
+            }
+        }
+
+        // Keep only players who hit the threshold on at least one day, and expose
+        // just those overloaded days.
+        $dayLabel = fn (string $ymd) => \Illuminate\Support\Str::ucfirst(
+            \Carbon\Carbon::parse($ymd, 'America/Mexico_City')->locale('es')->isoFormat('ddd D MMM')
+        );
+
+        $out = [];
+        foreach ($byName as $row) {
+            $heavy = [];
+            foreach ($row['days'] as $ymd => $times) {
+                if (count($times) < $threshold) continue;
+                sort($times);
+                $heavy[] = [
+                    'day' => $ymd,
+                    'label' => $dayLabel($ymd),
+                    'count' => count($times),
+                    'times' => $times,
+                ];
+            }
+            if (empty($heavy)) continue;
+
+            usort($heavy, fn($a, $b) => $a['day'] <=> $b['day']);
+            $out[] = [
+                'name' => $row['name'],
+                'categories' => $row['categories'],
+                'days' => $heavy,
+                'max' => max(array_column($heavy, 'count')),
+            ];
+        }
+
+        // Heaviest load first, then name.
+        usort($out, fn($a, $b) => [$b['max'], strtolower($a['name'])] <=> [$a['max'], strtolower($b['name'])]);
+
+        return collect($out);
     }
 
     /** Players with availability rules, for the calendar cheatsheet. Each row:
      *  name, rules (human strings like "Vie desde 19:00"), categories. */
     private function preferredSchedulePlayers(Tournament $tournament): \Illuminate\Support\Collection
     {
-        $map = \App\Models\PlayerAvailability::mapFor($tournament); // [normName => ['Y-m-d'=>'HH:MM']]
+        $map = \App\Models\PlayerAvailability::windowsFor($tournament); // [normName => ['Y-m-d'=>['from'=>,'until'=>]]]
         if (empty($map)) return collect();
 
         // Build name + categories per normalized name (same approach as the
@@ -119,8 +195,14 @@ class ScheduleController extends Controller
         foreach ($map as $key => $days) {
             ksort($days); // chronological
             $rules = [];
-            foreach ($days as $ymd => $hhmm) {
-                $rules[] = $dayLabel($ymd) . ' desde ' . $hhmm; // e.g. "Vie desde 19:00"
+            foreach ($days as $ymd => $win) {
+                // Tolerate the old flat shape ('HH:MM') as well as the range shape.
+                $from = is_array($win) ? ($win['from'] ?? null) : $win;
+                $until = is_array($win) ? ($win['until'] ?? null) : null;
+                if (! $from) continue;
+                $rules[] = $until
+                    ? $dayLabel($ymd) . " {$from}–{$until}"   // e.g. "Vie 19:00–22:00"
+                    : $dayLabel($ymd) . ' desde ' . $from;    // e.g. "Vie desde 19:00"
             }
             $out[] = [
                 'name' => $info[$key]['name'] ?? $key,
@@ -247,6 +329,25 @@ class ScheduleController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    /** Unschedule MANY matches at once (multi-select on the board). */
+    public function unplaceMany(Request $request, Tournament $tournament)
+    {
+        $this->authorize('update', $tournament);
+
+        $data = $request->validate([
+            'match_ids' => ['required', 'array', 'min:1'],
+            'match_ids.*' => ['integer'],
+        ]);
+
+        // Scope to this tournament so a stray id can't touch another's matches.
+        $count = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->whereIn('id', $data['match_ids'])
+            ->whereNotNull('starts_at')
+            ->update(['court_id' => null, 'starts_at' => null]);
+
+        return response()->json(['ok' => true, 'count' => $count]);
+    }
+
     /** Unschedule ALL matches in the tournament (clear the whole calendar). */
     public function clearAll(Request $request, Tournament $tournament)
     {
@@ -276,41 +377,114 @@ class ScheduleController extends Controller
 
         $order = $request->query('order') === 'category' ? 'category' : 'time';
 
+        // Include unscheduled matches too, so unbound bracket slots (ghosts) show.
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
-            ->whereNotNull('starts_at')
-            ->with(['category', 'group', 'court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->with([
+                'category', 'group', 'court',
+                'group.pairs:id',                 // for any group-size lookups
+                'pairA.player1', 'pairA.player2',
+                'pairB.player1', 'pairB.player2',
+                'feederA', 'feederB',
+            ])
             ->get();
 
+        // Tournament-wide ghost map: [category_id => [seedLabel => pairName]].
+        $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
+            ->mapForTournament($tournament);
+
+        // A bracket slot only earns a place in these PDFs if it's schedulable /
+        // meaningful: it has a time, OR it's an unbound bracket match that can be
+        // resolved (real pairs, feeders, or two real seed labels — not byes).
+        $showable = $matches->filter(function ($m) {
+            if ($m->starts_at) return true;
+            // unscheduled: keep bracket matches that will bind (mirror index())
+            if ($m->pair_a_id && $m->pair_b_id) return true;
+            if ($m->feeder_a_id || $m->feeder_b_id) return true;
+            $a = $m->seed_label_a; $b = $m->seed_label_b;
+            return $a && $b && $a !== 'BYE' && $b !== 'BYE';
+        });
+
         if ($order === 'category') {
-            // Category → round → datetime.
-            $grouped = $matches
+            // Category → datetime. Unscheduled (null starts_at) sort last.
+            $grouped = $showable
                 ->sortBy([
                     fn($m) => $m->category->name,
-                    fn($m) => (int) ($m->round ?? 0),
-                    fn($m) => optional($m->starts_at)->timestamp ?? 0,
+                    fn($m) => $m->starts_at ? $m->starts_at->timestamp : PHP_INT_MAX,
                 ])
                 ->groupBy(fn($m) => $m->category->name);
 
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('dashboard.schedule.pdf-category', [
                 'tournament' => $tournament,
                 'byCategory' => $grouped,
+                'ghostQualifiers' => $ghostQualifiers,
                 'generatedAt' => now('America/Mexico_City'),
             ])->setPaper('a4', 'portrait');
 
             return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-calendario-categoria.pdf');
         }
 
-        // Default: chronological (day → time).
-        $byDay = $matches->sortBy(fn($m) => $m->starts_at->timestamp)
-            ->groupBy(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'));
+        // Default: chronological. Scheduled matches grouped by day; unscheduled
+        // matches collected under a "Sin programar" bucket at the end.
+        $scheduled = $showable->filter(fn($m) => $m->starts_at)
+            ->sortBy(fn($m) => $m->starts_at->timestamp);
+        $byDay = $scheduled->groupBy(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'));
+
+        $unscheduled = $showable->filter(fn($m) => ! $m->starts_at)
+            ->sortBy(fn($m) => $m->category->name)
+            ->values();
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('dashboard.schedule.pdf', [
             'tournament' => $tournament,
             'byDay' => $byDay,
+            'unscheduled' => $unscheduled,
+            'ghostQualifiers' => $ghostQualifiers,
             'generatedAt' => now('America/Mexico_City'),
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-calendario.pdf');
+    }
+
+    public function exportEliminationPdf(
+        Request $request,
+        Tournament $tournament,
+        \App\Services\Tournament\GhostQualifierResolver $ghost,
+    ) {
+        $this->authorize('view', $tournament);
+
+        $categories = $tournament->categories()
+            ->with(['groups'])
+            ->orderBy('name')
+            ->get();
+
+        $out = [];
+        foreach ($categories as $category) {
+            // Only categories that HAVE a bracket (hybrid / elimination).
+            $bracket = GameMatch::where('category_id', $category->id)
+                ->whereNull('group_id')          // bracket matches have no group
+                ->with([
+                    'pairA.player1', 'pairA.player2',
+                    'pairB.player1', 'pairB.player2',
+                    'feederA', 'feederB',
+                ])
+                ->orderBy('round')->orderBy('slot')->orderBy('id')
+                ->get();
+
+            if ($bracket->isEmpty()) continue;
+
+            $out[] = [
+                'category' => $category,
+                'rounds' => $bracket->groupBy('round'),          // [round => matches]
+                'ghost' => $ghost->mapFor($category),            // [seedLabel => pairName]
+            ];
+        }
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('dashboard.schedule.pdf-elimination', [
+            'tournament' => $tournament,
+            'categories' => $out,
+            'generatedAt' => now('America/Mexico_City'),
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-eliminacion.pdf');
     }
 
     /** Save the tournament's phase windows + min rest gap. */

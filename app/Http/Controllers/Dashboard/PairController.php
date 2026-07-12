@@ -55,4 +55,38 @@ class PairController extends Controller
 
         return back()->with('status', 'Pareja eliminada.');
     }
+    public function updateNames(
+        Request $request,
+        Tournament $tournament,
+        Category $category,
+        Pair $pair,
+        \App\Services\Registration\PlayerRenameService $renamer,
+    ) {
+        $this->authorize('update', $tournament);
+        abort_unless($pair->category_id === $category->id, 404);
+
+        $data = $request->validate([
+            'player1_name' => ['required', 'string', 'max:255'],
+            'player2_name' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $rulesMoved = 0;
+
+        if ($pair->player1 && $data['player1_name'] !== $pair->player1->name) {
+            $res = $renamer->rename($pair->player1, $data['player1_name'], $tournament);
+            $rulesMoved += $res['rules_moved'];
+        }
+        if ($pair->player2 && filled($data['player2_name'] ?? null)
+            && $data['player2_name'] !== $pair->player2->name) {
+            $res = $renamer->rename($pair->player2, $data['player2_name'], $tournament);
+            $rulesMoved += $res['rules_moved'];
+        }
+
+        $msg = 'Nombres actualizados.';
+        if ($rulesMoved > 0) {
+            $msg .= " Se reasignaron {$rulesMoved} reglas de disponibilidad.";
+        }
+
+        return back()->with('status', $msg);
+    }
 }

@@ -96,7 +96,11 @@
                 <div class="pub-match__body">
                     <div class="pub-match__ctx">{{ $m->contextLabel() }}</div>
                     <div class="pub-match__pairs">
-                        <span class="{{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? 'is-win' : '' }}">{{ $m->sideLabel('a') }}</span>
+                        <span class="{{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? 'is-win' : '' }}">
+                            {{ $m->sideLabel('a') }}
+                            @php $ghostA = $m->ghostForIn('a', $ghostQualifiers ?? []); @endphp
+                            @if($ghostA)<span class="pub-match__ghost" title="Clasificado (grupo terminado)">{{ $ghostA }}</span>@endif
+                        </span>
                         @if($status === 'played' && $m->sets)
                         <span class="pub-match__sc pub-mono">
                             @foreach($m->sets as $s){{ $s[0] }}-{{ $s[1] }}@if(!$loop->last) @endif @endforeach
@@ -104,7 +108,11 @@
                         @else
                         <span class="pub-match__vs">vs</span>
                         @endif
-                        <span class="{{ $m->winner_pair_id === $m->pair_b_id && $m->pair_b_id ? 'is-win' : '' }}">{{ $m->sideLabel('b') }}</span>
+                        <span class="{{ $m->winner_pair_id === $m->pair_b_id && $m->pair_b_id ? 'is-win' : '' }}">
+                            {{ $m->sideLabel('b') }}
+                            @php $ghostB = $m->ghostForIn('b', $ghostQualifiers ?? []); @endphp
+                            @if($ghostB)<span class="pub-match__ghost" title="Clasificado (grupo terminado)">{{ $ghostB }}</span>@endif
+                        </span>
                     </div>
                 </div>
             </div>

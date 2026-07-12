@@ -1,9 +1,50 @@
 // Public page enhancements: auto-refresh (live), Web Share, and QR generation.
 
 export function initPublicPages() {
+  restoreScroll();       // must run before other init, ASAP on load
   initAutoRefresh();
   initShare();
   initQR();
+  initTabPersistence();
+}
+
+// --- State preservation across the auto-refresh reload --------------
+// The page reloads every 60s to stay live. Without help, that throws the user
+// back to the top and (for a manually-clicked tab) to the default tab. We save
+// the scroll position (and let the tab live in the URL) so the reload lands the
+// user exactly where they were.
+
+// A key unique to this page (path + query), so two tabs/pages don't clobber.
+function scrollKey() {
+  return 'pc_scroll:' + location.pathname + location.search;
+}
+
+function saveScroll() {
+  try {
+    sessionStorage.setItem(scrollKey(), String(window.scrollY || window.pageYOffset || 0));
+  } catch (e) { /* storage unavailable — ignore */ }
+}
+
+function restoreScroll() {
+  try {
+    const raw = sessionStorage.getItem(scrollKey());
+    if (raw === null) return;
+    const y = parseInt(raw, 10);
+    if (!y) return;
+    // Restore after layout settles (Alpine x-cloak, images, fonts). A couple of
+    // rAFs + a short timeout covers most reflow; capped so we never fight the user.
+    let tries = 0;
+    const tryScroll = () => {
+      window.scrollTo(0, y);
+      if (++tries < 5 && Math.abs((window.scrollY || 0) - y) > 4) {
+        requestAnimationFrame(tryScroll);
+      }
+    };
+    requestAnimationFrame(tryScroll);
+    setTimeout(() => window.scrollTo(0, y), 250);
+    // Clear it so a manual navigation later doesn't unexpectedly jump.
+    sessionStorage.removeItem(scrollKey());
+  } catch (e) { /* ignore */ }
 }
 
 // --- Auto-refresh: reload every 60s, pause when tab hidden ---------
@@ -18,6 +59,8 @@ function initAutoRefresh() {
     clearTimeout(timer);
     timer = setTimeout(() => {
       if (!document.hidden) {
+        // Save where the user is so the reload lands them back in place.
+        saveScroll();
         // Preserve the current query string (e.g. buscar mi partido).
         window.location.reload();
       } else {
@@ -88,5 +131,36 @@ function loadScript(src) {
     s.onload = resolve;
     s.onerror = reject;
     document.head.appendChild(s);
+  });
+}
+
+// --- Tab persistence: write the active category tab into the URL ----
+// The category page's Alpine reads ?tab= on load, but clicking a tab doesn't
+// update the URL — so the 60s reload would drop a manually-chosen tab back to
+// the default. We mirror the clicked tab into ?tab= via replaceState (no history
+// spam, no navigation), so the reload restores it. Day/search filters already
+// live in the URL, so they persist on their own.
+function initTabPersistence() {
+  const tabs = document.querySelectorAll('.pub-tabs .pub-tab');
+  if (!tabs.length) return;
+
+  // Map each tab button to its tab key by reading the Alpine @click expression
+  // (tab = 'calendar' → 'calendar'). Falls back to aria-label if not found.
+  const keyFor = (btn) => {
+    const click = btn.getAttribute('@click') || btn.getAttribute('x-on:click') || '';
+    const m = click.match(/tab\s*=\s*'([^']+)'/);
+    return m ? m[1] : null;
+  };
+
+  tabs.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = keyFor(btn);
+      if (!key) return;
+      try {
+        const url = new URL(location.href);
+        url.searchParams.set('tab', key);
+        history.replaceState(null, '', url);
+      } catch (e) { /* ignore */ }
+    });
   });
 }

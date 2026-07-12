@@ -95,6 +95,41 @@ class GameMatch extends Model
      * the pair name when known, otherwise a descriptor of where it comes from
      * (e.g. "Ganador P1·P2" for a Mexicano R2 feeder slot not yet resolved).
      */
+    /**
+     * DISPLAY-ONLY "ghost" qualifier name for a side, if this side is still an
+     * unbound seed label (e.g. "A1") AND that group has finished. $map comes from
+     * GhostQualifierResolver::mapFor() as [ seedLabel => pairName ]. Returns null
+     * when the side is already a real pair, is a feeder, or the group isn't done.
+     *
+     * This never changes state — it only lets the bracket show who qualified from
+     * a completed group without waiting for the whole category.
+     */
+    public function ghostFor(string $side, array $map): ?string
+    {
+        // Only ghost when there's no real pair and no feeder for this side.
+        $pair = $side === 'a' ? $this->pairA : $this->pairB;
+        if ($pair) return null;
+        $feeder = $side === 'a' ? $this->feederA : $this->feederB;
+        if ($feeder) return null;
+
+        $label = $side === 'a' ? $this->seed_label_a : $this->seed_label_b;
+        if (! $label || $label === 'BYE') return null;
+
+        return $map[$label] ?? null;
+    }
+
+    /**
+     * Like ghostFor(), but takes a tournament-wide [category_id => map] array and
+     * picks this match's category. For tournament-spanning views (public calendar,
+     * dashboard board) that render matches from many categories at once.
+     */
+    public function ghostForIn(string $side, array $mapsByCategory): ?string
+    {
+        $map = $mapsByCategory[$this->category_id] ?? null;
+        if (! $map) return null;
+        return $this->ghostFor($side, $map);
+    }
+
     public function sideLabel(string $side): string
     {
         $pair = $side === 'a' ? $this->pairA : $this->pairB;
@@ -132,6 +167,39 @@ class GameMatch extends Model
             return "Grupo {$m[1]} - {$m[2]}";
         }
         return $label;
+    }
+
+    /**
+     * Small badge for a GROUP match's play format:
+     *   'MEX' → Mexicano (only applies to 4-pair groups)
+     *   'RR'  → round-robin (3- and 5-pair groups, or non-Mexicano categories)
+     *   null  → not a group match (bracket)
+     *
+     * Mirrors GroupGenerationService::rebuildGroupMatches(): the Mexicano format
+     * is applied ONLY when the group has exactly 4 pairs; every other group size
+     * plays round-robin regardless of the category setting.
+     */
+    public function groupFormatBadge(): ?string
+    {
+        if (! $this->group_id || ! $this->group) return null;
+
+        $size = $this->group->relationLoaded('pairs')
+            ? $this->group->pairs->count()
+            : $this->group->pairs()->count();
+
+        $isMexicano = $this->category?->group_format === \App\Enums\GroupFormat::Mexicano
+            && $size === 4;
+
+        return $isMexicano ? 'MEX' : 'RR';
+    }
+
+    /** Pairs in this match's group (0 for bracket matches). */
+    public function groupSize(): int
+    {
+        if (! $this->group_id || ! $this->group) return 0;
+        return $this->group->relationLoaded('pairs')
+            ? $this->group->pairs->count()
+            : $this->group->pairs()->count();
     }
 
     /** A grouping/context label: "Categoría · Grupo X · Ronda N". */

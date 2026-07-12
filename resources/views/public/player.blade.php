@@ -56,6 +56,27 @@
     </div>
     @endif
 
+    {{-- Projected knockout matches: bracket slots this player's pair has already
+         qualified into (their group finished), shown as PROVISIONAL until binding. --}}
+    @if(!empty($projectedMatches) && count($projectedMatches) > 0)
+    <div class="pub-next pub-next--ghost">
+        <div class="pub-next__tag"><i class="fa-solid fa-sitemap"></i> Posible próximo partido</div>
+        <div class="pub-next__body">
+            @foreach($projectedMatches as $pm)
+            <div style="margin-bottom:6px;">
+                <div class="pub-next__match">
+                    {{ $pm['a'] }} <span class="pub-muted">vs</span> {{ $pm['b'] }}
+                </div>
+                <div class="pub-next__ctx">{{ $pm['category'] }} · {{ $pm['round'] }}</div>
+            </div>
+            @endforeach
+            <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">
+                Proyección según los grupos ya terminados. Se confirma al cerrarse la fase de grupos.
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- All matches --}}
     <h2 class="pub-section-title" style="margin-top:24px;">Partidos</h2>
     @if($matches->isEmpty())

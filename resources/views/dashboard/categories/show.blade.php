@@ -166,6 +166,10 @@ $belowMin = $occupied < $category->min_pairs;
                         </td>
                         <td style="text-align:right;">
                             <div class="d-inline-flex gap-2">
+                                <button type="button" class="btn btn-soft btn-sm" title="Editar nombres"
+                                    data-edit-names="{{ $pair->id }}">
+                                    <i class="fa-solid fa-user-pen"></i>
+                                </button>
                                 @if($reg && $reg->payment_status->value !== 'paid')
                                 <form method="POST" action="{{ route('pairs.payment', [$tournament, $category, $pair]) }}">
                                     @csrf @method('PATCH')
@@ -183,6 +187,33 @@ $belowMin = $occupied < $category->min_pairs;
                             </div>
                         </td>
                     </tr>
+                    {{-- Inline name editor (hidden until the pencil is clicked) --}}
+                    <tr class="pair-names-row" data-names-row="{{ $pair->id }}" hidden>
+                        <td colspan="4" style="background:var(--bg-subtle);">
+                            <form method="POST" action="{{ route('pairs.names', [$tournament, $category, $pair]) }}"
+                                class="d-flex flex-wrap align-items-end gap-2">
+                                @csrf @method('PATCH')
+                                <div>
+                                    <label style="font-size:11px;color:var(--text-faint);display:block;">Jugador 1</label>
+                                    <input type="text" name="player1_name" required
+                                        value="{{ $pair->player1?->name }}"
+                                        class="form-control form-control-sm" style="border-radius:var(--radius);min-width:180px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:11px;color:var(--text-faint);display:block;">Jugador 2</label>
+                                    <input type="text" name="player2_name"
+                                        value="{{ $pair->player2?->name }}"
+                                        @disabled(! $pair->player2)
+                                        class="form-control form-control-sm" style="border-radius:var(--radius);min-width:180px;">
+                                </div>
+                                <button type="submit" class="btn btn-accent btn-sm"><i class="fa-solid fa-check me-1"></i> Guardar</button>
+                                <button type="button" class="btn btn-soft btn-sm" data-cancel-names="{{ $pair->id }}">Cancelar</button>
+                                <span style="font-size:11px;color:var(--text-faint);">
+                                    Se actualizan también las reglas de disponibilidad de ese jugador.
+                                </span>
+                            </form>
+                        </td>
+                    </tr>
                     @empty
                     <tr>
                         <td colspan="4" style="color:var(--text-muted);">Sin parejas. Agrega una arriba o importa un CSV.</td>
@@ -192,4 +223,24 @@ $belowMin = $occupied < $category->min_pairs;
             </table>
         </div>
     </div>
+
+    <script>
+        (function () {
+            document.querySelectorAll('[data-edit-names]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var id = btn.dataset.editNames;
+                    var row = document.querySelector('[data-names-row="' + id + '"]');
+                    if (!row) return;
+                    row.hidden = !row.hidden;
+                    if (!row.hidden) row.querySelector('input[name="player1_name"]').focus();
+                });
+            });
+            document.querySelectorAll('[data-cancel-names]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var row = document.querySelector('[data-names-row="' + btn.dataset.cancelNames + '"]');
+                    if (row) row.hidden = true;
+                });
+            });
+        })();
+    </script>
     @endsection

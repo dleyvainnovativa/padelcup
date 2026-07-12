@@ -44,8 +44,10 @@ class SchedulingService
         }
 
         // 3. Player overlap (across ALL of this tournament's matches).
-        $playerIds = $match->playerIds();
-        $clash = $this->playerOverlap($match, $playerIds, $startsAt, $endsAt);
+        // Identity is the NORMALIZED NAME, not player_id — the same person can be
+        // a different Player row in each category (see playerKeys()).
+        $playerKeys = $this->playerKeys($match);
+        $clash = $this->playerOverlap($match, $playerKeys, $startsAt, $endsAt);
         if ($clash) {
             $conflicts[] = "Conflicto de jugador: {$clash} ya juega en ese horario.";
         }
@@ -76,12 +78,14 @@ class SchedulingService
     }
 
     /**
-     * Returns the name of a clashing player if any player in $playerIds is
-     * already scheduled in an overlapping match elsewhere in the tournament.
+     * Returns the name of a clashing player if any player in $playerKeys (normalized
+     * names) is already scheduled in an overlapping match elsewhere in the tournament.
+     * Cross-category safe: the same human in two categories has different player_ids
+     * but the same normalized name.
      */
-    private function playerOverlap(GameMatch $match, array $playerIds, Carbon $startsAt, Carbon $endsAt): ?string
+    private function playerOverlap(GameMatch $match, array $playerKeys, Carbon $startsAt, Carbon $endsAt): ?string
     {
-        if (empty($playerIds)) return null;
+        if (empty($playerKeys)) return null;
 
         $tournamentId = $match->category->tournament_id;
 
@@ -97,11 +101,11 @@ class SchedulingService
             if (! $this->overlaps($startsAt, $endsAt, $other->starts_at, $otherEnds)) {
                 continue;
             }
-            $shared = array_intersect($playerIds, $other->playerIds());
+            $shared = array_intersect($playerKeys, $this->playerKeys($other));
             if (! empty($shared)) {
                 // Name the first clashing player.
-                $pid = reset($shared);
-                $name = $this->playerName($other, $pid) ?? 'Un jugador';
+                $key = reset($shared);
+                $name = $this->playerNameByKey($other, $key) ?? 'Un jugador';
                 return $name;
             }
         }
@@ -225,8 +229,10 @@ class SchedulingService
             $end = $start + (((int) ($m->duration_minutes ?: $duration)) * 60);
             $endOf[$m->id] = $end;
             if ($m->court_id) $courtBusy[$m->court_id][] = [$start, $end];
-            foreach ($m->playerIds() as $pid) {
-                $playerBusy[$pid][] = [$start, $end];
+            // Key busy-time by the player's IDENTITY (normalized name), so the same
+            // human across categories collides with themselves.
+            foreach ($this->playerKeys($m) as $pkey) {
+                $playerBusy[$pkey][] = [$start, $end];
             }
         }
 
@@ -318,7 +324,7 @@ class SchedulingService
                 }
             }
 
-            $playerIds = $match->playerIds();
+            $playerKeys = $this->playerKeys($match);
 
             // Per-day availability WINDOW for THIS match: for each restricted day,
             // ['from'=>ts, 'until'=>ts|null] — the binding "from" is the latest
@@ -331,7 +337,7 @@ class SchedulingService
                 $courtWindows,
                 $courtBusy,
                 $playerBusy,
-                $playerIds,
+                $playerKeys,
                 $defaultDurSec,
                 $stepSec,
                 $restSec,
@@ -347,8 +353,8 @@ class SchedulingService
                 [$courtId, $startTs, $slotDurSec] = $slot;
                 $endTs = $startTs + $slotDurSec;
                 $courtBusy[$courtId][] = [$startTs, $endTs];
-                foreach ($playerIds as $pid) {
-                    $playerBusy[$pid][] = [$startTs, $endTs];
+                foreach ($playerKeys as $pkey) {
+                    $playerBusy[$pkey][] = [$startTs, $endTs];
                 }
                 $placements[$match->id] = [$courtId, $startTs, intdiv($slotDurSec, 60)];
                 $endOf[$match->id] = $endTs;
@@ -364,7 +370,7 @@ class SchedulingService
                         $courtWindows,
                         $courtBusy,
                         $playerBusy,
-                        $playerIds,
+                        $playerKeys,
                         $defaultDurSec,
                         $stepSec,
                         $restSec,
@@ -414,7 +420,7 @@ class SchedulingService
         array $courtWindows,
         array $courtBusy,
         array $playerBusy,
-        array $playerIds,
+        array $playerKeys,
         int $durSec,
         int $stepSec,
         int $restSec = 0,
@@ -485,8 +491,8 @@ class SchedulingService
                         }
 
                         $clash = false;
-                        foreach ($playerIds as $pid) {
-                            if ($this->intervalHits($playerBusy[$pid] ?? [], $ts, $end, $restSec)) {
+                        foreach ($playerKeys as $pkey) {
+                            if ($this->intervalHits($playerBusy[$pkey] ?? [], $ts, $end, $restSec)) {
                                 $clash = true;
                                 break;
                             }
@@ -567,18 +573,20 @@ class SchedulingService
             ->with(['category', 'group', 'court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
             ->get();
 
-        // [playerId => [ ['match'=>m,'start'=>ts,'end'=>ts], ... ]]
+        // [normalizedName => [ ['match'=>m,'start'=>ts,'end'=>ts], ... ]]
+        // Keyed by IDENTITY (normalized name) so the same human playing in two
+        // categories (different Player rows) is detected as one person.
         $byPlayer = [];
         foreach ($matches as $m) {
             $start = $m->starts_at->timestamp;
             $end = $start + (((int) ($m->duration_minutes ?: 60)) * 60);
-            foreach ($m->playerIds() as $pid) {
-                $byPlayer[$pid][] = ['match' => $m, 'start' => $start, 'end' => $end];
+            foreach ($this->playerKeys($m) as $pkey) {
+                $byPlayer[$pkey][] = ['match' => $m, 'start' => $start, 'end' => $end];
             }
         }
 
         $conflicts = [];
-        foreach ($byPlayer as $pid => $entries) {
+        foreach ($byPlayer as $pkey => $entries) {
             if (count($entries) < 2) continue;
             usort($entries, fn($a, $b) => $a['start'] <=> $b['start']);
 
@@ -595,7 +603,7 @@ class SchedulingService
                     if (! $hardOverlap && ! $restViolation) continue;
 
                     $conflicts[] = [
-                        'player' => $this->playerName($a['match'], $pid) ?? 'Jugador',
+                        'player' => $this->playerNameByKey($a['match'], $pkey) ?? 'Jugador',
                         'severity' => $hardOverlap ? 'overlap' : 'rest',
                         'matches' => [
                             $this->matchInfo($a['match']),
@@ -686,6 +694,48 @@ class SchedulingService
     }
 
     /** Resolve a player's display name from a match's pairs. */
+    /**
+     * The IDENTITY keys of a match's players: normalized names, not player ids.
+     *
+     * The same human is often a SEPARATE Player row per category (see
+     * RegistrationService::resolvePlayer — a player with no email/phone gets a
+     * new row each time they're imported). Comparing raw player_ids therefore
+     * MISSES cross-category clashes: "Ana García" in 5ta and "Ana García" in 6ta
+     * are different ids but the same person, who cannot be on two courts at once.
+     *
+     * Availability rules already key on normalized_name for exactly this reason;
+     * conflict detection must too.
+     *
+     * @return array<int,string>
+     */
+    private function playerKeys(GameMatch $match): array
+    {
+        $keys = [];
+        foreach ([$match->pairA, $match->pairB] as $pair) {
+            if (! $pair) continue;
+            foreach ([$pair->player1, $pair->player2] as $p) {
+                if ($p && filled($p->name)) {
+                    $keys[] = \App\Models\Player::normalize($p->name);
+                }
+            }
+        }
+        return array_values(array_unique($keys));
+    }
+
+    /** Name of the player matching a normalized key, for conflict messages. */
+    private function playerNameByKey(GameMatch $match, string $key): ?string
+    {
+        foreach ([$match->pairA, $match->pairB] as $pair) {
+            if (! $pair) continue;
+            foreach ([$pair->player1, $pair->player2] as $p) {
+                if ($p && filled($p->name) && \App\Models\Player::normalize($p->name) === $key) {
+                    return $p->name;
+                }
+            }
+        }
+        return null;
+    }
+
     private function playerName(GameMatch $match, int $playerId): ?string
     {
         foreach ([$match->pairA, $match->pairB] as $pair) {
