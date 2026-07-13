@@ -149,6 +149,8 @@
                     <div class="pub-bmatch__side {{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? 'is-win' : '' }}">
                         <span>
                             {{ $m->sideLabel('a') }}
+                            @php $gtA = $m->groupTagFor('a', $groupTags ?? []); @endphp
+                            @if($gtA)<span class="pub-bmatch__grp" title="Proviene del Grupo {{ $gtA }}">Grupo {{ $gtA }}</span>@endif
                             @php $ghostA = $m->ghostFor('a', $ghostQualifiers ?? []); @endphp
                             @if($ghostA)<span class="pub-bmatch__ghost" title="Clasificado (grupo terminado)">{{ $ghostA }}</span>@endif
                         </span>
@@ -157,6 +159,8 @@
                     <div class="pub-bmatch__side {{ $m->winner_pair_id === $m->pair_b_id && $m->pair_b_id ? 'is-win' : '' }}">
                         <span>
                             {{ $m->sideLabel('b') }}
+                            @php $gtB = $m->groupTagFor('b', $groupTags ?? []); @endphp
+                            @if($gtB)<span class="pub-bmatch__grp" title="Proviene del Grupo {{ $gtB }}">Grupo {{ $gtB }}</span>@endif
                             @php $ghostB = $m->ghostFor('b', $ghostQualifiers ?? []); @endphp
                             @if($ghostB)<span class="pub-bmatch__ghost" title="Clasificado (grupo terminado)">{{ $ghostB }}</span>@endif
                         </span>

@@ -1387,3 +1387,41 @@ input:-webkit-autofill:focus {
     margin-top: 1px;
     line-height: 1.15;
 }
+
+/* Player substitution notes on the public player page (Level A). */
+.pub-subs { margin: 8px 0 14px; display: flex; flex-direction: column; gap: 6px; }
+.pub-sub-note {
+    font-size: 13px; color: var(--text, #1a1a2e);
+    background: color-mix(in srgb, var(--lp-indigo, #635bff) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--lp-indigo, #635bff) 20%, transparent);
+    border-radius: 8px; padding: 7px 11px;
+}
+.pub-sub-note i { color: var(--lp-indigo, #635bff); margin-right: 4px; }
+.pub-sub-note--out {
+    background: var(--bg-subtle, #f4f4f7);
+    border-color: var(--border, #e2e2ea);
+}
+.pub-sub-note--out i { color: var(--pub-muted, #6b7280); }
+.pub-sub-note a { color: var(--lp-indigo, #635bff); text-decoration: none; }
+.pub-sub-note a:hover { text-decoration: underline; }
+.pub-sub-note__when { color: var(--pub-muted, #6b7280); font-size: 11px; }
+
+/* Switch-player editor row in the manager pairs table. */
+.pair-switch-row td { padding: 12px 14px !important; }
+
+/* Source-group tag on bracket sides. Public (append to landing CSS): */
+.pub-bmatch__grp {
+    display: inline-block; margin-left: 5px; padding: 0 5px;
+    font-size: 9px; font-weight: 700; line-height: 15px; letter-spacing: .02em;
+    border-radius: 3px; vertical-align: middle;
+    background: color-mix(in srgb, var(--lp-indigo, #635bff) 12%, transparent);
+    color: var(--lp-indigo, #635bff);
+}
+/* Dashboard bracket (append to theme.css): */
+.bmatch-grp {
+    display: inline-block; margin-left: 5px; padding: 0 5px;
+    font-size: 9px; font-weight: 700; line-height: 15px;
+    border-radius: 3px; vertical-align: middle;
+    background: color-mix(in srgb, var(--accent, #635bff) 14%, transparent);
+    color: var(--accent, #635bff);
+}

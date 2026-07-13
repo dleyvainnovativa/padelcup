@@ -130,6 +130,34 @@ class GameMatch extends Model
         return $this->ghostFor($side, $map);
     }
 
+    /**
+     * The source-GROUP letter for a bracket side ("A", "B", …), for showing a
+     * "Grupo A" tag. Works across states: a bound pair is looked up by pair_id;
+     * an unbound seed label (incl. a ghost) is read from its label ("A1" → "A").
+     * "Q" extra-qualifier labels return null until bound (then the pair lookup
+     * gives the real group). $tags = GhostQualifierResolver::groupTagsFor().
+     */
+    public function groupTagFor(string $side, array $tags): ?string
+    {
+        $pairId = $side === 'a' ? $this->pair_a_id : $this->pair_b_id;
+        if ($pairId && isset($tags['pairs'][$pairId])) {
+            return $tags['pairs'][$pairId];
+        }
+        $label = $side === 'a' ? $this->seed_label_a : $this->seed_label_b;
+        if ($label && isset($tags['labels'][$label])) {
+            return $tags['labels'][$label];
+        }
+        return null;
+    }
+
+    /** Like groupTagFor(), but takes a tournament-wide [category_id => tags] map. */
+    public function groupTagForIn(string $side, array $tagsByCategory): ?string
+    {
+        $tags = $tagsByCategory[$this->category_id] ?? null;
+        if (! $tags) return null;
+        return $this->groupTagFor($side, $tags);
+    }
+
     public function sideLabel(string $side): string
     {
         $pair = $side === 'a' ? $this->pairA : $this->pairB;

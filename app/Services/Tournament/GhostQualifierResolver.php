@@ -44,6 +44,52 @@ class GhostQualifierResolver
         return $this->cache[$category->id] ??= $this->mapFor($category);
     }
 
+    /** Request-scoped cache for the group-tag map. */
+    private array $tagCache = [];
+
+    /**
+     * Group tags for a category: which group each pair belongs to, plus each
+     * seed label's group letter. Lets the bracket show "Grupo A" next to any
+     * qualifier — a plain seed label, a ghost, or a bound pair (incl. resolved
+     * "Q" extra qualifiers, which don't reveal their group in the label).
+     *
+     * Returns:
+     *   [ 'pairs'  => [ pair_id => 'A' ],
+     *     'labels' => [ 'A1' => 'A', 'B2' => 'B', ... ] ]   // Q labels excluded
+     */
+    public function groupTagsFor(Category $category): array
+    {
+        return $this->tagCache[$category->id] ??= (function () use ($category) {
+            $groups = $category->groups()->with('pairs:id')->orderBy('position')->orderBy('id')->get();
+            $pairs = [];
+            $labels = [];
+            $i = 0;
+            foreach ($groups as $group) {
+                $letter = chr(ord('A') + $i);
+                foreach ($group->pairs as $p) {
+                    $pairs[$p->id] = $letter;
+                }
+                // Positional seed labels for this group letter (A1, A2, … up to its size).
+                $size = $group->pairs->count();
+                for ($pos = 1; $pos <= max($size, 1); $pos++) {
+                    $labels["{$letter}{$pos}"] = $letter;
+                }
+                $i++;
+            }
+            return ['pairs' => $pairs, 'labels' => $labels];
+        })();
+    }
+
+    /** Tournament-wide group tags: [category_id => ['pairs'=>, 'labels'=>]]. */
+    public function groupTagsForTournament(\App\Models\Tournament $tournament): array
+    {
+        $out = [];
+        foreach ($tournament->categories()->get() as $category) {
+            $out[$category->id] = $this->groupTagsFor($category);
+        }
+        return $out;
+    }
+
     /**
      * Ghost maps for EVERY hybrid category in a tournament, keyed by category id:
      *   [ category_id => [ seedLabel => pairName ] ]

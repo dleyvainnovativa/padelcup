@@ -168,7 +168,25 @@ class DrawController extends Controller
         // Only allow swapping before the bracket has results.
         abort_if($a->state === \App\Enums\MatchState::Confirmed || $b->state === \App\Enums\MatchState::Confirmed, 422, 'No se puede mover un partido ya jugado.');
 
+        // Snapshot before, for the audit trail.
+        $beforeA = ['seed_label_a' => $a->seed_label_a, 'seed_label_b' => $a->seed_label_b, 'pair_a_id' => $a->pair_a_id, 'pair_b_id' => $a->pair_b_id];
+        $beforeB = ['seed_label_a' => $b->seed_label_a, 'seed_label_b' => $b->seed_label_b, 'pair_a_id' => $b->pair_a_id, 'pair_b_id' => $b->pair_b_id];
+
         $this->brackets->swapSlots($a, $data['side_a'], $b, $data['side_b']);
+
+        // Audit both affected matches (manual position edit — kept even post-lock).
+        $a->refresh();
+        $b->refresh();
+        foreach ([[$a, $beforeA], [$b, $beforeB]] as [$m, $before]) {
+            \App\Models\MatchAudit::create([
+                'game_match_id' => $m->id,
+                'user_id' => $request->user()->id,
+                'action' => 'bracket_position_edit',
+                'before' => $before,
+                'after' => ['seed_label_a' => $m->seed_label_a, 'seed_label_b' => $m->seed_label_b, 'pair_a_id' => $m->pair_a_id, 'pair_b_id' => $m->pair_b_id],
+                'note' => $tournament->isLocked() ? 'Edición manual de posiciones (torneo bloqueado)' : 'Edición manual de posiciones',
+            ]);
+        }
 
         return back()->with('status', 'Posiciones intercambiadas.');
     }
@@ -186,7 +204,9 @@ class DrawController extends Controller
             ->get()
             ->groupBy('round');
 
-        return view('dashboard.brackets.index', compact('tournament', 'category', 'matches'));
+        $groupTags = app(\App\Services\Tournament\GhostQualifierResolver::class)
+            ->groupTagsFor($category);
+        return view('dashboard.brackets.index', compact('tournament', 'category', 'matches', 'groupTags'));
     }
 
     /**

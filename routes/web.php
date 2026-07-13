@@ -41,8 +41,12 @@ Route::middleware(['auth'])->group(function () {
             Route::post('pairs', [PairController::class, 'store'])->name('pairs.store');
             Route::patch('pairs/{pair}/payment', [PairController::class, 'setPayment'])->name('pairs.payment');
             Route::delete('pairs/{pair}', [PairController::class, 'destroy'])->name('pairs.destroy');
-            Route::patch('pairs/{pair}/nombres',[\App\Http\Controllers\Dashboard\PairController::class, 'updateNames'])->name('pairs.names');
-
+            Route::patch('pairs/{pair}/nombres', [\App\Http\Controllers\Dashboard\PairController::class, 'updateNames'])->name('pairs.names');
+            Route::patch(
+                'pairs/{pair}/sustituir',
+                [\App\Http\Controllers\Dashboard\PairController::class, 'substitute']
+            )
+                ->name('pairs.substitute');
             // CSV import
             Route::get('import', [PlayerImportController::class, 'form'])->name('pairs.import.form');
             Route::post('import/preview', [PlayerImportController::class, 'preview'])->name('pairs.import.preview');
@@ -83,11 +87,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('calendario/auto', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'auto'])->name('schedule.auto');
         Route::post('calendario/colocar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'place'])->name('schedule.place');
         Route::post('calendario/quitar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'unplace'])->name('schedule.unplace');
-        Route::post('calendario/quitar-varios',[\App\Http\Controllers\Dashboard\ScheduleController::class, 'unplaceMany'])->name('schedule.unplaceMany');
+        Route::post('calendario/quitar-varios', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'unplaceMany'])->name('schedule.unplaceMany');
         Route::post('calendario/limpiar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'clearAll'])->name('schedule.clear');
         Route::post('calendario/conflictos', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'conflicts'])->name('schedule.conflicts');
         Route::get('calendario/pdf', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportPdf'])->name('schedule.pdf');
-        Route::get('calendario/pdf-eliminacion',[\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportEliminationPdf'])->name('schedule.exportEliminationPdf');
+        Route::get('calendario/pdf-eliminacion', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportEliminationPdf'])->name('schedule.exportEliminationPdf');
         Route::post('calendario/fases', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'savePhaseWindows'])->name('schedule.phases');
 
         // Resumen (tournament summary / leaderboard)

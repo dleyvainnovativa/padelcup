@@ -1,11 +1,14 @@
 // Public page enhancements: auto-refresh (live), Web Share, and QR generation.
 
+import { initAdCarousel } from './adCarousel';
+
 export function initPublicPages() {
   restoreScroll();       // must run before other init, ASAP on load
   initAutoRefresh();
   initShare();
   initQR();
   initTabPersistence();
+  initAdCarousel();
 }
 
 // --- State preservation across the auto-refresh reload --------------

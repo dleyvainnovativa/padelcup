@@ -65,6 +65,13 @@ class RegistrationService
         });
     }
 
+    /** Public entry to resolve-or-create a player (id, or dedup by email/phone,
+     *  else create). Used by player substitution too. */
+    public function resolveOrCreatePlayer(array $def, User $manager): Player
+    {
+        return $this->resolvePlayer($def, $manager);
+    }
+
     /** Resolve an existing player by id, or reuse one matched by email/phone
      *  (manager-owned), or create a new one. */
     private function resolvePlayer(array $def, User $manager): Player

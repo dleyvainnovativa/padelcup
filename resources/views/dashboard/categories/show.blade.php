@@ -170,6 +170,10 @@ $belowMin = $occupied < $category->min_pairs;
                                     data-edit-names="{{ $pair->id }}">
                                     <i class="fa-solid fa-user-pen"></i>
                                 </button>
+                                <button type="button" class="btn btn-soft btn-sm" title="Reemplazar jugador"
+                                    data-switch-player="{{ $pair->id }}">
+                                    <i class="fa-solid fa-right-left"></i>
+                                </button>
                                 @if($reg && $reg->payment_status->value !== 'paid')
                                 <form method="POST" action="{{ route('pairs.payment', [$tournament, $category, $pair]) }}">
                                     @csrf @method('PATCH')
@@ -204,12 +208,52 @@ $belowMin = $occupied < $category->min_pairs;
                                     <input type="text" name="player2_name"
                                         value="{{ $pair->player2?->name }}"
                                         @disabled(! $pair->player2)
-                                        class="form-control form-control-sm" style="border-radius:var(--radius);min-width:180px;">
+                                    class="form-control form-control-sm" style="border-radius:var(--radius);min-width:180px;">
                                 </div>
                                 <button type="submit" class="btn btn-accent btn-sm"><i class="fa-solid fa-check me-1"></i> Guardar</button>
                                 <button type="button" class="btn btn-soft btn-sm" data-cancel-names="{{ $pair->id }}">Cancelar</button>
                                 <span style="font-size:11px;color:var(--text-faint);">
                                     Se actualizan también las reglas de disponibilidad de ese jugador.
+                                </span>
+                            </form>
+                        </td>
+                    </tr>
+                    {{-- Inline switch-player (substitution) editor --}}
+                    <tr class="pair-switch-row" data-switch-row="{{ $pair->id }}" hidden>
+                        <td colspan="4" style="background:var(--bg-subtle);">
+                            <form method="POST" action="{{ route('pairs.substitute', [$tournament, $category, $pair]) }}"
+                                class="d-flex flex-wrap align-items-end gap-2">
+                                @csrf @method('PATCH')
+                                <div>
+                                    <label style="font-size:11px;color:var(--text-faint);display:block;">Sale</label>
+                                    <select name="slot" class="form-select form-select-sm" style="border-radius:var(--radius);min-width:160px;">
+                                        <option value="1">{{ $pair->player1?->name ?? 'Jugador 1' }}</option>
+                                        @if($pair->player2)
+                                        <option value="2">{{ $pair->player2->name }}</option>
+                                        @endif
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size:11px;color:var(--text-faint);display:block;">Entra (nombre)</label>
+                                    <input type="text" name="name" required placeholder="Nombre del reemplazo"
+                                        class="form-control form-control-sm" style="border-radius:var(--radius);min-width:180px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:11px;color:var(--text-faint);display:block;">Email (opcional)</label>
+                                    <input type="email" name="email" class="form-control form-control-sm" style="border-radius:var(--radius);min-width:150px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:11px;color:var(--text-faint);display:block;">Tel (opcional)</label>
+                                    <input type="text" name="phone" class="form-control form-control-sm" style="border-radius:var(--radius);min-width:120px;">
+                                </div>
+                                <button type="submit" class="btn btn-accent btn-sm"
+                                    data-confirm="¿Reemplazar al jugador? Queda registrado públicamente."
+                                    data-confirm-title="Reemplazar jugador" data-confirm-ok="Reemplazar">
+                                    <i class="fa-solid fa-right-left me-1"></i> Reemplazar
+                                </button>
+                                <button type="button" class="btn btn-soft btn-sm" data-cancel-switch="{{ $pair->id }}">Cancelar</button>
+                                <span style="font-size:11px;color:var(--text-faint);">
+                                    Se registra la sustitución (visible en el perfil del jugador). Si das email o teléfono y el jugador ya existe, se reutiliza.
                                 </span>
                             </form>
                         </td>
@@ -225,9 +269,9 @@ $belowMin = $occupied < $category->min_pairs;
     </div>
 
     <script>
-        (function () {
-            document.querySelectorAll('[data-edit-names]').forEach(function (btn) {
-                btn.addEventListener('click', function () {
+        (function() {
+            document.querySelectorAll('[data-edit-names]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
                     var id = btn.dataset.editNames;
                     var row = document.querySelector('[data-names-row="' + id + '"]');
                     if (!row) return;
@@ -235,9 +279,24 @@ $belowMin = $occupied < $category->min_pairs;
                     if (!row.hidden) row.querySelector('input[name="player1_name"]').focus();
                 });
             });
-            document.querySelectorAll('[data-cancel-names]').forEach(function (btn) {
-                btn.addEventListener('click', function () {
+            document.querySelectorAll('[data-cancel-names]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
                     var row = document.querySelector('[data-names-row="' + btn.dataset.cancelNames + '"]');
+                    if (row) row.hidden = true;
+                });
+            });
+            document.querySelectorAll('[data-switch-player]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var id = btn.dataset.switchPlayer;
+                    var row = document.querySelector('[data-switch-row="' + id + '"]');
+                    if (!row) return;
+                    row.hidden = !row.hidden;
+                    if (!row.hidden) row.querySelector('input[name="name"]').focus();
+                });
+            });
+            document.querySelectorAll('[data-cancel-switch]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var row = document.querySelector('[data-switch-row="' + btn.dataset.cancelSwitch + '"]');
                     if (row) row.hidden = true;
                 });
             });

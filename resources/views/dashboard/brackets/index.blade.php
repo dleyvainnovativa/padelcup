@@ -18,8 +18,11 @@
         <a href="{{ route('results.index', [$tournament, $category]) }}" class="btn btn-soft">
             <i class="fa-solid fa-flag-checkered me-1"></i> Resultados
         </a>
-        @unless($tournament->isLocked())
+        {{-- Editing positions stays available even when locked, so the manager
+             can fix a bad draw (e.g. same-group first-round clash). It only
+             moves UNPLAYED slots, so it can't disturb recorded results. --}}
         <button type="button" class="btn btn-soft" data-swap-toggle><i class="fa-solid fa-arrows-up-down-left-right me-1"></i> Editar posiciones</button>
+        @unless($tournament->isLocked())
         <form method="POST" action="{{ route('draw.bracket.build', [$tournament, $category]) }}"
             data-confirm="Se reemplazará la llave actual por una nueva. ¿Continuar?" data-confirm-title="Regenerar llave" data-confirm-ok="Regenerar">
             @csrf
@@ -52,7 +55,11 @@
             @php
             $status = $m->scheduleStatus();
             $ready = $m->isReadyForResult();
-            $swappable = $round == 1 && $status !== 'played';
+            // Allow moving positions on ANY round, as long as the match isn't
+            // played yet (a played match's result must not be disturbed). This
+            // lets the manager fix a bad draw — e.g. an extra qualifier drawn
+            // against their own group's winner — even after the tournament locks.
+            $swappable = $status !== 'played';
             @endphp
             <div class="sched-match is-{{ $status }} {{ $ready ? 'is-tappable' : '' }}"
                 @if($ready)
@@ -66,10 +73,10 @@
                 data-edit-url="{{ route('results.edit', [$tournament, $category, $m]) }}"
                 @endif>
                 <div class="bmatch-side {{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? '' : 'is-dim' }}"
-                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="a" @endif>{{ $m->sideLabel('a') }}</div>
+                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="a" @endif>{{ $m->sideLabel('a') }}@php $gtA = $m->groupTagFor('a', $groupTags ?? []); @endphp @if($gtA)<span class="bmatch-grp">Grupo {{ $gtA }}</span>@endif</div>
                 <div style="font-size:10px;color:var(--text-faint);">vs</div>
                 <div class="bmatch-side {{ $m->winner_pair_id === $m->pair_b_id && $m->pair_b_id ? '' : 'is-dim' }}"
-                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="b" @endif>{{ $m->sideLabel('b') }}</div>
+                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="b" @endif>{{ $m->sideLabel('b') }}@php $gtB = $m->groupTagFor('b', $groupTags ?? []); @endphp @if($gtB)<span class="bmatch-grp">Grupo {{ $gtB }}</span>@endif</div>
                 @if($status === 'played' && $m->sets)
                 <div class="sched-match__scores">
                     @foreach($m->sets as $s)

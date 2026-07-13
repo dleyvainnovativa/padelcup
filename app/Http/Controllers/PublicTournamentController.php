@@ -213,8 +213,11 @@ class PublicTournamentController extends Controller
                 ->groupBy('round');
         }
 
-         $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
-        ->mapFor($category);
+        $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
+            ->mapFor($category);
+
+        $groupTags = app(\App\Services\Tournament\GhostQualifierResolver::class)
+            ->groupTagsFor($category);
 
         return view('public.category', [
             'tournament' => $tournament,
@@ -235,6 +238,7 @@ class PublicTournamentController extends Controller
             'calMatchedPlayers' => $calMatchedPlayers,
             'calTotal' => $calTotal,
             'ghostQualifiers' => $ghostQualifiers,
+            'groupTags' => $groupTags,
         ]);
     }
 
@@ -306,8 +310,8 @@ class PublicTournamentController extends Controller
 
         // Group by day for display.
         $byDay = $matches->groupBy(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'));
-$ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
-        ->mapForTournament($tournament);
+        $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
+            ->mapForTournament($tournament);
         return view('public.schedule', [
             'tournament' => $tournament,
             'byDay' => $byDay,
@@ -336,7 +340,7 @@ $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
 
         abort_if($pairIds->isEmpty(), Response::HTTP_NOT_FOUND);
 
-        
+
 
         // Matches involving any of those pairs.
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
@@ -369,65 +373,74 @@ $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
         )->get();
 
         // Projected knockout matches: for each category the player is in, resolve the
-    // ghost map; find bracket matches where an unbound side's seed label resolves
-    // to one of the player's pairs. Shown as provisional until real binding.
-    $ghost = app(\App\Services\Tournament\GhostQualifierResolver::class);
-    $projectedMatches = [];
+        // ghost map; find bracket matches where an unbound side's seed label resolves
+        // to one of the player's pairs. Shown as provisional until real binding.
+        $ghost = app(\App\Services\Tournament\GhostQualifierResolver::class);
+        $projectedMatches = [];
 
-    // Names of this player's pairs (to match against resolved ghost names).
-    $myPairNames = \App\Models\Pair::with(['player1', 'player2'])
-        ->whereIn('id', $pairIds)
-        ->get()
-        ->mapWithKeys(fn ($p) => [$p->id => $p->name()]);
+        // Names of this player's pairs (to match against resolved ghost names).
+        $myPairNames = \App\Models\Pair::with(['player1', 'player2'])
+            ->whereIn('id', $pairIds)
+            ->get()
+            ->mapWithKeys(fn($p) => [$p->id => $p->name()]);
 
-    foreach ($categories as $category) {
-        if (! $category->format->hasBracket()) continue;
-        $map = $ghost->mapForCached($category); // [seedLabel => pairName]
-        if (empty($map)) continue;
+        foreach ($categories as $category) {
+            if (! $category->format->hasBracket()) continue;
+            $map = $ghost->mapForCached($category); // [seedLabel => pairName]
+            if (empty($map)) continue;
 
-        // Which seed labels resolve to one of MY pair names?
-        $myLabels = [];
-        foreach ($map as $label => $pairName) {
-            if ($myPairNames->contains($pairName)) $myLabels[] = $label;
-        }
-        if (empty($myLabels)) continue;
+            // Which seed labels resolve to one of MY pair names?
+            $myLabels = [];
+            foreach ($map as $label => $pairName) {
+                if ($myPairNames->contains($pairName)) $myLabels[] = $label;
+            }
+            if (empty($myLabels)) continue;
 
-        // Bracket matches in this category with an unbound side carrying one of
-        // those labels — but only where the pair isn't already bound (still a
-        // real projection, not an actual scheduled match).
-        // $bracket = \App\Models\GameMatch::where('category_id', $category->id)
-        //     ->whereNull('group_id')
-        //     ->whereNull('pair_a_id')->orWhereNull('pair_b_id')
-        //     ->where('category_id', $category->id)   // keep scope after orWhere
-        //     ->whereNull('group_id')
-        //     ->with(['pairA', 'pairB'])
-        //     ->get();
+            // Bracket matches in this category with an unbound side carrying one of
+            // those labels — but only where the pair isn't already bound (still a
+            // real projection, not an actual scheduled match).
+            // $bracket = \App\Models\GameMatch::where('category_id', $category->id)
+            //     ->whereNull('group_id')
+            //     ->whereNull('pair_a_id')->orWhereNull('pair_b_id')
+            //     ->where('category_id', $category->id)   // keep scope after orWhere
+            //     ->whereNull('group_id')
+            //     ->with(['pairA', 'pairB'])
+            //     ->get();
 
             $bracket = \App\Models\GameMatch::where('category_id', $category->id)
-        ->whereNull('group_id')
-        ->where(fn ($q) => $q->whereNull('pair_a_id')->orWhereNull('pair_b_id'))
-        ->with(['pairA', 'pairB'])
-        ->get();
+                ->whereNull('group_id')
+                ->where(fn($q) => $q->whereNull('pair_a_id')->orWhereNull('pair_b_id'))
+                ->with(['pairA', 'pairB'])
+                ->get();
 
-        foreach ($bracket as $m) {
-            $aLabel = $m->seed_label_a;
-            $bLabel = $m->seed_label_b;
-            $mineOnA = $aLabel && in_array($aLabel, $myLabels, true) && ! $m->pair_a_id;
-            $mineOnB = $bLabel && in_array($bLabel, $myLabels, true) && ! $m->pair_b_id;
-            if (! $mineOnA && ! $mineOnB) continue;
+            foreach ($bracket as $m) {
+                $aLabel = $m->seed_label_a;
+                $bLabel = $m->seed_label_b;
+                $mineOnA = $aLabel && in_array($aLabel, $myLabels, true) && ! $m->pair_a_id;
+                $mineOnB = $bLabel && in_array($bLabel, $myLabels, true) && ! $m->pair_b_id;
+                if (! $mineOnA && ! $mineOnB) continue;
 
-            // Resolve both sides for display (ghost name if available, else label text).
-            $aName = $m->ghostFor('a', $map) ?? $m->sideLabel('a');
-            $bName = $m->ghostFor('b', $map) ?? $m->sideLabel('b');
+                // Resolve both sides for display (ghost name if available, else label text).
+                $aName = $m->ghostFor('a', $map) ?? $m->sideLabel('a');
+                $bName = $m->ghostFor('b', $map) ?? $m->sideLabel('b');
 
-            $projectedMatches[] = [
-                'category' => $category->name,
-                'round' => $m->bracketRoundName(),
-                'a' => $aName,
-                'b' => $bName,
-            ];
+                $projectedMatches[] = [
+                    'category' => $category->name,
+                    'round' => $m->bracketRoundName(),
+                    'a' => $aName,
+                    'b' => $bName,
+                ];
+            }
         }
-    }
+
+        $subsIn = \App\Models\PlayerSubstitution::with(['oldPlayer', 'newPlayer', 'category'])
+            ->where('tournament_id', $tournament->id)
+            ->where('new_player_id', $player->id)   // this player came IN
+            ->get();
+        $subsOut = \App\Models\PlayerSubstitution::with(['oldPlayer', 'newPlayer', 'category'])
+            ->where('tournament_id', $tournament->id)
+            ->where('old_player_id', $player->id)    // this player was replaced
+            ->get();
 
         // Upcoming (scheduled, not yet played) vs past.
         $now = now('America/Mexico_City');
@@ -448,6 +461,8 @@ $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
                 'setsWon' => $setsWon,
                 'setsLost' => $setsLost,
             ],
+            'subsIn' => $subsIn,
+            'subsOut' => $subsOut,
         ]);
     }
 

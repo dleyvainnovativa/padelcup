@@ -76,8 +76,10 @@ class PairController extends Controller
             $res = $renamer->rename($pair->player1, $data['player1_name'], $tournament);
             $rulesMoved += $res['rules_moved'];
         }
-        if ($pair->player2 && filled($data['player2_name'] ?? null)
-            && $data['player2_name'] !== $pair->player2->name) {
+        if (
+            $pair->player2 && filled($data['player2_name'] ?? null)
+            && $data['player2_name'] !== $pair->player2->name
+        ) {
             $res = $renamer->rename($pair->player2, $data['player2_name'], $tournament);
             $rulesMoved += $res['rules_moved'];
         }
@@ -88,5 +90,40 @@ class PairController extends Controller
         }
 
         return back()->with('status', $msg);
+    }
+    public function substitute(
+        Request $request,
+        Tournament $tournament,
+        Category $category,
+        Pair $pair,
+        \App\Services\Registration\PlayerSubstitutionService $subs,
+    ) {
+        $this->authorize('update', $tournament);
+        abort_unless($pair->category_id === $category->id, 404);
+
+        $data = $request->validate([
+            'slot' => ['required', 'integer', 'in:1,2'],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $sub = $subs->substitute(
+            $pair,
+            (int) $data['slot'],
+            [
+                'name' => $data['name'],
+                'email' => $data['email'] ?? null,
+                'phone' => $data['phone'] ?? null,
+            ],
+            $request->user(),
+            $data['reason'] ?? null,
+        );
+
+        return back()->with(
+            'status',
+            "Jugador sustituido: {$sub->oldPlayer->name} → {$sub->newPlayer->name}."
+        );
     }
 }
