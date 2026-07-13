@@ -1425,3 +1425,43 @@ input:-webkit-autofill:focus {
     background: color-mix(in srgb, var(--accent, #635bff) 14%, transparent);
     color: var(--accent, #635bff);
 }
+
+/* Thin, subtle scrollbar for the manually-scrollable ads carousel.
+   Append to your public/landing CSS. Only targets the carousel track, so it
+   doesn't affect other scroll areas. */
+.pub-ads__track--carousel {
+    scrollbar-width: thin;                 /* Firefox */
+    scrollbar-color: color-mix(in srgb, var(--lp-indigo, transparent) 35%, transparent) transparent;
+    -webkit-overflow-scrolling: touch;     /* momentum scroll on iOS */
+    scroll-snap-type: x proximity;         /* gentle snap when the user scrolls */
+    padding-bottom: 2px;
+}
+.pub-ads__track--carousel > .pub-ad {
+    scroll-snap-align: start;
+}
+/* WebKit (Chrome/Safari/Edge) — thin bar, appears on scroll, subtle. */
+.pub-ads__track--carousel::-webkit-scrollbar {
+    height: 6px;
+}
+.pub-ads__track--carousel::-webkit-scrollbar-track {
+    background: transparent;
+}
+.pub-ads__track--carousel::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--lp-indigo, transparent) 30%, transparent);
+    border-radius: 999px;
+}
+.pub-ads__track--carousel::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--lp-indigo, transparent) 55%, transparent);
+}
+@media (min-width: 1280px) {
+    .pub-ads__track--carousel::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--lp-indigo, var(--text-muted)) 30%, transparent);
+    border-radius: 999px;
+}
+.pub-ads__track--carousel::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--lp-indigo, var(--text-muted)) 55%, transparent);
+}
+.pub-ads__track--carousel {
+    scrollbar-color: color-mix(in srgb, var(--lp-indigo, var(--text-muted)) 35%, transparent) transparent;
+}
+}
