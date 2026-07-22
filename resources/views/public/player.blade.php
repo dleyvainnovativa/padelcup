@@ -83,57 +83,71 @@
     @if($matches->isEmpty())
     <div class="pub-empty">Sin partidos todavía.</div>
     @else
-    <div class="pub-card">
-        <div class="pub-card__body" style="padding:0;">
-            @foreach($matches as $m)
-            @php
-            $played = $m->state->value === 'confirmed';
-            $mineA = in_array($m->pair_a_id, $pairIds);
-            $myPairId = $mineA ? $m->pair_a_id : $m->pair_b_id;
-            $iWon = $played && $m->winner_pair_id === $myPairId;
-            $iLost = $played && $m->winner_pair_id && $m->winner_pair_id !== $myPairId;
-            @endphp
-            <div class="pub-pmatch {{ $iWon ? 'is-win' : ($iLost ? 'is-loss' : '') }}">
-                <div class="pub-pmatch__res">
-                    @if($iWon)<span class="pub-pmatch__badge pub-pmatch__badge--w">G</span>
-                    @elseif($iLost)<span class="pub-pmatch__badge pub-pmatch__badge--l">P</span>
-                    @else<span class="pub-pmatch__badge">·</span>@endif
-                </div>
-                <div class="pub-pmatch__main">
-                    <div class="pub-pmatch__pairs">
-                        {{ $m->sideLabel('a') }} <span class="pub-muted">vs</span> {{ $m->sideLabel('b') }}
+    @php $multiCat = $categories->count() > 1; @endphp
+    <div @if($multiCat) x-data="{ pcat: 'all' }" @endif>
+        {{-- Category tabs (only when the player is in more than one category) --}}
+        @if($multiCat)
+        <div class="pub-cat-tabs">
+            <button class="pub-cat-tab" :class="{ 'is-active': pcat === 'all' }" @click="pcat = 'all'">Todas</button>
+            @foreach($categories as $cat)
+            <button class="pub-cat-tab" :class="{ 'is-active': pcat === '{{ $cat->id }}' }" @click="pcat = '{{ $cat->id }}'">{{ $cat->name }}</button>
+            @endforeach
+        </div>
+        @endif
+
+        <div class="pub-card">
+            <div class="pub-card__body" style="padding:0;">
+                @foreach($matches as $m)
+                @php
+                $played = $m->state->value === 'confirmed';
+                $mineA = in_array($m->pair_a_id, $pairIds);
+                $myPairId = $mineA ? $m->pair_a_id : $m->pair_b_id;
+                $iWon = $played && $m->winner_pair_id === $myPairId;
+                $iLost = $played && $m->winner_pair_id && $m->winner_pair_id !== $myPairId;
+                @endphp
+                <div class="pub-pmatch {{ $iWon ? 'is-win' : ($iLost ? 'is-loss' : '') }}"
+                    @if($multiCat) x-show="pcat === 'all' || pcat === '{{ $m->category_id }}'" x-cloak @endif>
+                    <div class="pub-pmatch__res">
+                        @if($iWon)<span class="pub-pmatch__badge pub-pmatch__badge--w">G</span>
+                        @elseif($iLost)<span class="pub-pmatch__badge pub-pmatch__badge--l">P</span>
+                        @else<span class="pub-pmatch__badge">·</span>@endif
                     </div>
-                    <div class="pub-pmatch__meta">
-                        {{ $m->category->name }} · {{ $m->contextLabel() }}
-                        @if($m->starts_at) · {{ $m->starts_at->timezone('America/Mexico_City')->translatedFormat('d M H:i') }}@endif
-                        @if($m->court) · {{ $m->court->name }}@endif
+                    <div class="pub-pmatch__main">
+                        <div class="pub-pmatch__pairs">
+                            {{ $m->sideLabel('a') }} <span class="pub-muted">vs</span> {{ $m->sideLabel('b') }}
+                        </div>
+                        <div class="pub-pmatch__meta">
+                            {{ $m->category->name }} · {{ $m->contextLabel() }}
+                            @if($m->starts_at) · {{ $m->starts_at->timezone('America/Mexico_City')->translatedFormat('d M H:i') }}@endif
+                            @if($m->court) · {{ $m->court->name }}@endif
+                        </div>
                     </div>
-                </div>
-                <div class="pub-pmatch__score pub-mono">
-                    @if($played && $m->sets)
-                    @foreach($m->sets as $s){{ $s[0] }}-{{ $s[1] }}@if(!$loop->last) @endif @endforeach
-                    @else
-                    <span class="pub-muted">—</span>
+                    <div class="pub-pmatch__score pub-mono">
+                        @if($played && $m->sets)
+                        @foreach($m->sets as $s){{ $s[0] }}-{{ $s[1] }}@if(!$loop->last) @endif @endforeach
+                        @else
+                        <span class="pub-muted">—</span>
+                        @endif
+                    </div>
+                    @if($played)
+                    @php
+                    $shareData = [
+                    'tournament' => $tournament->name,
+                    'category' => $m->category->name,
+                    'context' => $m->contextLabel(),
+                    'pairA' => $m->sideLabel('a'),
+                    'pairB' => $m->sideLabel('b'),
+                    'sets' => $m->sets ?? [],
+                    'winner' => $m->winner_pair_id === $m->pair_a_id ? 'a' : ($m->winner_pair_id === $m->pair_b_id ? 'b' : null),
+                    ];
+                    @endphp
+                    <button type="button" class="pub-share-btn" data-share-match='@json($shareData)' title="Compartir imagen">
+                        <i class="fa-solid fa-image"></i>
+                    </button>
                     @endif
                 </div>
-                @if($played)
-                @php
-                $shareData = [
-                'tournament' => $tournament->name,
-                'category' => $m->category->name,
-                'context' => $m->contextLabel(),
-                'pairA' => $m->sideLabel('a'),
-                'pairB' => $m->sideLabel('b'),
-                'sets' => $m->sets ?? [],
-                'winner' => $m->winner_pair_id === $m->pair_a_id ? 'a' : ($m->winner_pair_id === $m->pair_b_id ? 'b' : null),
-                ];
-                @endphp
-                <button type="button" class="pub-share-btn" data-share-match='@json($shareData)' title="Compartir imagen">
-                    <i class="fa-solid fa-image"></i>
-                </button>
-                @endif
+                @endforeach
             </div>
-            @endforeach
         </div>
     </div>
     @endif

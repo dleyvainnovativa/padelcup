@@ -10,13 +10,14 @@ class PlayerAvailability extends Model
         'tournament_id',
         'normalized_name',
         'day',
+        'unavailable',
         'earliest_time',
         'latest_time',
     ];
 
     protected function casts(): array
     {
-        return ['day' => 'date'];
+        return ['day' => 'date', 'unavailable' => 'boolean'];
     }
 
     public function tournament()
@@ -52,6 +53,10 @@ class PlayerAvailability extends Model
         $map = [];
         foreach (static::where('tournament_id', $tournament->id)->get() as $row) {
             $day = $row->day instanceof \Carbon\Carbon ? $row->day->format('Y-m-d') : (string) $row->day;
+            if ($row->unavailable) {
+                $map[$row->normalized_name][$day] = ['from' => null, 'until' => null, 'off' => true];
+                continue;
+            }
             $map[$row->normalized_name][$day] = [
                 'from' => substr((string) $row->earliest_time, 0, 5),
                 'until' => $row->latest_time ? substr((string) $row->latest_time, 0, 5) : null,

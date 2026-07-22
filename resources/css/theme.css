@@ -1465,3 +1465,121 @@ input:-webkit-autofill:focus {
     scrollbar-color: color-mix(in srgb, var(--lp-indigo, var(--text-muted)) 35%, transparent) transparent;
 }
 }
+/* ===== Cruces cross-table ===== append to public/landing CSS ===== */
+/* ===== Cruces cross-table ===== append to public/landing CSS ===== */
+
+/* Horizontal scroll container — the table can be wider than the phone. */
+.cruces-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--lp-indigo, #635bff) 35%, transparent) transparent;
+}
+.cruces-scroll::-webkit-scrollbar { height: 6px; }
+.cruces-scroll::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--lp-indigo, #635bff) 30%, transparent);
+    border-radius: 999px;
+}
+
+.cruces {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    min-width: 520px;               /* forces horizontal scroll on small screens */
+    font-size: 12px;
+}
+
+.cruces th, .cruces td {
+    padding: 8px 10px;
+    text-align: center;
+    border-bottom: 1px solid var(--border, #ececf1);
+    white-space: nowrap;
+}
+
+.cruces thead th {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--text-muted, #8a8a99); font-weight: 700;
+    background: var(--bg-subtle, #fff);
+    position: relative; top: 0; z-index: 2;
+}
+
+/* Rank + pair-name columns: frozen to the left so you never lose the row on scroll. */
+.cruces__rank {
+    width: 34px;
+    position: relative; left: 0; z-index: 3;
+    background: var(--bg-subtle, #fff);
+    color: var(--text-muted, #8a8a99); font-weight: 700;
+}
+.cruces__pair {
+    text-align: left;
+    min-width: 160px;
+    position: relative; z-index: 3;
+    background: var(--bg-subtle, #fff);
+    font-weight: 600; color: var(--text-muted, #1a1a2e);
+    box-shadow: 1px 0 0 var(--border, #ececf1);  /* subtle divider from scroll area */
+}
+/* Header cells for the two frozen columns need the higher z so they stay on top. */
+thead .cruces__rank, thead .cruces__pair { z-index: 4; }
+
+/* The numbered result cells. */
+.cruces__num { width: 64px; }
+.cruces__cell { font-weight: 600; color: var(--text-muted, #1a1a2e); font-variant-numeric: tabular-nums; }
+.cruces__cell.is-won  { color: #1a7f37; background: color-mix(in srgb, #1a7f37 7%, transparent); }
+.cruces__cell.is-lost { color: var(--text-muted, #8a8a99); }
+.cruces__cell--sched  { color: var(--lp-indigo, #635bff); font-weight: 600; font-size: 11px; }
+.cruces__cell--empty  { color: var(--border, #c9c9d4); }
+
+/* The diagonal (a pair vs itself). */
+.cruces__self {
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--bg-subtle, #f4f4f7),
+        var(--bg-subtle, #f4f4f7) 5px,
+        transparent 5px,
+        transparent 10px
+    );
+}
+
+/* CRUCES + HORARIO columns. */
+.cruces__cross { min-width: 70px; }
+.cruces__time  { text-align: left; min-width: 150px; }
+.cruces__cross-pill {
+    display: inline-block; margin: 1px;
+    padding: 1px 7px; border-radius: 999px;
+    font-size: 11px; font-weight: 700;
+    background: color-mix(in srgb, var(--lp-indigo, #635bff) 12%, transparent);
+    color: var(--lp-indigo, #635bff);
+}
+.cruces__cross-pill.is-done {
+    background: var(--bg-subtle, #f4f4f7);
+    color: var(--text-muted, #8a8a99);
+}
+.cruces__time-line {
+    display: block; font-size: 11px; color: var(--text-muted, #1a1a2e);
+    text-transform: capitalize; line-height: 1.5;
+}
+.cruces__time-line.is-done { color: var(--text-muted, #8a8a99); }
+.cruces__done-ic { color: #1a7f37; font-size: 9px; margin-right: 3px; }
+
+/* Zebra + row hover for readability across a wide table. */
+.cruces tbody tr:nth-child(even) td { background-color: color-mix(in srgb, var(--bg-subtle, #f4f4f7) 45%, transparent); }
+.cruces tbody tr:nth-child(even) .cruces__rank,
+.cruces tbody tr:nth-child(even) .cruces__pair { background: color-mix(in srgb, var(--bg-subtle, #f4f4f7) 92%, var(--bg-subtle, #fff)); }
+.cruces tbody tr:hover td { background-color: color-mix(in srgb, var(--lp-indigo, #635bff) 5%, transparent); }
+
+/* Category tabs on the public player page (only shown when in >1 category). */
+.pub-cat-tabs {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px;
+}
+.pub-cat-tab {
+    border: 1px solid var(--border, #e2e2ea);
+    background: var(--bg-subtle, #fff);
+    color: var(--text-muted, #6b7280);
+    font-size: 13px; font-weight: 600;
+    padding: 5px 12px; border-radius: 999px; cursor: pointer;
+    transition: all .12s ease;
+}
+.pub-cat-tab:hover { border-color: var(--lp-indigo, #635bff); color: var(--lp-indigo, #635bff); }
+.pub-cat-tab.is-active {
+    background: var(--lp-indigo, #635bff); border-color: var(--lp-indigo, #635bff); color: #fff;
+}

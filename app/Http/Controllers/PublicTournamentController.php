@@ -219,6 +219,93 @@ class PublicTournamentController extends Controller
         $groupTags = app(\App\Services\Tournament\GhostQualifierResolver::class)
             ->groupTagsFor($category);
 
+        // Cross-table ("cruces") data per group: for each ordered pair (row,col),
+        // their head-to-head match — score from the ROW pair's perspective, plus
+        // whether the row pair won. Also each pair's UPCOMING crosses + times.
+        $crossTables = $category->groups->map(function ($group) {
+            $group->loadMissing('pairs');
+            // Confirmed + scheduled matches within this group.
+            $matches = \App\Models\GameMatch::where('group_id', $group->id)
+                ->with(['court'])
+                ->get();
+
+            // Order pairs as they appear in standings (so row/col numbers match the
+            // standings table the coaches read).
+            $ordered = $this->standings->forGroup($group)
+                ->map(fn($r) => $r['pair_id'])->values();
+            // Fallback: if standings empty, use the group's pairs order.
+            if ($ordered->isEmpty()) $ordered = $group->pairs->pluck('id');
+
+            $pairsById = $group->pairs->keyBy('id');
+            $index = $ordered->flip(); // [pair_id => 0-based position]
+
+            // Build the cell lookup: cells[rowPairId][colPairId] = [...]
+            $cells = [];
+            // Each pair's FULL list of crosses (played + upcoming), chronological.
+            $schedule = []; // schedule[pairId] = [ ['cross'=>, 'when'=>, 'court'=>, 'played'=>bool], ... ]
+            foreach ($ordered as $pid) {
+                $schedule[$pid] = [];
+            }
+
+            foreach ($matches as $m) {
+                $a = $m->pair_a_id;
+                $b = $m->pair_b_id;
+                if (! isset($index[$a]) || ! isset($index[$b])) continue;
+                $played = $m->state->value === 'confirmed';
+
+                // Row A vs Col B (score from A's perspective) and the mirror.
+                foreach ([[$a, $b, 'a'], [$b, $a, 'b']] as [$row, $col, $side]) {
+                    if ($played && $m->sets) {
+                        // Score from the ROW pair's perspective.
+                        $score = collect($m->sets)->map(function ($s) use ($side) {
+                            return $side === 'a' ? "{$s[0]}/{$s[1]}" : "{$s[1]}/{$s[0]}";
+                        })->implode(' ');
+                        $won = $m->winner_pair_id === $row;
+                        $cells[$row][$col] = ['played' => true, 'score' => $score, 'won' => $won];
+                    } else {
+                        // Not played: keep the scheduled time if any (shown faint).
+                        $cells[$row][$col] = [
+                            'played' => false,
+                            'when' => $m->starts_at,
+                            'court' => $m->court?->name,
+                        ];
+                    }
+                }
+
+                // Every cross (played AND upcoming) goes on BOTH pairs' schedule,
+                // with its time + court. Played ones are flagged so the view can
+                // dim them and mark them done.
+                $rn = $index[$a] + 1;
+                $cn = $index[$b] + 1;
+                $cross = "{$rn}-{$cn}";
+                foreach ([$a, $b] as $pid) {
+                    $schedule[$pid][] = [
+                        'cross' => $cross,
+                        'when' => $m->starts_at,
+                        'court' => $m->court?->name,
+                        'played' => $played,
+                    ];
+                }
+            }
+
+            // Sort each pair's schedule by time (nulls last). Played/upcoming keep
+            // their real chronological order — a played match that happened earlier
+            // naturally sorts before an upcoming one later the same day.
+            foreach ($schedule as $pid => &$list) {
+                usort($list, fn($x, $y) => ($x['when']?->timestamp ?? PHP_INT_MAX) <=> ($y['when']?->timestamp ?? PHP_INT_MAX));
+            }
+            unset($list);
+
+            return [
+                'name' => $group->name,
+                'order' => $ordered->all(),                          // [pair_id,...] in row/col order
+                'names' => $ordered->mapWithKeys(fn($pid) => [$pid => $pairsById[$pid]?->name() ?? '—'])->all(),
+                'cells' => $cells,                                   // [row][col] => cell
+                'schedule' => $schedule,                             // [pair_id] => all crosses (played + upcoming)
+                'size' => $ordered->count(),
+            ];
+        })->values();
+
         return view('public.category', [
             'tournament' => $tournament,
             'category' => $category,
@@ -239,6 +326,7 @@ class PublicTournamentController extends Controller
             'calTotal' => $calTotal,
             'ghostQualifiers' => $ghostQualifiers,
             'groupTags' => $groupTags,
+            'crossTables' => $crossTables,
         ]);
     }
 
@@ -331,14 +419,29 @@ class PublicTournamentController extends Controller
     {
         $this->ensurePublic($tournament);
 
-        // All pairs this player belongs to within THIS tournament.
-        $pairIds = \App\Models\Pair::where(function ($q) use ($player) {
-            $q->where('player1_id', $player->id)->orWhere('player2_id', $player->id);
+        // The SAME human often has a separate Player row per category (dedupe only
+        // happens on email/phone). Resolve the whole human by normalized_name so
+        // the page can show every category they play in. Scope to the manager who
+        // owns this record to avoid colliding two different people with the same
+        // name across managers.
+        $playerIds = \App\Models\Player::query()
+            ->where('normalized_name', $player->normalized_name)
+            ->when($player->created_by, fn($q) => $q->where('created_by', $player->created_by))
+            ->pluck('id');
+        if ($playerIds->isEmpty()) $playerIds = collect([$player->id]);
+
+        // All pairs any of those records belong to, within THIS tournament.
+        $pairIds = \App\Models\Pair::where(function ($q) use ($playerIds) {
+            $q->whereIn('player1_id', $playerIds)->orWhereIn('player2_id', $playerIds);
         })
             ->whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->pluck('id');
 
         abort_if($pairIds->isEmpty(), Response::HTTP_NOT_FOUND);
+
+        // Map each pair to its category, so the view can tab matches by category.
+        $pairCategory = \App\Models\Pair::whereIn('id', $pairIds)
+            ->pluck('category_id', 'id'); // [pair_id => category_id]
 
 
 
@@ -463,6 +566,8 @@ class PublicTournamentController extends Controller
             ],
             'subsIn' => $subsIn,
             'subsOut' => $subsOut,
+            'pairCategory' => $pairCategory,   // [pair_id => category_id]
+
         ]);
     }
 

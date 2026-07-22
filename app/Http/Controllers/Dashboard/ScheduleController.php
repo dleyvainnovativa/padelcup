@@ -62,8 +62,8 @@ class ScheduleController extends Controller
 
         // Cheatsheet: players registered in 2+ categories (collision risk).
         $multiCategoryPlayers = $this->multiCategoryPlayers($tournament);
- $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
-        ->mapForTournament($tournament);
+        $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
+            ->mapForTournament($tournament);
         return view('dashboard.schedule.index', [
             'tournament' => $tournament,
             'courts' => $courts,
@@ -123,7 +123,7 @@ class ScheduleController extends Controller
 
         // Keep only players who hit the threshold on at least one day, and expose
         // just those overloaded days.
-        $dayLabel = fn (string $ymd) => \Illuminate\Support\Str::ucfirst(
+        $dayLabel = fn(string $ymd) => \Illuminate\Support\Str::ucfirst(
             \Carbon\Carbon::parse($ymd, 'America/Mexico_City')->locale('es')->isoFormat('ddd D MMM')
         );
 
@@ -196,13 +196,16 @@ class ScheduleController extends Controller
             ksort($days); // chronological
             $rules = [];
             foreach ($days as $ymd => $win) {
-                // Tolerate the old flat shape ('HH:MM') as well as the range shape.
+                if (is_array($win) && ! empty($win['off'])) {
+                    $rules[] = $dayLabel($ymd) . ': no disponible';
+                    continue;
+                }
                 $from = is_array($win) ? ($win['from'] ?? null) : $win;
                 $until = is_array($win) ? ($win['until'] ?? null) : null;
                 if (! $from) continue;
                 $rules[] = $until
-                    ? $dayLabel($ymd) . " {$from}–{$until}"   // e.g. "Vie 19:00–22:00"
-                    : $dayLabel($ymd) . ' desde ' . $from;    // e.g. "Vie desde 19:00"
+                    ? $dayLabel($ymd) . " {$from}–{$until}"
+                    : $dayLabel($ymd) . ' desde ' . $from;
             }
             $out[] = [
                 'name' => $info[$key]['name'] ?? $key,
@@ -380,11 +383,16 @@ class ScheduleController extends Controller
         // Include unscheduled matches too, so unbound bracket slots (ghosts) show.
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->with([
-                'category', 'group', 'court',
+                'category',
+                'group',
+                'court',
                 'group.pairs:id',                 // for any group-size lookups
-                'pairA.player1', 'pairA.player2',
-                'pairB.player1', 'pairB.player2',
-                'feederA', 'feederB',
+                'pairA.player1',
+                'pairA.player2',
+                'pairB.player1',
+                'pairB.player2',
+                'feederA',
+                'feederB',
             ])
             ->get();
 
@@ -400,7 +408,8 @@ class ScheduleController extends Controller
             // unscheduled: keep bracket matches that will bind (mirror index())
             if ($m->pair_a_id && $m->pair_b_id) return true;
             if ($m->feeder_a_id || $m->feeder_b_id) return true;
-            $a = $m->seed_label_a; $b = $m->seed_label_b;
+            $a = $m->seed_label_a;
+            $b = $m->seed_label_b;
             return $a && $b && $a !== 'BYE' && $b !== 'BYE';
         });
 
@@ -462,9 +471,12 @@ class ScheduleController extends Controller
             $bracket = GameMatch::where('category_id', $category->id)
                 ->whereNull('group_id')          // bracket matches have no group
                 ->with([
-                    'pairA.player1', 'pairA.player2',
-                    'pairB.player1', 'pairB.player2',
-                    'feederA', 'feederB',
+                    'pairA.player1',
+                    'pairA.player2',
+                    'pairB.player1',
+                    'pairB.player2',
+                    'feederA',
+                    'feederB',
                 ])
                 ->orderBy('round')->orderBy('slot')->orderBy('id')
                 ->get();

@@ -53,6 +53,7 @@
         <div x-data="{ view: 'groups' }">
             <div class="pub-subtabs">
                 <button class="pub-subtab" :class="{ 'is-active': view === 'groups' }" @click="view = 'groups'">Grupos</button>
+                <button class="pub-subtab" :class="{ 'is-active': view === 'cruces' }" @click="view = 'cruces'">Cruces</button>
                 <button class="pub-subtab" :class="{ 'is-active': view === 'general' }" @click="view = 'general'">General</button>
             </div>
 
@@ -93,6 +94,11 @@
                     </table>
                 </div>
                 @endforeach
+            </div>
+
+            {{-- Cruces (cross-table) --}}
+            <div x-show="view === 'cruces'" x-cloak>
+                @include('public.partials.category-cruces')
             </div>
 
             {{-- General --}}

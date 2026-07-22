@@ -44,9 +44,9 @@ class StandingsService
         $isMexicano = $group->category->group_format === \App\Enums\GroupFormat::Mexicano
             && $group->pairs->count() === 4;
 
-        if ($isMexicano) {
-            return $this->computeMexicano($group->pairs, $matches);
-        }
+        // if ($isMexicano) {
+        //     return $this->computeMexicano($group->pairs, $matches);
+        // }
 
         return $this->compute($group->pairs, $matches);
     }

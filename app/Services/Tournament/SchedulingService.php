@@ -471,6 +471,11 @@ class SchedulingService
                         // Must fit inside the court/phase segment.
                         if ($end > $segEnd) break;
 
+                        if (! empty($availWindows) && isset($availWindows[$day]) && ! empty($availWindows[$day]['off'])) {
+                            // Whole day blocked for a participating player — jump past it.
+                            $ts += $stepThis;
+                            continue;
+                        }
                         // Player availability window on this day: start >= from,
                         // and end <= until (match must FINISH by "until").
                         if (! empty($availWindows) && isset($availWindows[$day])) {
@@ -660,11 +665,16 @@ class SchedulingService
 
         // Per day: latest "from" (string compare ok, zero-padded) and earliest
         // "until" among the participating players who restrict that day.
-        $fromHHMM = [];   // ['Y-m-d' => 'HH:MM']
-        $untilHHMM = [];  // ['Y-m-d' => 'HH:MM']
+        $fromHHMM = [];
+        $untilHHMM = [];
+        $offDays = [];              // 'Y-m-d' => true
         foreach ($names as $key) {
             foreach ($availabilityMap[$key] ?? [] as $day => $win) {
-                $from = is_array($win) ? ($win['from'] ?? null) : $win; // tolerate old shape
+                if (is_array($win) && ! empty($win['off'])) {
+                    $offDays[$day] = true;
+                    continue;
+                }
+                $from = is_array($win) ? ($win['from'] ?? null) : $win;
                 $until = is_array($win) ? ($win['until'] ?? null) : null;
 
                 if ($from !== null) {
@@ -676,7 +686,7 @@ class SchedulingService
             }
         }
 
-        $days = array_unique(array_merge(array_keys($fromHHMM), array_keys($untilHHMM)));
+        $days = array_unique(array_merge(array_keys($fromHHMM), array_keys($untilHHMM), array_keys($offDays)));
         if (empty($days)) return [];
 
         $out = [];
@@ -689,6 +699,10 @@ class SchedulingService
                     ? Carbon::parse("$day {$untilHHMM[$day]}", 'America/Mexico_City')->timestamp
                     : null,
             ];
+        }
+        // Off days override everything for that day.
+        foreach ($offDays as $day => $_) {
+            $out[$day] = ['off' => true, 'from' => 0, 'until' => null];
         }
         return $out;
     }

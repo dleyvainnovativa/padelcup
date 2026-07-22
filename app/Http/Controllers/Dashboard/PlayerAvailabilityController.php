@@ -62,18 +62,26 @@ class PlayerAvailabilityController extends Controller
         $data = $request->validate([
             'normalized_name' => ['required', 'string', 'max:255'],
             'day' => ['required', 'date', 'in:' . implode(',', $validDays)],
+            'unavailable' => ['nullable', 'boolean'],
             'earliest_time' => ['nullable', 'date_format:H:i'],
             'latest_time' => ['nullable', 'date_format:H:i', 'after:earliest_time'],
         ]);
 
         $key = ['tournament_id' => $tournament->id, 'normalized_name' => $data['normalized_name'], 'day' => $data['day']];
 
-        if (blank($data['earliest_time'] ?? null)) {
-            // No "from" time → clear the rule for that day entirely.
+        if ($request->boolean('unavailable')) {
+            PlayerAvailability::updateOrCreate($key, [
+                'unavailable'   => true,
+                'earliest_time' => null,
+                'latest_time'   => null,
+            ]);
+            $msg = 'Día marcado como no disponible.';
+        } elseif (blank($data['earliest_time'] ?? null)) {
             PlayerAvailability::where($key)->delete();
             $msg = 'Disponibilidad quitada.';
         } else {
             PlayerAvailability::updateOrCreate($key, [
+                'unavailable'   => false,
                 'earliest_time' => $data['earliest_time'],
                 'latest_time' => $data['latest_time'] ?? null,
             ]);
