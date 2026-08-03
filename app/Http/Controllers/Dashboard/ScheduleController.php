@@ -9,6 +9,7 @@ use App\Models\Tournament;
 use App\Services\Tournament\SchedulingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ScheduleController extends Controller
 {
@@ -527,5 +528,139 @@ class ScheduleController extends Controller
         }
 
         return back()->with('status', 'Ventanas de fase guardadas.');
+    }
+
+    /**
+     * Swap or move a match to a target court within the SAME date+slot.
+     *
+     * Request payload (from schedule.js):
+     *   match_id        int    the match being dragged
+     *   target_court_id int    the court it's being dropped onto
+     *   date            string Y-m-d (the visible day)
+     *   slot            string H:i (the slot label the drop landed in)
+     *
+     * Returns JSON:
+     *   { ok: true, action: 'move'|'swap',
+     *     moved: [{id, court_id, court_name}], }
+     */
+    public function switchCourt(Request $request, Tournament $tournament)
+    {
+        $data = $request->validate([
+            'match_id'        => ['required', 'integer'],
+            'target_court_id' => ['required', 'integer'],
+            'date'            => ['required', 'date_format:Y-m-d'],
+            'slot'            => ['required', 'date_format:H:i'],
+        ]);
+
+        /** @var GameMatch $match */
+        $match = $tournament->matches()->whereKey($data['match_id'])->firstOrFail();
+
+        // The court must belong to this tournament (via its venue). Reuse whatever
+        // guard place() already uses; this mirrors the common pattern.
+        $targetCourtId = (int) $data['target_court_id'];
+        abort_unless(
+            $tournament->courts()->whereKey($targetCourtId)->exists(),
+            422,
+            'Cancha inválida.'
+        );
+
+        // No-op: dropped back on its own court.
+        if ((int) $match->court_id === $targetCourtId) {
+            return response()->json([
+                'ok'     => true,
+                'action' => 'noop',
+                'moved'  => [],
+            ]);
+        }
+
+        // Is there a match already occupying target court in this exact date+slot?
+        // We compare against the SAME slot window the board uses. The simplest and
+        // most reliable check: another scheduled match on the target court whose
+        // local start time falls in the same slot on the same day.
+        //
+        // starts_at is stored UTC; we compare in America/Mexico_City to match the
+        // board's bucketing. Rather than recompute slot windows here, we rely on the
+        // dragged match's own starts_at as the canonical slot time and look for a
+        // match on the target court sharing that same starts_at.
+        // $occupant = $tournament->matches()
+        //     ->where('court_id', $targetCourtId)
+        //     ->whereNotNull('starts_at')
+        //     ->where('starts_at', $match->starts_at) // exact same slot instant
+        //     ->where('id', '!=', $match->id)
+        //     ->first();
+        $occupant = $tournament->matches()
+            ->where('game_matches.court_id', $targetCourtId)
+            ->whereNotNull('game_matches.starts_at')
+            ->where('game_matches.starts_at', $match->starts_at)
+            ->where('game_matches.id', '!=', $match->id)
+            ->first();
+
+        return DB::transaction(function () use ($match, $targetCourtId, $occupant, $request) {
+            $moved = [];
+
+            if ($occupant) {
+                // ---- SWAP: the two matches trade courts (times unchanged) --------
+                $fromCourtId = (int) $match->court_id;
+
+                $beforeMatch    = ['court_id' => $match->court_id];
+                $beforeOccupant = ['court_id' => $occupant->court_id];
+
+                $match->court_id    = $targetCourtId;
+                $occupant->court_id = $fromCourtId;
+                $match->save();
+                $occupant->save();
+
+                $this->auditCourtChange($match, $beforeMatch, $request, 'switch-court (swap)');
+                $this->auditCourtChange($occupant, $beforeOccupant, $request, 'switch-court (swap)');
+
+                $moved[] = $this->courtMovePayload($match);
+                $moved[] = $this->courtMovePayload($occupant);
+
+                $action = 'swap';
+            } else {
+                // ---- MOVE: reassign to the empty target court --------------------
+                $before = ['court_id' => $match->court_id];
+                $match->court_id = $targetCourtId;
+                $match->save();
+
+                $this->auditCourtChange($match, $before, $request, 'switch-court (move)');
+
+                $moved[] = $this->courtMovePayload($match);
+                $action = 'move';
+            }
+
+            return response()->json([
+                'ok'     => true,
+                'action' => $action,
+                'moved'  => $moved,
+            ]);
+        });
+    }
+
+    /** Small helper: shape a moved match for the JS response. */
+    private function courtMovePayload(GameMatch $m): array
+    {
+        return [
+            'id'         => $m->id,
+            'court_id'   => $m->court_id,
+            'court_name' => $m->court?->name ?? optional($m->fresh('court')->court)->name,
+        ];
+    }
+
+    /**
+     * Write a match_audit row for a court change.
+     * Adjust the model name / mass-assignment to match your existing audit writes
+     * elsewhere in ScheduleController (kept consistent with your columns).
+     */
+    private function auditCourtChange(GameMatch $m, array $before, Request $request, string $note): void
+    {
+        \App\Models\MatchAudit::create([
+            'game_match_id' => $m->id,
+            'user_id'       => $request->user()?->id,
+            'action'        => 'court_switch',
+            'before'        => $before,                    // {court_id: old}
+            'after'         => ['court_id' => $m->court_id],
+            'note'          => $note,
+        ]);
     }
 }

@@ -244,4 +244,15 @@ class Tournament extends Model
     {
         return $this->hasMany(\App\Models\Ad::class);
     }
+    public function matches()
+    {
+        return $this->hasManyThrough(
+            GameMatch::class,
+            Category::class,
+            'tournament_id', // Foreign key on categories table
+            'category_id',   // Foreign key on game_matches table
+            'id',            // Local key on tournaments table
+            'id'             // Local key on categories table
+        );
+    }
 }

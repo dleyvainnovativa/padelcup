@@ -576,4 +576,158 @@ class PublicTournamentController extends Controller
     {
         abort_unless((bool) $tournament->is_listed, Response::HTTP_NOT_FOUND);
     }
+
+
+    /**
+     * Public winners summary. Dropdown selects a category; page shows that
+     * category's elimination podium. Only finished categories are "decided".
+     */
+    public function winners(\Illuminate\Http\Request $request, Tournament $tournament)
+    {
+        $this->ensurePublic($tournament);
+
+        // Categories that CAN have a bracket, ordered for the dropdown.
+        $categories = $tournament->categories()->orderBy('name')->get();
+
+        // Build a podium per category. A category is "decided" only when its final
+        // (max-round bracket match) is confirmed.
+        $summaries = $categories->map(function (Category $category) {
+            return $this->buildCategoryPodium($category);
+        })->values();
+
+        // Which category is selected in the dropdown? Default: first DECIDED one,
+        // else the first category.
+        $decided = $summaries->firstWhere('decided', true);
+        $selectedId = (int) ($request->query('cat')
+            ?: ($decided['category_id'] ?? ($summaries->first()['category_id'] ?? 0)));
+
+        $selected = $summaries->firstWhere('category_id', $selectedId)
+            ?? $summaries->first();
+
+        return view('public.winners', [
+            'tournament' => $tournament,
+            'summaries'  => $summaries,   // for the dropdown (all categories)
+            'selected'   => $selected,    // the podium to render
+            'ads'        => \App\Models\Ad::forTournament($tournament),
+        ]);
+    }
+
+    /**
+     * Resolve one category's elimination podium.
+     *
+     * Returns:
+     *   [
+     *     'category_id' => int,
+     *     'category'    => string,
+     *     'decided'     => bool,        // final confirmed?
+     *     'has_bracket' => bool,
+     *     'champion'    => ?string,     // pair name
+     *     'runner_up'   => ?string,     // pair name (null for a bye-final)
+     *     'third'       => ?string,     // pair name (only if a 3rd-place match exists)
+     *     'final_score' => ?string,     // e.g. "6-3 4-6 6-2"
+     *   ]
+     */
+    private function buildCategoryPodium(Category $category): array
+    {
+        $base = [
+            'category_id' => $category->id,
+            'category'    => $category->name,
+            'decided'     => false,
+            'has_bracket' => $category->format->hasBracket(),
+            'champion'    => null,
+            'runner_up'   => null,
+            'third'       => null,
+            'final_score' => null,
+        ];
+
+        if (! $category->format->hasBracket()) {
+            return $base;
+        }
+
+        // All bracket matches for this category (no group_id), with pairs.
+        $bracket = $category->matches()
+            ->whereNull('group_id')
+            ->with(['pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->orderBy('round')->orderBy('slot')
+            ->get();
+
+        if ($bracket->isEmpty()) {
+            return $base;
+        }
+
+        // The FINAL is the confirmed bracket match in the highest round. We look at
+        // the max round present; the final should be the (single) match in it.
+        $maxRound = $bracket->max('round');
+        $finalRoundMatches = $bracket->where('round', $maxRound);
+
+        // Prefer a confirmed final; if the top round somehow has >1 match, take the
+        // confirmed one (defensive — normally the final is a single match).
+        $final = $finalRoundMatches->firstWhere('state.value', 'confirmed')
+            ?? $finalRoundMatches->first();
+
+        // Not decided until the final is confirmed.
+        if (! $final || $final->state->value !== 'confirmed' || ! $final->winner_pair_id) {
+            return $base;
+        }
+
+        // Champion + runner-up from the final.
+        $champPair = $final->winner_pair_id === $final->pair_a_id ? $final->pairA : $final->pairB;
+        $runnerPair = $final->winner_pair_id === $final->pair_a_id ? $final->pairB : $final->pairA;
+
+        $base['decided']     = true;
+        $base['champion']    = $champPair?->name() ?? '—';
+        // A real runner-up only exists if the final had two bound pairs (not a bye).
+        $base['runner_up']   = $runnerPair?->name(); // null-safe: bye-final → null
+        $base['final_score'] = $this->formatSets($final->sets);
+
+        // 3rd place: ONLY if this category actually produced one. Two ways a 3rd
+        // exists:
+        //   (a) an explicit 3rd-place match exists (same round as the final or
+        //       flagged) — if you store one, detect it here.
+        //   (b) otherwise there is no defined 3rd place; we leave it null (do NOT
+        //       invent one from semifinal losers unless you want to).
+        $base['third'] = $this->resolveThirdPlace($bracket, $final);
+
+        return $base;
+    }
+
+    /**
+     * Third place resolver. Conservative: returns a name ONLY if a real 3rd-place
+     * playoff match exists and is confirmed. If your bracket doesn't model a 3rd
+     * place match, this returns null and the view simply won't show a bronze slot —
+     * matching the agreement to show only what exists.
+     *
+     * If you DO want "both semifinal losers share 3rd" instead, replace the body
+     * with that logic; leaving it out keeps the podium honest for single-group and
+     * shallow brackets.
+     */
+    private function resolveThirdPlace($bracket, GameMatch $final): ?string
+    {
+        // Heuristic for an explicit 3rd-place match: a confirmed bracket match in
+        // the SAME round as the final but a different match (some generators place
+        // the 3rd-place playoff alongside the final). If you tag it differently
+        // (e.g. a `is_third_place` column or a known slot), swap this check for that.
+        $candidate = $bracket
+            ->where('round', $final->round)
+            ->where('id', '!=', $final->id)
+            ->firstWhere('state.value', 'confirmed');
+
+        if ($candidate && $candidate->winner_pair_id) {
+            $pair = $candidate->winner_pair_id === $candidate->pair_a_id
+                ? $candidate->pairA
+                : $candidate->pairB;
+            return $pair?->name();
+        }
+
+        return null; // no defined 3rd place → show nothing (per agreement)
+    }
+
+    /** "6-3 4-6 6-2" from the sets JSON, or null. */
+    private function formatSets(?array $sets): ?string
+    {
+        if (empty($sets)) return null;
+        return collect($sets)
+            ->map(fn($s) => ($s[0] ?? '') . '-' . ($s[1] ?? ''))
+            ->implode(' ');
+    }
 }

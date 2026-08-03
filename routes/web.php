@@ -93,6 +93,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('calendario/pdf', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportPdf'])->name('schedule.pdf');
         Route::get('calendario/pdf-eliminacion', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportEliminationPdf'])->name('schedule.exportEliminationPdf');
         Route::post('calendario/fases', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'savePhaseWindows'])->name('schedule.phases');
+        Route::post('calendario/switch-court', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'switchCourt'])->name('schedule.switchCourt');
 
         // Resumen (tournament summary / leaderboard)
         Route::get('resumen', [\App\Http\Controllers\Dashboard\SummaryController::class, 'show'])->name('tournaments.summary');
@@ -176,6 +177,7 @@ Route::get('/anuncio/{ad}/clic', [\App\Http\Controllers\Admin\AdController::clas
 Route::get('/t/{tournament}', [\App\Http\Controllers\PublicTournamentController::class, 'show'])->name('public.tournament');
 Route::get('/t/{tournament}/calendario', [\App\Http\Controllers\PublicTournamentController::class, 'schedule'])->name('public.schedule');
 Route::get('/t/{tournament}/jugador/{player}', [\App\Http\Controllers\PublicTournamentController::class, 'player'])->name('public.player');
+Route::get('/t/{tournament}/campeones', [\App\Http\Controllers\PublicTournamentController::class, 'winners'])->name('public.winners');
 Route::get('/t/{tournament}/{category:slug}', [\App\Http\Controllers\PublicTournamentController::class, 'category'])
     ->scopeBindings()
     ->name('public.category');

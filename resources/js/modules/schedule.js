@@ -47,6 +47,31 @@ export function initSchedule() {
     } catch (_) { toast.error('No se pudo quitar.'); }
   }
 
+  async function switchCourt(matchId, targetCourtId, date, slot) {
+    try {
+      const res = await post(cfg.switchCourtUrl, {
+        match_id: matchId,
+        target_court_id: targetCourtId,
+        date,
+        slot,
+      });
+      // res.action = 'move' | 'swap' | 'noop'
+      if (res?.action === 'swap' && res.moved?.length === 2) {
+        const [a, b] = res.moved;
+        toast.success(`Canchas intercambiadas: ${a.court_name} ↔ ${b.court_name}`);
+      } else if (res?.action === 'move' && res.moved?.length) {
+        toast.success(`Movido a ${res.moved[0].court_name}`);
+      } else {
+        toast.success('Cancha actualizada.');
+      }
+      setTimeout(() => window.location.reload(), 450);
+      return true;
+    } catch (e) {
+      toast.error('No se pudo cambiar la cancha.');
+      return false;
+    }
+  }
+
   board.querySelectorAll('[data-unplace]').forEach((btn) => {
     btn.addEventListener('click', (e) => { e.stopPropagation(); unplace(btn.dataset.unplace); });
   });
@@ -102,7 +127,7 @@ export function initSchedule() {
   });
 
   // --- Desktop drag (bonus; sheet still available) ------------------
-  if (!isTouch) initDrag(board, place, selection);
+  if (!isTouch) initDrag(board, place, switchCourt, selection);
 
   // --- Bottom sheet -------------------------------------------------
   function openSheetFor(cell) {
@@ -259,28 +284,70 @@ function initMultiSelect(board, cfg) {
 }
 
 // --- Desktop drag ---------------------------------------------------
-function initDrag(board, place, selection) {
+function initDrag(board, place, switchCourt, selection) {
   let draggedId = null;
+  let draggedCell = null; // the cell the drag started from (for court/slot info)
+
   board.querySelectorAll('.sched-match, .sched-chip').forEach((el) => {
     el.addEventListener('dragstart', (e) => {
       if (selection && selection.isActive()) { e.preventDefault(); return; }
-      draggedId = el.dataset.matchId; el.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move';
+      draggedId = el.dataset.matchId;
+      draggedCell = el.closest('[data-cell]'); // null for tray chips
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
     });
-    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      draggedCell = null;
+    });
   });
+
   board.querySelectorAll('[data-cell]').forEach((cell) => {
     cell.addEventListener('dragover', (e) => {
-      if (cell.offsetParent !== null && !cell.querySelector('.sched-match')) { e.preventDefault(); cell.classList.add('drop-target'); }
+      if (cell.offsetParent === null) return;          // hidden day
+      // Don't allow dropping onto the dragged match's own cell.
+      if (cell === draggedCell) return;
+      e.preventDefault();
+      cell.classList.add('drop-target');
     });
     cell.addEventListener('dragleave', () => cell.classList.remove('drop-target'));
+
     cell.addEventListener('drop', async (e) => {
-      e.preventDefault(); cell.classList.remove('drop-target');
+      e.preventDefault();
+      cell.classList.remove('drop-target');
       if (!draggedId) return;
+
       const date = cell.dataset.date;
-      const res = await place(draggedId, cell.dataset.court, date, cell.dataset.slot, false);
+      const slot = cell.dataset.slot;
+      const targetCourt = cell.dataset.court;
+      const occupied = !!cell.querySelector('.sched-match');
+
+      // Is the drop in the SAME slot the dragged match already lives in?
+      // (Only meaningful when dragging an already-placed match, i.e. from a cell.)
+      const sameSlot = draggedCell
+        && draggedCell.dataset.date === date
+        && draggedCell.dataset.slot === slot;
+
+      if (draggedCell && sameSlot) {
+        // Same date+slot, different court → swap-or-move via switchCourt.
+        // (occupied → swap; empty → move; server decides.)
+        await switchCourt(draggedId, targetCourt, date, slot);
+        return;
+      }
+
+      // Different slot OR dragging from the tray:
+      //   - empty target  → normal place() reschedule (existing behaviour)
+      //   - occupied target → block (a cross-slot swap changes times and would
+      //     need full conflict rechecks; out of scope for this feature)
+      if (occupied) {
+        toast.error('Esa celda está ocupada. Para intercambiar, arrastra dentro del mismo horario.');
+        return;
+      }
+
+      const res = await place(draggedId, targetCourt, date, slot, false);
       if (res && res.conflicts) {
         if (window.confirm(res.conflicts.join('\n') + '\n\n¿Programar de todos modos?')) {
-          await place(draggedId, cell.dataset.court, date, cell.dataset.slot, true);
+          await place(draggedId, targetCourt, date, slot, true);
         }
       }
     });

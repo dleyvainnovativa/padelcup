@@ -431,14 +431,7 @@ a:hover { color: var(--accent-hover); }
 .sched-chip.picked { border-color: var(--accent); box-shadow: var(--focus-ring); }
 .sched-chip.dragging { opacity: .5; }
 
-.sched-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.sched-grid { width: 100%; border-collapse: collapse; min-width: 480px; }
-.sched-grid th {
-  font-size: 12px; font-weight: 600; color: var(--text-muted);
-  padding: 10px 8px; border-bottom: 1px solid var(--border);
-  text-align: center; background: var(--bg-subtle); position: sticky; top: 0;
-}
-.sched-grid__timecol { width: 64px; text-align: center !important; color: var(--text-faint); font-size: 12px; }
+
 .sched-cell {
   border: 1px solid var(--border); height: 64px; vertical-align: top;
   padding: 3px; transition: background .1s;
@@ -1583,3 +1576,202 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 .pub-cat-tab.is-active {
     background: var(--lp-indigo, #635bff); border-color: var(--lp-indigo, #635bff); color: #fff;
 }
+
+.sched-grid-wrap {
+  overflow: auto;                         /* both x and y */
+  -webkit-overflow-scrolling: touch;
+  max-height: calc(100vh - var(--topbar-h) - 180px);
+  /* 180px ≈ breadcrumb + page head + day tabs above the grid. Adjust to taste;
+     if you want the grid to use more height, lower this number. */
+  position: relative;
+}
+
+/* border-collapse:collapse breaks sticky cell borders (they scroll away with
+   the content). Switch to separate borders and draw them per-cell instead, so
+   sticky headers keep their edges. */
+.sched-grid {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: separate;              /* was: collapse */
+  border-spacing: 0;
+}
+
+/* --- Column headers (courts): stick to the TOP -------------------------- */
+.sched-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;                            /* above body cells */
+  background: var(--bg-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 10px 8px;
+  text-align: center;
+  /* Re-draw the bottom edge that border-collapse used to give us. */
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 var(--border);      /* crisp separator while scrolling */
+}
+
+/* --- Time column (first cell each row): stick to the LEFT --------------- */
+.sched-grid__timecol {
+  position: sticky;
+  left: 0;
+  z-index: 15;                            /* above body cells, below headers */
+  width: 64px;
+  min-width: 64px;
+  text-align: center !important;
+  color: var(--text-faint);
+  font-size: 12px;
+  background: var(--surface);             /* opaque so cells don't show through */
+  border-right: 1px solid var(--border);
+  box-shadow: 1px 0 0 var(--border);
+}
+
+/* --- The CORNER (time header cell): stick to BOTH, on top of everything -- */
+/* This is the <th class="sched-grid__timecol"> inside <thead>. It matches both
+   selectors above; we bump its z-index so neither axis overlaps it. */
+.sched-grid thead th.sched-grid__timecol {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 30;                            /* highest: sits above both axes */
+  background: var(--bg-subtle);
+  box-shadow: 1px 1px 0 var(--border);    /* both edges */
+}
+
+/* --- Body cells: keep the borders that border-collapse used to draw ----- */
+/* With border-collapse:separate we must re-assert cell borders so the grid
+   still looks like a grid. Your existing .sched-cell rule already sets
+   border:1px solid var(--border); with border-spacing:0 that now renders as
+   adjacent 1px lines. If you see doubled/thicker lines you don't like, switch
+   .sched-cell to the shorthand below instead (top+left only) for hairlines. */
+.sched-cell {
+  /* border already defined in your existing .sched-cell rule; nothing to add.
+     If you prefer single hairlines with border-spacing:0, replace the existing
+     .sched-cell border with:
+        border: 0;
+        border-bottom: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+     and add to .sched-grid:  border-top:1px solid var(--border);
+                              border-left:1px solid var(--border);
+  */
+}
+.sched-grid-wrap::-webkit-scrollbar { height: 6px; }
+.sched-grid-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Selected/highlight states already style .sched-cell / .sched-match and are
+   unaffected. Drop-target outline still works (it's on .sched-cell). */
+
+/* Reduced-motion / touch: nothing motion-based here, so nothing to gate. */
+/* ==========================================================================
+   BUNDLE 3 — Public winners summary styles
+   Append to theme.css. Uses existing tokens (--surface, --accent #635bff,
+   --border, --text-*). Light + dark inherit automatically.
+   ========================================================================== */
+
+.pub-winners { max-width: 760px; margin: 0 auto; padding: 8px 0 48px; }
+
+.pub-winners__head { text-align: center; margin-bottom: 28px; }
+.pub-winners__eyebrow {
+  font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent);
+}
+.pub-winners__title { font-size: 30px; font-weight: 700; margin: 4px 0 2px; }
+.pub-winners__sub { color: var(--text-muted); font-size: 14px; }
+
+/* --- Category dropdown --------------------------------------------------- */
+.pub-winners__picker {
+  display: flex; align-items: center; gap: 10px; justify-content: center;
+  margin-bottom: 28px;
+}
+.pub-winners__picker-label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.pub-winners__select-wrap { position: relative; }
+.pub-winners__select {
+  appearance: none; -webkit-appearance: none;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 9px 34px 9px 12px; font-size: 14px; font-weight: 500;
+  color: var(--text); cursor: pointer; min-width: 220px;
+}
+.pub-winners__select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+.pub-winners__select-caret {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 11px; color: var(--text-faint); pointer-events: none;
+}
+
+/* --- Podium -------------------------------------------------------------- */
+.pub-podium {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch;
+  gap: 16px; margin-bottom: 8px;
+}
+.pub-podium__slot {
+  flex: 1 1 200px; max-width: 260px; text-align: center;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 24px 18px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.pub-podium__slot--first {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 14%, transparent);
+  order: 2; transform: translateY(-6px);
+}
+.pub-podium__slot--second { order: 1; }
+.pub-podium__slot--third  { order: 3; }
+@media (max-width: 560px) {
+  .pub-podium__slot { max-width: none; flex-basis: 100%; transform: none; }
+  .pub-podium__slot--first { order: 0; }   /* champion on top when stacked */
+  .pub-podium__slot--second { order: 1; }
+  .pub-podium__slot--third { order: 2; }
+}
+
+.pub-podium__medal { font-size: 40px; line-height: 1; }
+.pub-podium__rank {
+  font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.pub-podium__slot--first .pub-podium__rank { color: var(--accent); }
+.pub-podium__pair { font-size: 17px; font-weight: 700; line-height: 1.25; }
+.pub-podium__score { font-size: 12px; color: var(--text-faint); font-family: var(--font-mono, monospace); margin-top: 2px; }
+
+.pub-winners__note {
+  text-align: center; font-size: 12.5px; color: var(--text-faint); margin: 14px 0 0;
+}
+
+/* --- Pending state ------------------------------------------------------- */
+.pub-winners__pending {
+  display: flex; gap: 12px; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px dashed var(--border-strong);
+  border-radius: 14px; padding: 22px; color: var(--text-muted);
+}
+.pub-winners__pending i { font-size: 22px; color: var(--text-faint); }
+.pub-winners__pending strong { display: block; color: var(--text); }
+.pub-winners__pending span { font-size: 13px; }
+
+.pub-winners__empty {
+  text-align: center; color: var(--text-faint); padding: 40px; font-size: 14px;
+}
+
+/* --- Roll-call ----------------------------------------------------------- */
+.pub-winners__rollcall { margin-top: 40px; }
+.pub-winners__rollcall-title {
+  font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--text-muted); margin-bottom: 10px; text-align: center;
+}
+.pub-winners__rollcall-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-width: 480px; margin: 0 auto;
+}
+.pub-winners__rollcall-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); text-decoration: none; color: var(--text);
+  transition: border-color .12s, background .12s;
+}
+.pub-winners__rollcall-row:hover { border-color: var(--accent); }
+.pub-winners__rollcall-row.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.pub-winners__rollcall-cat { font-weight: 600; font-size: 14px; }
+.pub-winners__rollcall-champ { font-size: 13px; color: var(--text-muted); }
+
+.pub-winners__ads { margin-top: 40px; }

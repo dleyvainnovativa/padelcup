@@ -37,8 +37,8 @@
                     <a href="{{ route('schedule.pdf', $tournament) }}" class="pdf-menu__item"><i class="fa-regular fa-clock me-1"></i> Por horario</a>
                     <a href="{{ route('schedule.pdf', ['tournament' => $tournament, 'order' => 'category']) }}" class="pdf-menu__item"><i class="fa-solid fa-layer-group me-1"></i> Por categoría</a>
                     <a href="{{ route('schedule.exportEliminationPdf', $tournament) }}" class="btn btn-soft btn-sm">
-        <i class="fa-solid fa-sitemap me-1"></i> PDF eliminación
-    </a>
+                        <i class="fa-solid fa-sitemap me-1"></i> PDF eliminación
+                    </a>
                 </div>
             </div>
             <form method="POST" action="{{ route('schedule.conflicts', $tournament) }}">
@@ -112,8 +112,8 @@
                 <span class="mc-player__name">{{ $row['name'] }}</span>
                 <span class="mc-player__cats">
                     @foreach($row['days'] as $d)
-                        — {{ $d['label'] }}: <strong>{{ $d['count'] }}</strong>
-                        <span style="color:var(--text-faint);">({{ implode(', ', $d['times']) }})</span>
+                    — {{ $d['label'] }}: <strong>{{ $d['count'] }}</strong>
+                    <span style="color:var(--text-faint);">({{ implode(', ', $d['times']) }})</span>
                     @endforeach
                     @if(!empty($row['categories']))
                     <span style="color:var(--text-faint);">· {{ implode(', ', $row['categories']) }}</span>
@@ -420,6 +420,7 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
     'placeUrl' => route('schedule.place', $tournament),
     'unplaceUrl' => route('schedule.unplace', $tournament),
     'unplaceManyUrl' => route('schedule.unplaceMany', $tournament),
+    'switchCourtUrl' => route('schedule.switchCourt', $tournament),
     'duration' => $tournament->match_duration_minutes,
     'courts' => $courts->mapWithKeys(fn ($c) => [$c->id => $c->name])->all(),
     'scheduled' => $scheduled->mapWithKeys(fn ($m) => [$m->id => [
