@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Tournament;
 use App\Services\Registration\PlayerImportService;
 use Illuminate\Http\Request;
+use App\Enums\GroupFormat;
 
 class PlayerImportController extends Controller
 {
@@ -33,28 +34,37 @@ class PlayerImportController extends Controller
         $parsed = $this->import->parse($request->file('file')->getRealPath());
         $rows = $this->import->withDuplicateFlags($parsed['rows']);
 
-        // Capacity warning: remaining slots vs pairs in the file.
         $remaining = $category->max_pairs
             ? max(0, $category->max_pairs - $category->occupiedSlots())
             : null;
 
+        // NEW — inputs for the group preview + format toggle (#1/#2).
+        $existingPairs = $category->occupiedSlots();                 // pairs already in the category
+        $preferredSize = $category->preferred_group_size ?: 4;
+        $currentFormat = ($category->group_format === GroupFormat::Mexicano) ? 'mex' : 'rr';
 
         return view('dashboard.pairs.import-preview', [
-            'tournament' => $tournament,
-            'category' => $category,
-            'rows' => $rows,
-            'errors' => $parsed['errors'],
-            'remaining' => $remaining,
+            'tournament'    => $tournament,
+            'category'      => $category,
+            'rows'          => $rows,
+            'errors'        => $parsed['errors'],
+            'remaining'     => $remaining,
+            'existingPairs' => $existingPairs,   // NEW
+            'preferredSize' => $preferredSize,   // NEW
+            'currentFormat' => $currentFormat,   // NEW
         ]);
     }
 
+
     /** Commit the previewed pair rows into the category. */
+
     public function commit(Request $request, Tournament $tournament, Category $category)
     {
         $this->authorize('update', $category);
         abort_unless($category->tournament_id === $tournament->id, 404);
 
         $data = $request->validate([
+            'group_format' => ['nullable', 'in:mex,rr'],            // NEW
             'rows' => ['required', 'array'],
             'rows.*.player1.name' => ['required', 'string', 'max:255'],
             'rows.*.player1.email' => ['nullable', 'email'],
@@ -65,6 +75,15 @@ class PlayerImportController extends Controller
             'rows.*.player2.phone' => ['nullable', 'string', 'max:30'],
             'rows.*.player2.link_player_id' => ['nullable', 'integer', 'exists:players,id'],
         ]);
+
+        // NEW — persist the chosen group format (only meaningful for 4-pair groups,
+        // but harmless otherwise). Defaults to leaving the category as-is if absent.
+        if (! empty($data['group_format'])) {
+            $category->group_format = $data['group_format'] === 'rr'
+                ? GroupFormat::RoundRobin      // ← confirm this case name in App\Enums\GroupFormat
+                : GroupFormat::Mexicano;
+            $category->save();
+        }
 
         $result = $this->import->commit($data['rows'], $category, $request->user());
 

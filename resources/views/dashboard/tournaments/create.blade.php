@@ -70,6 +70,8 @@
                 </div>
             </div>
 
+            @include("dashboard.tournaments.partials.ranking-systems-select")
+
             <div class="form-check mt-3">
                 <input type="checkbox" name="is_listed" id="is_listed" value="1" class="form-check-input" @checked(old('is_listed'))>
                 <label for="is_listed" class="form-check-label" style="font-size:13px;">

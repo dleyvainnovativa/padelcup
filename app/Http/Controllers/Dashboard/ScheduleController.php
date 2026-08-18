@@ -305,7 +305,13 @@ class ScheduleController extends Controller
 
         $conflicts = $this->scheduler->conflictsFor($match, $court, $startsAt, $duration);
 
-        // Conflicts block unless explicitly forced (manager override).
+        // NEW — inline "no descanso" rest-gap warnings for this placement, merged
+        // into the same list so they also block unless forced. (conflictsFor already
+        // covers hard same-time clashes; restWarningsFor adds the too-close case.)
+        $restWarnings = $this->scheduler->restWarningsFor($match, $startsAt, $duration);
+        $conflicts = array_merge($conflicts, $restWarnings);
+
+        // Conflicts (incl. rest-gap) block unless explicitly forced (manager override).
         if (! empty($conflicts) && ! $request->boolean('force')) {
             return response()->json(['ok' => false, 'conflicts' => $conflicts], 422);
         }
@@ -318,6 +324,7 @@ class ScheduleController extends Controller
 
         return response()->json(['ok' => true, 'warnings' => $conflicts]);
     }
+
 
     /** Unschedule a match (back to the unplaced tray). */
     public function unplace(Request $request, Tournament $tournament)

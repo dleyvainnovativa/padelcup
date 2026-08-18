@@ -772,4 +772,83 @@ class SchedulingService
             'time' => $match->starts_at?->timezone('America/Mexico_City')->translatedFormat('D d M · H:i'),
         ];
     }
+    public function restWarningsFor(GameMatch $match, Carbon $startsAt, int $duration): array
+    {
+        $tournament = $match->category->tournament;
+        $restMin = (int) ($tournament->min_rest_minutes ?? 30);
+        if ($restMin <= 0) {
+            return []; // rest gap disabled for this tournament
+        }
+        $restSec = $restMin * 60;
+
+        $playerKeys = $this->playerKeys($match);
+        if (empty($playerKeys)) {
+            return []; // unbound/placeholder match — no known players to protect
+        }
+
+        $thisStart = $startsAt->timestamp;
+        $thisEnd   = $thisStart + ($duration * 60);
+
+        $tournamentId = $match->category->tournament_id;
+
+        // Other scheduled, player-bound matches in the tournament.
+        $scheduled = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournamentId))
+            ->where('id', '!=', $match->id)
+            ->whereNotNull('starts_at')
+            ->with(['pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->get();
+
+        // Collect offenders keyed by normalized-name so each player is named once,
+        // with the closest conflicting match cited.
+        $offenders = []; // pkey => ['name' => string, 'gapMin' => int, 'other' => GameMatch]
+
+        foreach ($scheduled as $other) {
+            $shared = array_intersect($playerKeys, $this->playerKeys($other));
+            if (empty($shared)) {
+                continue;
+            }
+
+            $otherStart = $other->starts_at->timestamp;
+            $otherEnd   = $otherStart + (((int) ($other->duration_minutes ?: 60)) * 60);
+
+            // Hard overlap is handled by conflictsFor(); skip it here so we don't
+            // double-report. We only care about the non-overlapping "too close" gap.
+            $hardOverlap = $thisStart < $otherEnd && $otherStart < $thisEnd;
+            if ($hardOverlap) {
+                continue;
+            }
+
+            // Gap between the two matches, whichever order they fall in.
+            if ($otherStart >= $thisEnd) {
+                $gapSec = $otherStart - $thisEnd;       // other is AFTER this
+            } else {
+                $gapSec = $thisStart - $otherEnd;       // other is BEFORE this
+            }
+
+            if ($gapSec < $restSec) {
+                foreach ($shared as $pkey) {
+                    $gapMin = intdiv($gapSec, 60);
+                    // Keep the CLOSEST conflicting match per player.
+                    if (! isset($offenders[$pkey]) || $gapMin < $offenders[$pkey]['gapMin']) {
+                        $offenders[$pkey] = [
+                            'name'   => $this->playerNameByKey($other, $pkey)
+                                ?? $this->playerNameByKey($match, $pkey)
+                                ?? 'Un jugador',
+                            'gapMin' => $gapMin,
+                            'other'  => $other,
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Build messages.
+        $messages = [];
+        foreach ($offenders as $o) {
+            $messages[] = "Sin descanso: {$o['name']} tendría solo {$o['gapMin']} min "
+                . "entre partidos (mínimo {$restMin} min).";
+        }
+
+        return $messages;
+    }
 }

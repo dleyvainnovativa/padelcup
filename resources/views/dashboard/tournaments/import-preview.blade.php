@@ -2,6 +2,20 @@
 
 @section('title', 'Previsualizar importación · '.$tournament->name)
 
+{{--
+    Tournament-level import preview — PATCHED for:
+      #1  a 3/4/5 group-SIZE breakdown per category (e.g. "2×4 · 1×3")
+      #2  a Mexicano / Round-robin format toggle per category (affects only
+          4-pair groups' match count; group SIZES are unchanged)
+
+    Changes vs your original:
+      - new "Formato" <select> column (posts settings[cat][format] = mex|rr)
+      - new "Distribución" output cell showing the size breakdown
+      - JS: groupMatches() now takes the format flag; recalc reads it;
+            a breakdown string is rendered per row
+    Everything else is your original markup.
+--}}
+
 @section('content')
 <div class="page-head">
     <div>
@@ -39,7 +53,7 @@ $existingCats = collect($preview)->where('exists', true)->count();
         <div class="tc-card__head">
             <h3>Configuración por categoría</h3>
             <p style="font-size:12px;color:var(--text-muted);margin:4px 0 0;">
-                Ajusta el tamaño de grupo, cuántas parejas avanzan y clasificados extra. Los grupos de 4 juegan Mexicano (2 rondas); los de 3, todos contra todos. Las cifras de partidos se calculan en vivo.
+                Ajusta el tamaño de grupo, el formato de los grupos de 4, cuántas parejas avanzan y clasificados extra. Las cifras de partidos se calculan en vivo.
             </p>
         </div>
         <div style="overflow-x:auto;">
@@ -50,9 +64,11 @@ $existingCats = collect($preview)->where('exists', true)->count();
                         <th>Estado</th>
                         <th>Parejas</th>
                         <th>Grupo</th>
+                        <th>Formato</th>
                         <th>Avanzan</th>
                         <th>Extra</th>
                         <th>Grupos</th>
+                        <th>Distribución</th>
                         <th>Part. grupos</th>
                         <th>Part. elim.</th>
                         <th>Total</th>
@@ -85,6 +101,14 @@ $existingCats = collect($preview)->where('exists', true)->count();
                                 <option value="4">4</option>
                             </select>
                         </td>
+                        {{-- #2 — Mexicano / Round-robin toggle. Posts mex|rr; controller maps to GroupFormat. --}}
+                        <td>
+                            <select name="settings[{{ $row['category'] }}][format]" data-f="format" class="form-select form-select-sm" style="width:104px;border-radius:var(--radius);"
+                                title="Aplica solo a grupos de 4 parejas. Los grupos de 3 y 5 siempre juegan todos contra todos.">
+                                <option value="mex" selected>Mexicano</option>
+                                <option value="rr">Todos c/todos</option>
+                            </select>
+                        </td>
                         <td>
                             <input type="number" name="settings[{{ $row['category'] }}][advance]" data-f="advance" value="1" min="1" max="2" class="form-control form-control-sm" style="width:60px;border-radius:var(--radius);">
                         </td>
@@ -92,6 +116,8 @@ $existingCats = collect($preview)->where('exists', true)->count();
                             <input type="number" name="settings[{{ $row['category'] }}][extra]" data-f="extra" value="0" min="0" max="3" class="form-control form-control-sm" style="width:60px;border-radius:var(--radius);">
                         </td>
                         <td data-out="groups" class="pub-mono">—</td>
+                        {{-- #1 — size breakdown (e.g. "2×4 · 1×3") --}}
+                        <td data-out="dist" class="pub-mono" style="white-space:nowrap;">—</td>
                         <td data-out="gmatches" class="pub-mono">—</td>
                         <td data-out="ematches" class="pub-mono">—</td>
                         <td data-out="total" class="pub-mono" style="font-weight:700;">—</td>
@@ -100,8 +126,9 @@ $existingCats = collect($preview)->where('exists', true)->count();
                 </tbody>
                 <tfoot>
                     <tr style="font-weight:700;border-top:2px solid var(--border);">
-                        <td colspan="6" style="text-align:right;">Totales del torneo</td>
+                        <td colspan="7" style="text-align:right;">Totales del torneo</td>
                         <td data-total="groups" class="pub-mono">—</td>
+                        <td data-total="dist" class="pub-mono">—</td>
                         <td data-total="gmatches" class="pub-mono">—</td>
                         <td data-total="ematches" class="pub-mono">—</td>
                         <td data-total="total" class="pub-mono">—</td>
@@ -137,8 +164,28 @@ $existingCats = collect($preview)->where('exists', true)->count();
             return sizes;
         }
 
-        function groupMatches(sizes) {
-            return sizes.reduce((t, s) => t + (s === 4 ? 4 : (s < 2 ? 0 : s * (s - 1) / 2)), 0);
+        // #2 — match count now depends on the format. Mexicano only changes
+        // 4-pair groups (4 matches instead of round-robin's 6). Groups of 3/5
+        // are always round-robin regardless of the toggle.
+        function groupMatches(sizes, isMex) {
+            return sizes.reduce((t, s) => {
+                if (s < 2) return t;
+                if (s === 4 && isMex) return t + 4; // Mexicano 4-group = 2 rounds
+                return t + (s * (s - 1) / 2); // round-robin
+            }, 0);
+        }
+
+        // #1 — compact size breakdown string, e.g. [4,4,3] -> "2×4 · 1×3".
+        function breakdown(sizes) {
+            if (!sizes.length) return '—';
+            const counts = {};
+            sizes.forEach((s) => {
+                counts[s] = (counts[s] || 0) + 1;
+            });
+            return Object.keys(counts)
+                .sort((a, b) => b - a) // 5,4,3 order
+                .map((s) => `${counts[s]}×${s}`)
+                .join(' · ');
         }
 
         const table = document.querySelector('[data-import-table]');
@@ -150,31 +197,43 @@ $existingCats = collect($preview)->where('exists', true)->count();
                 tGM = 0,
                 tEM = 0,
                 tT = 0;
+            const totalSizes = []; // pooled for the footer breakdown
             const warnings = [];
 
             table.querySelectorAll('[data-cat-row]').forEach((row) => {
                 const pairs = parseInt(row.dataset.pairs, 10) || 0;
                 const size = parseInt(row.querySelector('[data-f="size"]').value, 10) || 3;
+                const isMex = (row.querySelector('[data-f="format"]').value || 'mex') === 'mex';
                 const advance = Math.max(1, Math.min(2, parseInt(row.querySelector('[data-f="advance"]').value, 10) || 1));
                 const extra = Math.max(0, Math.min(3, parseInt(row.querySelector('[data-f="extra"]').value, 10) || 0));
 
                 const sizes = distribution(pairs, size);
                 const groups = sizes.length;
-                const gm = groupMatches(sizes);
+                const gm = groupMatches(sizes, isMex);
                 const quals = groups * advance + extra;
                 const em = Math.max(0, quals - 1);
                 const total = gm + em;
 
                 row.querySelector('[data-out="groups"]').textContent = groups;
+                row.querySelector('[data-out="dist"]').textContent = breakdown(sizes);
                 row.querySelector('[data-out="gmatches"]').textContent = gm;
                 row.querySelector('[data-out="ematches"]').textContent = em;
                 row.querySelector('[data-out="total"]').textContent = total;
+
+                // Dim the format select when no 4-group exists (toggle is a no-op).
+                const fmtSel = row.querySelector('[data-f="format"]');
+                const has4 = sizes.includes(4);
+                fmtSel.style.opacity = has4 ? '1' : '0.45';
+                fmtSel.title = has4 ?
+                    'Aplica a los grupos de 4 de esta categoría.' :
+                    'Esta categoría no tiene grupos de 4; el formato no cambia nada aquí.';
 
                 const catName = row.querySelector('td').childNodes[0].textContent.trim();
                 if (pairs < 2) warnings.push(`«${catName}»: solo ${pairs} pareja(s), no se puede generar.`);
                 else if (sizes.length === 1 && sizes[0] >= 5) warnings.push(`«${catName}»: ${pairs} parejas caben en un solo grupo de ${sizes[0]} (sin llave real).`);
                 else if (quals < 2) warnings.push(`«${catName}»: solo ${quals} clasificado(s); revisa "avanzan/extra".`);
 
+                sizes.forEach((s) => totalSizes.push(s));
                 tG += groups;
                 tGM += gm;
                 tEM += em;
@@ -182,6 +241,7 @@ $existingCats = collect($preview)->where('exists', true)->count();
             });
 
             table.querySelector('[data-total="groups"]').textContent = tG;
+            table.querySelector('[data-total="dist"]').textContent = breakdown(totalSizes);
             table.querySelector('[data-total="gmatches"]').textContent = tGM;
             table.querySelector('[data-total="ematches"]').textContent = tEM;
             table.querySelector('[data-total="total"]').textContent = tT;

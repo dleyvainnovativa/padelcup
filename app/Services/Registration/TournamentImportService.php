@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Support\Str;
+use App\Enums\GroupFormat;
 
 /**
  * Tournament-wide bulk import. Parses a flat file/paste where each row is one
@@ -159,6 +160,17 @@ class TournamentImportService
                 $tint = $tournament->categories()->count() + 1;
                 $category = $this->createCategoryWithDefaults($tournament, $categoryName, $tint, $cfg);
                 $created++;
+            } elseif (array_key_exists('format', $cfg)) {
+                // Existing category: honor the manager's Mexicano/RR choice from
+                // the preview before groups are (re)generated below. Only the
+                // format is touched here — size/advance/extra are left as the
+                // category already has them, to avoid silently overwriting
+                // settings the manager tuned outside this import.
+                $chosen = $this->resolveGroupFormat($cfg['format']);
+                if ($category->group_format !== $chosen) {
+                    $category->group_format = $chosen;
+                    $category->save();
+                }
             }
 
             $result = $this->playerImport->commit($rows, $category, $manager);
@@ -215,6 +227,9 @@ class TournamentImportService
             'size' => in_array((int) ($found['size'] ?? 3), [3, 4], true) ? (int) $found['size'] : 3,
             'advance' => max(1, min(2, (int) ($found['advance'] ?? 1))),
             'extra' => max(0, min(3, (int) ($found['extra'] ?? 0))),
+            // Mexicano/RR toggle from the preview. Normalized to 'mex'|'rr';
+            // anything unexpected falls back to 'mex' (the preview default).
+            'format' => (($found['format'] ?? 'mex') === 'rr') ? 'rr' : 'mex',
         ];
     }
 
@@ -225,7 +240,7 @@ class TournamentImportService
             'name' => trim($name),
             'tint' => $tint,
             'format' => CategoryFormat::Hybrid,
-            'group_format' => \App\Enums\GroupFormat::Mexicano,
+            'group_format' => $this->resolveGroupFormat($cfg['format'] ?? 'mex'),
             'mexicano_pairing' => \App\Enums\MexicanoPairing::Cross,
             'preferred_group_size' => $cfg['size'] ?? 3,
             'advance_per_group' => $cfg['advance'] ?? 1,
@@ -235,5 +250,18 @@ class TournamentImportService
             'price_centavos' => 0,
             'has_third_place' => false,
         ]);
+    }
+    /**
+     * Map the posted format flag to the GroupFormat enum.
+     * 'rr' → RoundRobin; anything else (incl. 'mex'/null) → Mexicano (the
+     * preview's default). Mexicano only affects 4-pair groups downstream.
+     *
+     * @param  string|null  $flag  'mex' | 'rr' | null
+     */
+    private function resolveGroupFormat(?string $flag): GroupFormat
+    {
+        return $flag === 'rr'
+            ? GroupFormat::RoundRobin
+            : GroupFormat::Mexicano;
     }
 }

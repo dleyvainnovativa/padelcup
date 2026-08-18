@@ -1,0 +1,25 @@
+/* ==========================================================================
+   Phase 1 — Ranking points editor grid. Append to theme.css.
+   Uses existing tokens (--surface, --border, --border-strong, --accent).
+   ========================================================================== */
+
+.rk-points-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+}
+@media (max-width: 640px) {
+  .rk-points-grid { grid-template-columns: 1fr; }
+}
+
+.rk-points-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface);
+}
+.rk-points-row__label { font-size: 13px; font-weight: 500; color: var(--text); }
+.rk-points-row__input {
+  width: 96px; text-align: right; border-radius: 8px !important;
+  font-variant-numeric: tabular-nums;
+}
+.rk-points-row:focus-within { border-color: var(--accent); }

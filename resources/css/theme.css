@@ -1775,3 +1775,176 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 .pub-winners__rollcall-champ { font-size: 13px; color: var(--text-muted); }
 
 .pub-winners__ads { margin-top: 40px; }
+
+/* ==========================================================================
+   Phase 2 — Ranking systems selector (tournament form). Append to theme.css.
+   ========================================================================== */
+
+.rk-link-list { display: flex; flex-direction: column; gap: 8px; }
+
+.rk-link-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.rk-link-row:hover { border-color: var(--border-strong); }
+.rk-link-row.is-checked {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.rk-link-row input[type="checkbox"] { width: 16px; height: 16px; flex: none; }
+
+.rk-link-row__body { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0; }
+.rk-link-row__name { font-size: 14px; font-weight: 600; }
+.rk-link-row__owner { font-size: 11.5px; color: var(--text-faint); }
+
+.rk-link-row__badge {
+  font-size: 11px; font-weight: 600; color: var(--text-muted);
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+}
+.rk-link-row__badge--muted { color: var(--text-faint); font-weight: 500; }
+
+/* ==========================================================================
+   Phase 3 — Ranking finalize panel. Append to theme.css.
+   ========================================================================== */
+
+.rk-fin-list { display: flex; flex-direction: column; gap: 8px; }
+
+.rk-fin-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface);
+}
+.rk-fin-row__info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rk-fin-row__name { font-size: 14px; font-weight: 600; }
+.rk-fin-row__status { font-size: 12px; color: var(--text-faint); display: inline-flex; align-items: center; gap: 5px; }
+.rk-fin-row__status--done { color: var(--success-text); }
+.rk-fin-row__actions { display: inline-flex; gap: 6px; flex: none; }
+
+@media (max-width: 520px) {
+  .rk-fin-row { flex-direction: column; align-items: stretch; }
+  .rk-fin-row__actions { justify-content: flex-end; }
+}
+
+/* ==========================================================================
+   Phase 4 — Leaderboards (admin + public). Append to theme.css.
+   ========================================================================== */
+
+/* --- Admin table medals -------------------------------------------------- */
+.rk-board__rank { font-weight: 600; }
+.rk-board__medal {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%; font-size: 12px; font-weight: 700;
+  color: #fff;
+}
+.rk-board__medal--1 { background: #d4af37; }
+.rk-board__medal--2 { background: #9aa4b2; }
+.rk-board__medal--3 { background: #cd7f32; }
+
+/* --- Public leaderboard -------------------------------------------------- */
+.pub-rank { max-width: 640px; margin: 0 auto; padding: 8px 0 48px; }
+
+.pub-rank__head { text-align: center; margin-bottom: 28px; }
+.pub-rank__eyebrow {
+  font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent);
+}
+.pub-rank__title { font-size: 28px; font-weight: 700; margin: 4px 0 2px; }
+.pub-rank__sub { color: var(--text-muted); font-size: 14px; }
+
+.pub-rank__list { display: flex; flex-direction: column; gap: 6px; }
+
+.pub-rank__row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface);
+}
+.pub-rank__row--podium {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+}
+.pub-rank__pos {
+  width: 34px; text-align: center; font-size: 20px; flex: none;
+}
+.pub-rank__num { font-size: 15px; font-weight: 700; color: var(--text-muted); }
+.pub-rank__name { flex: 1 1 auto; font-size: 15px; font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pub-rank__pts { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
+.pub-rank__pts-label { font-size: 11px; font-weight: 500; color: var(--text-faint); margin-left: 2px; }
+
+.pub-rank__empty { text-align: center; color: var(--text-faint); padding: 40px; font-size: 14px; }
+
+/* ==========================================================================
+   Phase 1 — Structure regeneration banner. Append to theme.css.
+   ========================================================================== */
+
+.rk-regen-banner { border-width: 1px; border-style: solid; }
+
+.rk-regen-banner--info {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+.rk-regen-banner--danger {
+  border-color: color-mix(in srgb, var(--danger, #e5484d) 40%, transparent);
+  background: color-mix(in srgb, var(--danger, #e5484d) 6%, var(--surface));
+}
+
+.rk-regen-banner__title { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.rk-regen-banner--info   .rk-regen-banner__title { color: var(--accent); }
+.rk-regen-banner--danger .rk-regen-banner__title { color: var(--danger-text, #c8362b); }
+
+.rk-regen-banner__text { font-size: 12.5px; color: var(--text-muted); line-height: 1.45; }
+
+@media (max-width: 560px) {
+  .rk-regen-banner__actions { width: 100%; }
+  .rk-regen-banner__actions form, .rk-regen-banner__actions .btn { width: 100%; }
+}
+
+/* ==========================================================================
+   Phase 2 — Bulk regeneration panel. Append to theme.css.
+   ========================================================================== */
+
+.rk-bulk__badge {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+}
+.rk-bulk__badge--info {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.rk-bulk__badge--danger {
+  color: var(--danger-text, #c8362b);
+  background: color-mix(in srgb, var(--danger, #e5484d) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--danger, #e5484d) 30%, transparent);
+}
+
+.rk-bulk__table td { vertical-align: middle; }
+.rk-bulk__table form { display: inline; }
+
+/* ==========================================================================
+   Phase 1 — Ranking points editor grid. Append to theme.css.
+   Uses existing tokens (--surface, --border, --border-strong, --accent).
+   ========================================================================== */
+
+.rk-points-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+}
+@media (max-width: 640px) {
+  .rk-points-grid { grid-template-columns: 1fr; }
+}
+
+.rk-points-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface);
+}
+.rk-points-row__label { font-size: 13px; font-weight: 500; color: var(--text); }
+.rk-points-row__input {
+  width: 96px; text-align: right; border-radius: 8px !important;
+  font-variant-numeric: tabular-nums;
+}
+.rk-points-row:focus-within { border-color: var(--accent); }

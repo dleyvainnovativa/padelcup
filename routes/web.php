@@ -4,9 +4,15 @@ use App\Http\Controllers\Admin\ManagerController;
 use App\Http\Controllers\Admin\AdController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Dashboard\CategoryController;
+use App\Http\Controllers\Dashboard\CategoryStructureController;
 use App\Http\Controllers\Dashboard\PairController;
 use App\Http\Controllers\Dashboard\PlayerImportController;
+use App\Http\Controllers\Dashboard\RankingLeaderboardController;
 use App\Http\Controllers\Dashboard\TournamentController;
+use App\Http\Controllers\Dashboard\TournamentRankingController;
+use App\Http\Controllers\Dashboard\TournamentStructureController;
+use App\Http\Controllers\PublicRankingController;
+use App\Http\Controllers\RankingSystemController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -35,6 +41,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('categories/{category}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
         Route::put('categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
         Route::delete('categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+
+        Route::post('categories/{category}/regenerate', [CategoryStructureController::class, 'regenerate'])->name('categories.regenerate');
+        Route::post('categories/{category}/rebuild-bracket', [CategoryStructureController::class, 'rebuildBracket'])->name('categories.rebuildBracket');
+
+        Route::post('regenerate-safe', [TournamentStructureController::class, 'regenerateSafe'])->name('tournaments.regenerateSafe');
 
         // Pairs (nested under category)
         Route::prefix('categories/{category}')->group(function () {
@@ -112,7 +123,32 @@ Route::middleware(['auth'])->group(function () {
         // Player availability (manager-entered, per player per tournament)
         Route::get('disponibilidad', [\App\Http\Controllers\Dashboard\PlayerAvailabilityController::class, 'index'])->name('availability.player.index');
         Route::post('disponibilidad', [\App\Http\Controllers\Dashboard\PlayerAvailabilityController::class, 'store'])->name('availability.player.store');
+        Route::post(
+            'rankings/{rankingSystem}/finalize',
+            [TournamentRankingController::class, 'finalize']
+        )
+            ->name('tournaments.rankings.finalize');
+
+        Route::post(
+            'rankings/{rankingSystem}/revert',
+            [TournamentRankingController::class, 'revert']
+        )
+            ->name('tournaments.rankings.revert');
     });
+    Route::resource('ranking-systems', RankingSystemController::class);
+
+    // Extra: duplicate an existing system (clone name + points schedule).
+    Route::post(
+        'ranking-systems/{rankingSystem}/duplicate',
+        [RankingSystemController::class, 'duplicate']
+    )
+        ->name('ranking-systems.duplicate');
+
+    Route::get(
+        'ranking-systems/{rankingSystem}/leaderboard',
+        [RankingLeaderboardController::class, 'show']
+    )
+        ->name('ranking-systems.leaderboard');
 
     // Stripe Connect onboarding (managers)
     Route::get('/connect', [\App\Http\Controllers\Dashboard\ConnectController::class, 'index'])->name('connect.index');
@@ -181,6 +217,9 @@ Route::get('/t/{tournament}/campeones', [\App\Http\Controllers\PublicTournamentC
 Route::get('/t/{tournament}/{category:slug}', [\App\Http\Controllers\PublicTournamentController::class, 'category'])
     ->scopeBindings()
     ->name('public.category');
+
+Route::get('r/{rankingSystem}', [PublicRankingController::class, 'show'])
+    ->name('public.rankings.show');
 
 // Public search (players + tournaments across listed tournaments)
 Route::get('/buscar', [\App\Http\Controllers\PublicSearchController::class, 'index'])->name('public.search');

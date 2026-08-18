@@ -95,10 +95,13 @@
     @endif
 </div>
 
+@include('dashboard.tournaments.partials.ranking-finalize')
+
 @include('dashboard.partials.flash')
 
 <div class="section-title">Categorías</div>
 <div class="row g-3">
+    @include('dashboard.tournaments.partials.structure-bulk')
     @forelse ($tournament->categories as $category)
     <div class="col-12 col-md-6 col-lg-4">
         <a href="{{ route('categories.show', [$tournament, $category]) }}" class="text-decoration-none">

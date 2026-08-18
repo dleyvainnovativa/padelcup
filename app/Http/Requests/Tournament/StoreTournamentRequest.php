@@ -35,6 +35,8 @@ class StoreTournamentRequest extends FormRequest
             'hide_global_ads' => ['nullable', 'boolean'],
             'day_durations' => ['nullable', 'array'],
             'day_durations.*' => ['nullable', 'integer', 'min:30', 'max:240'],
+            'ranking_system_ids'   => ['nullable', 'array'],
+            'ranking_system_ids.*' => ['integer', 'exists:ranking_systems,id'],
         ];
     }
 

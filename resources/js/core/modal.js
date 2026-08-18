@@ -27,10 +27,16 @@ export function closeModal(target) { instance(target)?.hide(); }
 /**
  * Promise-based confirmation dialog. Builds a transient modal, resolves
  * true on confirm and false on cancel/dismiss. No markup needed in the page.
+ *
+ * Pass `bodyList` (array of strings) instead of `body` to render a bulleted
+ * list — e.g. a set of scheduling conflicts — with an optional `intro` line
+ * above it. List items are inserted as text (no HTML injection).
  */
 export function confirm({
   title = 'Confirmar',
   body = '¿Deseas continuar?',
+  bodyList = null,       // optional array of strings → rendered as a list
+  intro = null,          // optional lead-in line shown above bodyList
   confirmText = 'Confirmar',
   cancelText = 'Cancelar',
   variant = 'accent', // 'accent' | 'danger'
@@ -57,7 +63,31 @@ export function confirm({
       </div>`;
 
     wrapper.querySelector('.modal-title').textContent = title;
-    wrapper.querySelector('.modal-body').textContent = body;
+
+    // Body: either a plain-text message, or a structured list (bodyList) with an
+    // optional intro line. bodyList items are set via textContent (no HTML
+    // injection). Falls back to the plain `body` string for existing callers.
+    const bodyEl = wrapper.querySelector('.modal-body');
+    if (Array.isArray(bodyList) && bodyList.length) {
+      bodyEl.textContent = '';
+      if (intro) {
+        const p = document.createElement('div');
+        p.textContent = intro;
+        p.style.marginBottom = '8px';
+        bodyEl.appendChild(p);
+      }
+      const ul = document.createElement('ul');
+      ul.style.cssText = 'margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;';
+      bodyList.forEach((line) => {
+        const li = document.createElement('li');
+        li.textContent = line;
+        ul.appendChild(li);
+      });
+      bodyEl.appendChild(ul);
+    } else {
+      bodyEl.textContent = body;
+    }
+
     wrapper.querySelector('[data-role="cancel"]').textContent = cancelText;
     wrapper.querySelector('[data-role="confirm"]').textContent = confirmText;
 

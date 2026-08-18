@@ -226,19 +226,36 @@ class BracketService
         // Ordered seed-LABEL list (strongest first), then standard fold to a
         // power-of-2 bracket with byes. Always crash-safe for any count.
         $seedLabels = $this->positionalSeedLabels($groupCount, $adv, $extra);
-        $size = $this->nextPowerOfTwo(count($seedLabels));
-        if ($size < 2) {
+
+        // Minimum bracket size is 2: a single qualifier (one group, advance=1)
+        // yields a valid bye-final (A1 vs BYE) rather than an error. Guard against
+        // the empty case, which genuinely can't form a bracket.
+        if (count($seedLabels) < 1) {
             throw new \RuntimeException('No hay suficientes posiciones para una llave.');
         }
+        $size = max(2, $this->nextPowerOfTwo(count($seedLabels)));
         $padded = array_pad($seedLabels, $size, 'BYE');
 
-        // First-round pairings via standard fold: seed i vs seed (size-1-i).
+        // Place seeds into bracket-slot order using STANDARD tournament seeding,
+        // then pair adjacent slots. This guarantees seed 1 & 2 land in opposite
+        // halves, 3 & 4 in opposite quarters, etc. — and because seedLabels are
+        // in strength order (all winners, then all runners-up by group), a
+        // group's #1 and #2 can only meet in the final, never in an early round.
+        //
+        // The old naive fold (seed[i] vs seed[size-1-i]) collapsed here: it
+        // paired A1 vs A2 whenever a group had 2+ qualifiers. See
+        // standardSeedOrder() for the slot-order construction.
+        $order = $this->standardSeedOrder($size);   // 1-based seed per slot
+        $slots = array_map(fn($seedNo) => $padded[$seedNo - 1], $order);
+
+        // Adjacent slots form the first-round matches.
+        // Size 2 → one match [A1, BYE] → the Final.
         $pairings = [];
-        for ($i = 0; $i < $size / 2; $i++) {
-            $pairings[] = [$padded[$i], $padded[$size - 1 - $i]];
+        for ($i = 0; $i < $size; $i += 2) {
+            $pairings[] = [$slots[$i], $slots[$i + 1]];
         }
 
-        $rounds = (int) log($size, 2);
+        $rounds = (int) log($size, 2); // size 2 → 1 round (the final)
 
         DB::transaction(function () use ($category, $pairings, $rounds) {
             GameMatch::where('category_id', $category->id)->whereNull('group_id')->delete();
@@ -254,7 +271,7 @@ class BracketService
                 ]);
             }
 
-            // Subsequent rounds with feeder links.
+            // Subsequent rounds with feeder links. (None for a size-2 bye-final.)
             $prev = $firstRound;
             for ($round = 2; $round <= $rounds; $round++) {
                 $current = [];
@@ -273,9 +290,15 @@ class BracketService
     }
 
     /**
-     * Ordered seed-label list (strongest first): group winners, then runners-up
-     * rotated by one group (so a winner doesn't fold onto its own runner), then
-     * further advance tiers, then extra-qualifier slots (Q1, Q2…).
+     * Ordered seed-label list in TRUE STRENGTH ORDER (strongest first):
+     * all group winners (A1, B1, C1…), then all runners-up (A2, B2, C2…), then
+     * all third-places, and finally extra-qualifier slots (Q1, Q2…).
+     *
+     * No rotation here — separation of same-group qualifiers is handled by
+     * standardSeedOrder() when placing these into bracket slots, which is the
+     * mathematically correct place for it. Emitting a clean strength order lets
+     * standard seeding do its job (seed 1 vs 2 in opposite halves, and a group's
+     * #1/#2 meeting only in the final).
      *
      * @return array<int,string>
      */
@@ -284,22 +307,50 @@ class BracketService
         $letters = [];
         for ($i = 0; $i < $groupCount; $i++) $letters[] = chr(ord('A') + $i);
 
-        $seeds = array_map(fn($L) => $L . '1', $letters); // winners
-
-        if ($adv >= 2) {
-            // Runners rotated by one group.
-            foreach ($letters as $i => $L) {
-                $seeds[] = $letters[($i + 1) % $groupCount] . '2';
+        $seeds = [];
+        // Tier by placement: all 1st places, then all 2nd, etc. Within a tier,
+        // group order (A, B, C…) is the strength order.
+        for ($place = 1; $place <= $adv; $place++) {
+            foreach ($letters as $L) {
+                $seeds[] = $L . $place;
             }
         }
-        for ($place = 3; $place <= $adv; $place++) {
-            foreach ($letters as $L) $seeds[] = $L . $place;
-        }
+        // Extra cross-group qualifiers come last (weakest seeds).
         for ($k = 1; $k <= $extra; $k++) {
             $seeds[] = 'Q' . $k;
         }
 
         return $seeds;
+    }
+
+    /**
+     * Standard single-elimination seed order for a bracket of $size (a power of
+     * two). Returns the 1-based seed number that occupies each slot, top to
+     * bottom, such that pairing adjacent slots gives the classic bracket:
+     *   size 2 → [1, 2]
+     *   size 4 → [1, 4, 2, 3]        pairs (1v4)(2v3)
+     *   size 8 → [1, 8, 4, 5, 2, 7, 3, 6]
+     *
+     * Built recursively: each seed s at level n/2 expands to [s, (n+1 - s)] at
+     * level n, which is the standard "fold the bracket" construction. This is
+     * what puts seed 1 and seed 2 in opposite halves, 3 and 4 in opposite
+     * quarters, and so on.
+     *
+     * @return array<int,int>  slotIndex => seedNumber (1-based)
+     */
+    private function standardSeedOrder(int $size): array
+    {
+        $order = [1, 2];
+        while (count($order) < $size) {
+            $n = count($order) * 2;      // next level size
+            $next = [];
+            foreach ($order as $s) {
+                $next[] = $s;
+                $next[] = $n + 1 - $s;
+            }
+            $order = $next;
+        }
+        return $order;
     }
 
     /**

@@ -8,6 +8,7 @@
 
 import { post } from '../core/http';
 import toast from '../core/toast';
+import modal from '../core/modal';
 
 const isTouch = window.matchMedia('(hover: none), (pointer: coarse)').matches;
 const MONTHS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
@@ -259,7 +260,14 @@ function initMultiSelect(board, cfg) {
   goBtn.addEventListener('click', async () => {
     if (!selected.size) return;
     const n = selected.size;
-    if (!window.confirm(`¿Quitar ${n} ${n === 1 ? 'partido' : 'partidos'} del calendario?`)) return;
+    const ok = await modal.confirm({
+      title: n === 1 ? 'Quitar partido' : 'Quitar partidos',
+      body: `¿Quitar ${n} ${n === 1 ? 'partido' : 'partidos'} del calendario?`,
+      confirmText: 'Quitar',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     goBtn.disabled = true;
     goBtn.textContent = 'Quitando…';
@@ -346,7 +354,15 @@ function initDrag(board, place, switchCourt, selection) {
 
       const res = await place(draggedId, targetCourt, date, slot, false);
       if (res && res.conflicts) {
-        if (window.confirm(res.conflicts.join('\n') + '\n\n¿Programar de todos modos?')) {
+        const ok = await modal.confirm({
+          title: 'Conflictos de horario',
+          intro: 'Se detectaron estos conflictos:',
+          bodyList: res.conflicts,
+          confirmText: 'Programar de todos modos',
+          cancelText: 'Cancelar',
+          variant: 'danger',
+        });
+        if (ok) {
           await place(draggedId, targetCourt, date, slot, true);
         }
       }

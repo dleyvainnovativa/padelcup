@@ -36,6 +36,8 @@ class TournamentController extends Controller
             'is_listed' => $request->boolean('is_listed'),
         ]);
 
+        $this->syncRankingSystems($request, $tournament);
+
         return redirect()
             ->route('tournaments.show', $tournament)
             ->with('status', 'Torneo creado.');
@@ -120,6 +122,8 @@ class TournamentController extends Controller
             }
         }
 
+        $this->syncRankingSystems($request, $tournament);
+
         return redirect()
             ->route('tournaments.show', $tournament)
             ->with('status', $status);
@@ -153,5 +157,33 @@ class TournamentController extends Controller
         return redirect()
             ->route('tournaments.index')
             ->with('status', 'Torneo eliminado.');
+    }
+
+    private function syncRankingSystems(Request $request, Tournament $tournament): void
+    {
+        $requested = collect($request->input('ranking_system_ids', []))
+            ->map(fn($id) => (int) $id)
+            ->filter()
+            ->unique();
+
+        // Only allow systems this manager owns (created_by === manager id).
+        $ownedIds = \App\Models\RankingSystem::query()
+            ->where('created_by', $request->user()->id)
+            ->whereIn('id', $requested)
+            ->pluck('id');
+
+        // Build the sync payload WITHOUT wiping finalized_at on rows that persist.
+        // syncWithoutDetaching won't remove unchecked ones, so we compute the full
+        // set explicitly: detach removed, keep existing pivots, attach new.
+        $existing = $tournament->rankingSystems()
+            ->pluck('ranking_system_tournament.finalized_at', 'ranking_systems.id');
+
+        $payload = [];
+        foreach ($ownedIds as $id) {
+            // Keep prior finalized_at if the link already existed; else null.
+            $payload[$id] = ['finalized_at' => $existing[$id] ?? null];
+        }
+
+        $tournament->rankingSystems()->sync($payload);
     }
 }

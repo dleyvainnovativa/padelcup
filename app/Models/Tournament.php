@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use App\Models\RankingSystem;
+use App\Models\RankingPoint;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
 
 class Tournament extends Model
 {
@@ -254,5 +259,34 @@ class Tournament extends Model
             'id',            // Local key on tournaments table
             'id'             // Local key on categories table
         );
+    }
+    // --- Ranking systems this tournament feeds (pivot carries finalized_at) -----
+    public function rankingSystems(): BelongsToMany
+    {
+        return $this->belongsToMany(RankingSystem::class, 'ranking_system_tournament')
+            ->withPivot('finalized_at')
+            ->withTimestamps();
+    }
+
+    // --- Ledger rows produced by this tournament (all systems) ------------------
+    public function rankingPoints(): HasMany
+    {
+        return $this->hasMany(RankingPoint::class);
+    }
+
+// --- Convenience flags for the UI -------------------------------------------
+
+    /** Does this tournament feed ANY ranking system? */
+    public function awardsRankingPoints(): bool
+    {
+        return $this->rankingSystems()->exists();
+    }
+
+    /** Has it been finalized for a given system? (pivot finalized_at set) */
+    public function isFinalizedFor(RankingSystem|int $system): bool
+    {
+        $id = $system instanceof RankingSystem ? $system->id : $system;
+        $row = $this->rankingSystems()->where('ranking_system_id', $id)->first();
+        return $row && $row->pivot->finalized_at !== null;
     }
 }

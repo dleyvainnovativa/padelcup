@@ -38,6 +38,8 @@ $belowMin = $occupied < $category->min_pairs;
         </div>
     </div>
 
+    @include('dashboard.categories.partials.structure-banner')
+
     @include('dashboard.partials.flash')
 
     @error('draw')
