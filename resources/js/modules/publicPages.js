@@ -61,13 +61,17 @@ function initAutoRefresh() {
   const schedule = () => {
     clearTimeout(timer);
     timer = setTimeout(() => {
-      if (!document.hidden) {
+      // Don't reload while the tab is hidden OR while the share/photo editor
+      // drawer is open (a reload would wipe the editor mid-edit). The drawer
+      // sets body.pc-drawer-open while it's open.
+      const drawerOpen = document.body.classList.contains('pc-drawer-open');
+      if (!document.hidden && !drawerOpen) {
         // Save where the user is so the reload lands them back in place.
         saveScroll();
         // Preserve the current query string (e.g. buscar mi partido).
         window.location.reload();
       } else {
-        schedule(); // tab hidden — wait and check again
+        schedule(); // tab hidden or drawer open — wait and check again
       }
     }, seconds * 1000);
   };

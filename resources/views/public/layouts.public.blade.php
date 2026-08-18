@@ -4,6 +4,7 @@
      pages. data-theme is server-rendered from the cookie. --}}
 <!DOCTYPE html>
 <html lang="es-MX" data-theme="{{ request()->cookie('tc_theme', 'light') }}">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,25 +14,27 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('head')
 </head>
+
 <body>
-<div class="public-shell">
-    <header class="public-topbar">
-        <a href="/" class="public-brand">
-            <span class="logo"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
-            PadelCup
-        </a>
-        <button class="icon-btn" data-theme-toggle aria-label="Cambiar tema" title="Cambiar tema">
-            <i class="fa-solid fa-moon"></i>
-        </button>
-    </header>
+    <div class="public-shell">
+        <header class="public-topbar">
+            <a href="/" class="public-brand">
+                <span class="logo"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
+                PadelCup
+            </a>
+            <button class="icon-btn" data-theme-toggle aria-label="Cambiar tema" title="Cambiar tema">
+                <i class="fa-solid fa-moon"></i>
+            </button>
+        </header>
 
-    <main class="public-main">
-        @yield('content')
-    </main>
+        <main class="public-main">
+            @yield('content')
+        </main>
 
-    <footer class="public-footer">
-        <a href="{{ route('public.directory') }}" style="color:inherit;text-decoration:none;">PadelCup · Torneos de pádel</a>
-    </footer>
-</div>
+        <footer class="public-footer">
+            <a href="{{ route('public.directory') }}" style="color:inherit;text-decoration:none;">PadelCup · Torneos de pádel</a>
+        </footer>
+    </div>
 </body>
+
 </html>

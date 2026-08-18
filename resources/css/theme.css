@@ -1948,3 +1948,7 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
   font-variant-numeric: tabular-nums;
 }
 .rk-points-row:focus-within { border-color: var(--accent); }
+
+.ms-theme__name{
+  color: var(--text);
+}

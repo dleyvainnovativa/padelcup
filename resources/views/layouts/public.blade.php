@@ -18,7 +18,7 @@
     <meta name="apple-mobile-web-app-title" content="PadelCup" />
     <link rel="manifest" href="{{asset('img/icons/site.webmanifest')}}" />
     <script defer src="https://cloud.umami.is/script.js" data-website-id="0a011394-4f7c-4132-a067-040697576e3e"></script>
-    @vite(['resources/css/app.css','resources/css/landing.css', 'resources/js/app.js'])
+    @vite(['resources/css/app.css','resources/css/landing.css', 'resources/css/share.css', 'resources/js/app.js'])
     @stack('head')
 </head>
 
