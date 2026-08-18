@@ -36,15 +36,15 @@ export function initMatchShare() {
 const THEMES = {
   ledger: {
     label: 'Ledger',
-    panel: '#0C0C0E', panelOpacity: 0.62,
+    panel: '#0C0C0E', panelOpacity: 0.55,
     defaultInk: 'white',
     accent: null,                 // no colored accent (winner dot uses ink)
   },
   paper: {
     label: 'Paper',
-    panel: '#F4F2EC', panelOpacity: 0.85,
-    defaultInk: 'black',
-    accent: '#2f7d55',            // green — stays green regardless of ink switch
+    panel: '#0C0C0E', panelOpacity: 0.55,
+    defaultInk: 'white',
+    accent: '#3da26e',            // green — stays green regardless of ink switch
   },
   hero: {
     label: 'Hero',
@@ -99,7 +99,7 @@ function createDrawer() {
           <label class="ms-preview__empty" data-ms-drop>
             <input type="file" accept="image/*" data-ms-file hidden>
             <div class="ms-preview__empty-inner">
-              <div class="ms-preview__icon">&#128247;</div>
+              <div class="ms-preview__icon"><i class="fas fa-camera"></i></div>
               <div class="ms-preview__hint">Toca para subir una foto</div>
               <div class="ms-preview__sub">La imagen del resultado se ajusta a tu foto</div>
             </div>
@@ -139,7 +139,7 @@ function createDrawer() {
         <button type="button" class="ms-btn ms-btn--ghost" data-ms-rephoto disabled>Cambiar foto</button>
         <button type="button" class="ms-btn ms-btn--ghost" data-ms-export disabled>Descargar</button>
         <button type="button" class="ms-btn ms-btn--primary" data-ms-share disabled hidden>
-          <span class="ms-btn__ico">&#128228;</span> Compartir
+          <span class="ms-btn__ico"><i class='fas fa-arrow-up-right-from-square'></i></span> Compartir
         </button>
       </div>
     </div>`;
@@ -477,14 +477,14 @@ function drawLedger({ ctx, W, H, u, pad, c, fUI, fMono, d }) {
   const rowMidGap = rowH;             // second row sits a full rowH below
 
   drawLedgerRow(ctx, W, pad, u, block1Top, pairName(d, 'a'),
-    d.sets.map((s) => s[0]), winA, c, fUI, false);
+    d.sets.map((s) => s[0]), winA, c, fUI);
 
   // Divider between the two pairs.
   const divY = block1Top + rowH - 78 * u;
   line(ctx, pad, divY, W - pad, divY, c.line);
 
   drawLedgerRow(ctx, W, pad, u, block1Top + rowMidGap, pairName(d, 'b'),
-    d.sets.map((s) => s[1]), winB, c, fUI, true);
+    d.sets.map((s) => s[1]), winB, c, fUI);
 
   // Stat strip (SETS / GAMES) — no duration.
   const stripY = H - 200 * u;
@@ -502,9 +502,11 @@ function drawLedger({ ctx, W, H, u, pad, c, fUI, fMono, d }) {
 
 // One Ledger row: name stacked on up to 2 lines (left), score digits big (right),
 // vertically centered together with real breathing room.
-function drawLedgerRow(ctx, W, pad, u, top, name, scores, isWin, c, fUI, isLoser) {
-  const nameColor = isLoser ? c.loser : c.text;
-  const scoreColor = isLoser ? c.loser : c.text;
+function drawLedgerRow(ctx, W, pad, u, top, name, scores, isWin, c, fUI) {
+  // Dimming follows the actual result: the WINNER is bright/bold, the loser is
+  // muted — regardless of whether the winner is pair A or pair B.
+  const nameColor = isWin ? c.text : c.loser;
+  const scoreColor = isWin ? c.text : c.loser;
 
   // Split the pair name onto two lines at " / " or " · " if present.
   const parts = splitPair(name);
