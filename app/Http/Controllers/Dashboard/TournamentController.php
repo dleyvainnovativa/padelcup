@@ -74,7 +74,7 @@ class TournamentController extends Controller
 
         // Detect whether scheduling-affecting fields changed (to know if we need
         // to re-derive availability and prune now-invalid placements).
-        $schedFields = ['play_start', 'play_end', 'match_duration_minutes', 'starts_on', 'ends_on', 'day_durations'];
+        $schedFields = ['play_start', 'play_end', 'match_duration_minutes', 'starts_on', 'ends_on', 'day_durations', 'day_hours'];
         $before = $tournament->only($schedFields);
 
         $data = $request->validated();
@@ -96,6 +96,25 @@ class TournamentController extends Controller
             ->all();
 
         $data['day_durations'] = $dayDurations ?: null;   // null when none set
+
+        // Per-day hours: keep only days where BOTH start and end are filled and
+        // start < end; anything else falls back to the global window at runtime.
+        $dayHours = collect($request->input('day_hours', []))
+            ->map(fn($v) => [
+                'start' => is_array($v) ? trim((string) ($v['start'] ?? '')) : '',
+                'end'   => is_array($v) ? trim((string) ($v['end'] ?? '')) : '',
+            ])
+            ->filter(fn($v) => $v['start'] !== '' && $v['end'] !== '' && $v['start'] < $v['end'])
+            ->all();
+
+        $data['day_hours'] = $dayHours ?: null;   // null when none set
+
+        // Tiebreak order: keep only valid criteria in the submitted order; null
+        // when it equals the default (so the tournament just uses the default).
+        $tbOrder = \App\Support\TiebreakCriteria::sanitize($request->input('tiebreak_order', []));
+        $data['tiebreak_order'] = ($tbOrder === \App\Support\TiebreakCriteria::DEFAULT_ORDER)
+            ? null
+            : $tbOrder;
 
         $tournament->update([
             ...$data,

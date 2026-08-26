@@ -32,6 +32,7 @@ import http from './core/http';
 import modal from './core/modal';
 import forms from './core/forms';
 import loading from './core/loading';
+import { registerTiebreakOrder } from './modules/tiebreakOrder';
 
 // Expose a small app namespace for inline scripts / debugging
 window.TC = { toast, http, modal, forms, loading };
@@ -97,5 +98,8 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
   if (document.querySelector('[data-share-match]')) {
     import('./modules/matchShare').then((m) => m.initMatchShare());
   }
+
+  registerTiebreakOrder(Alpine);
+
   Alpine.start();
 });

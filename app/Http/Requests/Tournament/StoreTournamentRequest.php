@@ -35,6 +35,11 @@ class StoreTournamentRequest extends FormRequest
             'hide_global_ads' => ['nullable', 'boolean'],
             'day_durations' => ['nullable', 'array'],
             'day_durations.*' => ['nullable', 'integer', 'min:30', 'max:240'],
+            'day_hours' => ['nullable', 'array'],
+            'day_hours.*.start' => ['nullable', 'date_format:H:i'],
+            'day_hours.*.end' => ['nullable', 'date_format:H:i'],
+            'tiebreak_order' => ['nullable', 'array'],
+            'tiebreak_order.*' => ['string', \Illuminate\Validation\Rule::in(\App\Support\TiebreakCriteria::keys())],
             'ranking_system_ids'   => ['nullable', 'array'],
             'ranking_system_ids.*' => ['integer', 'exists:ranking_systems,id'],
         ];

@@ -103,7 +103,103 @@
             </details>
             @endif
 
-            @include("dashboard.tournaments.partials.ranking-systems-select")
+            @php $dayHours = $tournament->day_hours ?? []; @endphp
+            @if($playDays->count() >= 1)
+            <details class="mt-3" style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;">
+                <summary style="cursor:pointer;font-size:13px;font-weight:600;">
+                    <i class="fa-solid fa-business-time me-1"></i> Horario por día (opcional)
+                </summary>
+                <div style="font-size:12px;color:var(--text-faint);margin:8px 0 12px;">
+                    Deja vacío para usar el horario general ({{ \Illuminate\Support\Str::of($tournament->play_start)->substr(0,5) }}–{{ \Illuminate\Support\Str::of($tournament->play_end)->substr(0,5) }}).
+                    Útil cuando algunos días solo hay canchas por la tarde/noche.
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    @foreach($playDays as $d)
+                    @php
+                    $ymd = $d->format('Y-m-d');
+                    $hStart = $dayHours[$ymd]['start'] ?? '';
+                    $hEnd = $dayHours[$ymd]['end'] ?? '';
+                    $gStart = \Illuminate\Support\Str::of($tournament->play_start)->substr(0,5);
+                    $gEnd = \Illuminate\Support\Str::of($tournament->play_end)->substr(0,5);
+                    @endphp
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <span style="flex:0 0 150px;font-size:13px;">{{ \Illuminate\Support\Str::ucfirst($d->locale('es')->isoFormat('ddd D MMM')) }}</span>
+                        <input type="time" name="day_hours[{{ $ymd }}][start]"
+                            value="{{ old('day_hours.'.$ymd.'.start', $hStart) }}"
+                            class="form-control form-control-sm" style="width:120px;border-radius:var(--radius);"
+                            title="Inicio (por defecto {{ $gStart }})">
+                        <span style="font-size:12px;color:var(--text-faint);">a</span>
+                        <input type="time" name="day_hours[{{ $ymd }}][end]"
+                            value="{{ old('day_hours.'.$ymd.'.end', $hEnd) }}"
+                            class="form-control form-control-sm" style="width:120px;border-radius:var(--radius);"
+                            title="Fin (por defecto {{ $gEnd }})">
+                    </div>
+                    @endforeach
+                </div>
+                <div style="font-size:11px;color:var(--text-faint);margin-top:8px;">
+                    Ambos campos deben llenarse para aplicar el horario de un día; si dejas uno vacío, ese día usa el horario general.
+                </div>
+            </details>
+            @endif
+
+
+            @php
+            $tbAll = \App\Support\TiebreakCriteria::CRITERIA;
+            $tbActive = \App\Support\TiebreakCriteria::sanitize(old('tiebreak_order', $tournament->tiebreak_order));
+            // Inactive = valid criteria not in the active list (e.g. H2H removed).
+            $tbInactive = array_values(array_diff(\App\Support\TiebreakCriteria::keys(), $tbActive));
+            @endphp
+            <details class="mt-3" style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;"
+                x-data="tiebreakOrder({
+                    active: {{ \Illuminate\Support\Js::from($tbActive) }},
+                    inactive: {{ \Illuminate\Support\Js::from($tbInactive) }},
+                    labels: {{ \Illuminate\Support\Js::from(collect($tbAll)->mapWithKeys(fn($v,$k)=>[$k=>$v['label']])) }}
+                })">
+                <summary style="cursor:pointer;font-size:13px;font-weight:600;">
+                    <i class="fa-solid fa-arrow-down-1-9 me-1"></i> Orden de desempate (opcional)
+                </summary>
+                <div style="font-size:12px;color:var(--text-faint);margin:8px 0 12px;">
+                    Arrastra para reordenar los criterios de desempate en la fase de grupos. El primero manda; si hay empate, se pasa al siguiente. Puedes quitar criterios (por ejemplo, enfrentamiento directo) o volver a agregarlos.
+                </div>
+
+                {{-- Active, ordered list --}}
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:6px;">Activos (en orden)</div>
+                <ul style="list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:6px;">
+                    <template x-for="(key, idx) in active" :key="key">
+                        <li draggable="true"
+                            @dragstart="dragStart(idx)" @dragover.prevent @drop="drop(idx)"
+                            style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);cursor:grab;">
+                            <i class="fa-solid fa-grip-vertical" style="color:var(--text-faint);"></i>
+                            <span style="flex:0 0 22px;font-weight:700;color:var(--accent);" x-text="idx + 1"></span>
+                            <span style="flex:1;font-size:13px;" x-text="labels[key]"></span>
+                            <button type="button" @click="remove(idx)" class="btn btn-soft btn-sm" title="Quitar">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                            <input type="hidden" name="tiebreak_order[]" :value="key">
+                        </li>
+                    </template>
+                </ul>
+
+                {{-- Inactive / removable pool --}}
+                <template x-if="inactive.length">
+                    <div>
+                        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:6px;">Disponibles</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                            <template x-for="key in inactive" :key="key">
+                                <button type="button" @click="add(key)"
+                                    style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px dashed var(--border);background:var(--surface);font-size:12px;font-weight:600;cursor:pointer;">
+                                    <i class="fa-solid fa-plus" style="color:var(--accent);"></i>
+                                    <span class="order-text" x-text="labels[key]"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <div style="font-size:11px;color:var(--text-faint);margin-top:10px;">
+                    Predeterminado: Partidos ganados → Enfrentamiento directo → Sets ganados → Games ganados.
+                </div>
+            </details>
 
 
             <div class="form-check mt-3">

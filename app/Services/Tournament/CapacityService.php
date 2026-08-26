@@ -234,37 +234,38 @@ class CapacityService
         $days = $tournament->playDays()->values();
         if ($days->isEmpty()) return ['windows' => [], 'overflow' => false];
 
-        $playStart = Carbon::parse($tournament->play_start ?? '08:00', 'America/Mexico_City');
-        $playEnd = Carbon::parse($tournament->play_end ?? '23:00', 'America/Mexico_City');
-        $startMin = $playStart->hour * 60 + $playStart->minute;
-        $endMin = $playEnd->hour * 60 + $playEnd->minute;
+        // Build a FLAT list of concrete slots across all play days. Each day
+        // contributes its own slots from ITS OWN window (day_hours override or the
+        // global play_start/play_end) stepping by that day's duration — so a day
+        // that runs 18:00–23:00 yields fewer slots starting at 18:00, and the
+        // proposal never suggests a time before a day actually opens.
+        //
+        // $slots[i] = ['start' => Carbon, 'end' => Carbon]
+        $slots = [];
+        foreach ($days as $d) {
+            [$dStart, $dEnd] = $tournament->hoursForDay($d);
+            [$sh, $sm] = array_map('intval', explode(':', $dStart));
+            [$eh, $em] = array_map('intval', explode(':', $dEnd));
+            $startMin = $sh * 60 + $sm;
+            $endMin   = $eh * 60 + $em;
 
-        // How many whole match-slots fit in one day's play window.
-        $slotsPerDay = intdiv(max(0, $endMin - $startMin), $duration);
-        if ($slotsPerDay < 1) return ['windows' => [], 'overflow' => false];
+            // Per-day match duration (last day may run longer for SF/F).
+            $dayDur = $tournament->durationForDay($d);
+            if ($dayDur < 1) $dayDur = $duration;
 
-        // Slot buffer between phases (at least one empty slot row), derived from
-        // the old 30-min gap but rounded UP to whole slots so boundaries stay on
-        // the grid.
-        $bufferSlots = (int) max(1, ceil(30 / $duration));
+            $ymd = $d->format('Y-m-d');
+            for ($m = $startMin; $m + $dayDur <= $endMin; $m += $dayDur) {
+                $start = Carbon::parse($ymd, 'America/Mexico_City')->setTime(intdiv($m, 60), $m % 60);
+                $slots[] = ['start' => $start, 'end' => $start->copy()->addMinutes($dayDur)];
+            }
+        }
 
-        // Cursor expressed as a GLOBAL SLOT INDEX across all play days:
-        //   slotIndex = dayIdx * slotsPerDay + slotOfDay   (0-based)
-        // Helpers convert an index to its start/end timestamps.
-        $maxSlotIndex = $days->count() * $slotsPerDay; // exclusive upper bound
+        $maxSlotIndex = count($slots); // exclusive upper bound
+        if ($maxSlotIndex < 1) return ['windows' => [], 'overflow' => false];
 
-        $slotStartStamp = function (int $idx) use ($days, $slotsPerDay, $startMin, $duration) {
-            $dayIdx = intdiv($idx, $slotsPerDay);
-            $slotOfDay = $idx % $slotsPerDay;
-            $minOfDay = $startMin + $slotOfDay * $duration;
-            $d = $days->get(min($dayIdx, $days->count() - 1));
-            return Carbon::parse($d->format('Y-m-d'), 'America/Mexico_City')
-                ->setTime(intdiv($minOfDay, 60), $minOfDay % 60);
-        };
-        // End-of-slot = start of slot + one match duration (the slot's closing edge).
-        $slotEndStamp = function (int $idx) use ($slotStartStamp, $duration) {
-            return $slotStartStamp($idx)->copy()->addMinutes($duration);
-        };
+        // Slot buffer between phases (>= one empty row), from the old 30-min gap
+        // rounded UP to whole slots so boundaries stay on the grid.
+        $bufferSlots = (int) max(1, ceil(30 / max(1, $duration)));
 
         $cursor = 0; // next free global slot index
         $proposal = [];
@@ -277,18 +278,12 @@ class CapacityService
             // Grid rows this phase needs (each row = up to $courts matches).
             $rows = (int) ceil($matches / $courts);
 
-            // A phase must START at the next free slot. If that slot is the last
-            // of a day and there isn't room, it naturally flows onto following
-            // days because slot indices are continuous across days.
             $firstSlot = $cursor;
             if ($firstSlot >= $maxSlotIndex) {
                 $overflow = true;
                 break;
             }
 
-            // The phase occupies $rows consecutive slot rows. Its window must
-            // contain all of them: from the first slot's START to the last
-            // slot's END (start + duration) — so the closing slot is never cut.
             $lastSlot = $firstSlot + $rows - 1;
             if ($lastSlot >= $maxSlotIndex) {
                 $lastSlot = $maxSlotIndex - 1;
@@ -296,8 +291,8 @@ class CapacityService
             }
 
             $proposal[$phase] = [
-                'starts_at' => $slotStartStamp($firstSlot)->format('Y-m-d H:i'),
-                'ends_at' => $slotEndStamp($lastSlot)->format('Y-m-d H:i'),
+                'starts_at' => $slots[$firstSlot]['start']->format('Y-m-d H:i'),
+                'ends_at'   => $slots[$lastSlot]['end']->format('Y-m-d H:i'),
             ];
 
             // Advance cursor past this phase + a whole-slot buffer.

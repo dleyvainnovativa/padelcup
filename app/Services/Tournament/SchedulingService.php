@@ -132,7 +132,9 @@ class SchedulingService
     public function pruneInvalidSchedule(Tournament $tournament): int
     {
         $validDates = $tournament->playDays()->map->format('Y-m-d')->all();
-        $slots = $tournament->timeSlots(); // ['08:00', '09:30', ...]
+        // Per-day slot map so pruning respects per-day hours (a match at 09:00 on
+        // a day that now runs 17:00–23:00 is off-grid for that day).
+        $daySlots = $tournament->daySlotMap(); // ['Y-m-d' => ['slots'=>[...], ...]]
 
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->whereNotNull('starts_at')
@@ -146,7 +148,8 @@ class SchedulingService
             $time = $local->format('H:i');
 
             $outOfRange = ! in_array($date, $validDates, true);
-            $offGrid = ! in_array($time, $slots, true);
+            $slotsForDate = $daySlots[$date]['slots'] ?? [];
+            $offGrid = ! in_array($time, $slotsForDate, true);
 
             if ($outOfRange || $offGrid) {
                 $movedIds[] = $m->id;
@@ -180,12 +183,20 @@ class SchedulingService
         $durSec = $duration * 60;
         $restSec = ((int) ($tournament->min_rest_minutes ?? 30)) * 60;
 
-        // Court availability windows: [courtId => [[startTs, endTs], ...]].
+        // Court availability windows: [courtId => [[startTs, endTs], ...]],
+        // CLIPPED to each day's play hours (day_hours override or global window),
+        // so auto-scheduling never places a match before a day's first slot
+        // (e.g. a day that runs 18:00–23:00 won't get 08:00 placements).
         $courtWindows = [];
         foreach ($courts as $court) {
-            $courtWindows[$court->id] = $court->availabilities
-                ->map(fn($w) => [$w->starts_at->timestamp, $w->ends_at->timestamp])
-                ->sortBy(fn($w) => $w[0])->values()->all();
+            $clipped = [];
+            foreach ($court->availabilities as $w) {
+                foreach ($this->clipWindowToDayHours($tournament, $w->starts_at->timestamp, $w->ends_at->timestamp) as $seg) {
+                    $clipped[] = $seg;
+                }
+            }
+            usort($clipped, fn($a, $b) => $a[0] <=> $b[0]);
+            $courtWindows[$court->id] = $clipped;
         }
 
         // Phase windows: [phaseKey => [[startTs, endTs], ...]].
@@ -214,6 +225,15 @@ class SchedulingService
         $anchorParse = Carbon::parse($tournament->play_start ?? '08:00', 'America/Mexico_City');
         $anchorMinOfDay = $anchorParse->hour * 60 + $anchorParse->minute;
         $gridStepSec = ((int) ($tournament->match_duration_minutes ?: $duration)) * 60;
+
+        // Per-day grid anchor minute-of-day: each play day's own start (day_hours
+        // override or global), so the auto-scheduler snaps to when the day opens.
+        $dayAnchorMinutes = [];
+        foreach ($tournament->playDays() as $d) {
+            [$dStart] = $tournament->hoursForDay($d);
+            [$h, $mi] = array_map('intval', explode(':', $dStart));
+            $dayAnchorMinutes[$d->format('Y-m-d')] = $h * 60 + $mi;
+        }
 
         // Seed occupancy from already-scheduled matches.
         $existing = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
@@ -347,6 +367,7 @@ class SchedulingService
                 $earliest,
                 $availWindows,
                 $dayDurations,
+                $dayAnchorMinutes,
             );
 
             if ($slot) {
@@ -380,6 +401,7 @@ class SchedulingService
                         $earliest,
                         [],
                         $dayDurations,
+                        $dayAnchorMinutes,
                     );
                     if ($slotIgnoringAvail) {
                         $byPhase[$phase]['unplaced_availability'] =
@@ -430,6 +452,7 @@ class SchedulingService
         int $earliestStart = 0,
         array $availWindows = [],
         array $dayDurations = [],
+        array $dayAnchorMinutes = [],
     ): ?array {
         $best = null;
 
@@ -455,8 +478,13 @@ class SchedulingService
                     $segDay = Carbon::createFromTimestamp($segStart, 'America/Mexico_City')->format('Y-m-d');
                     $segStepSec = isset($dayDurations[$segDay]) ? $dayDurations[$segDay] * 60 : $gridStepSec;
 
+                    // Per-day grid anchor: the day's own start minute (day_hours
+                    // override or global), so the grid aligns to when the day
+                    // actually opens (e.g. 18:00), not the global 08:00.
+                    $segAnchorMin = $dayAnchorMinutes[$segDay] ?? $anchorMinOfDay;
+
                     $start = $segStepSec > 0
-                        ? $this->snapToGrid($segStart, $anchorMinOfDay, $segStepSec)
+                        ? $this->snapToGrid($segStart, $segAnchorMin, $segStepSec)
                         : $segStart;
 
                     // Duration depends on the DAY of the candidate slot (the last
@@ -515,6 +543,41 @@ class SchedulingService
         }
 
         return $best;
+    }
+
+    /**
+     * Clip a [startTs, endTs] window to each day's play hours (day_hours override
+     * or the global play_start/play_end). A window spanning several days is split
+     * into one clipped segment per day. Returns [[segStart, segEnd], ...].
+     */
+    private function clipWindowToDayHours(Tournament $tournament, int $startTs, int $endTs): array
+    {
+        if ($endTs <= $startTs) return [];
+
+        $segments = [];
+        $tz = 'America/Mexico_City';
+        $cursorDay = Carbon::createFromTimestamp($startTs, $tz)->startOfDay();
+        $lastDay = Carbon::createFromTimestamp($endTs, $tz)->startOfDay();
+
+        while ($cursorDay->lte($lastDay)) {
+            [$dStart, $dEnd] = $tournament->hoursForDay($cursorDay);
+            [$sh, $sm] = array_map('intval', explode(':', $dStart));
+            [$eh, $em] = array_map('intval', explode(':', $dEnd));
+
+            $dayOpen = $cursorDay->timestamp + ($sh * 60 + $sm) * 60;
+            $dayClose = $cursorDay->timestamp + ($eh * 60 + $em) * 60;
+
+            // Intersect the court window with this day's open hours.
+            $segStart = max($startTs, $dayOpen);
+            $segEnd = min($endTs, $dayClose);
+            if ($segStart < $segEnd) {
+                $segments[] = [$segStart, $segEnd];
+            }
+
+            $cursorDay = $cursorDay->copy()->addDay();
+        }
+
+        return $segments;
     }
 
     /**

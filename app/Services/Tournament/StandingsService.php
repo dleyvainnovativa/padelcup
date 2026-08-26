@@ -35,7 +35,7 @@ class StandingsService
     /** Ordered standing rows for a group. */
     public function forGroup(Group $group): Collection
     {
-        $group->loadMissing('pairs', 'category');
+        $group->loadMissing('pairs', 'category.tournament');
         $matches = GameMatch::where('group_id', $group->id)
             ->where('state', 'confirmed')
             ->get();
@@ -48,7 +48,12 @@ class StandingsService
         //     return $this->computeMexicano($group->pairs, $matches);
         // }
 
-        return $this->compute($group->pairs, $matches);
+        // Per-tournament tiebreak order (falls back to the default).
+        $order = \App\Support\TiebreakCriteria::sanitize(
+            $group->category->tournament->tiebreak_order ?? null
+        );
+
+        return $this->compute($group->pairs, $matches, $order);
     }
 
     /**
@@ -88,7 +93,7 @@ class StandingsService
      * @param  Collection<int,Pair>  $pairs
      * @param  Collection<int,GameMatch>  $matches
      */
-    public function compute(Collection $pairs, Collection $matches): Collection
+    public function compute(Collection $pairs, Collection $matches, ?array $order = null): Collection
     {
         $rows = [];
         foreach ($pairs as $pair) {
@@ -102,7 +107,7 @@ class StandingsService
             $this->applyMatch($rows, $m);
         }
 
-        return $this->rank(collect($rows)->values(), $matches);
+        return $this->rank(collect($rows)->values(), $matches, \App\Support\TiebreakCriteria::sanitize($order));
     }
 
     private function blankRow(int $pairId): array
@@ -172,36 +177,62 @@ class StandingsService
      * Rank rows by points, resolving ties via head-to-head (or mini-table for
      * 3+), then set diff, game diff, games won.
      */
-    private function rank(Collection $rows, Collection $matches): Collection
+    private function rank(Collection $rows, Collection $matches, ?array $order = null): Collection
     {
-        // Group by points to find tied clusters.
-        $sorted = $rows->sortByDesc('points')->values();
+        $order = \App\Support\TiebreakCriteria::sanitize($order);
 
-        // Stable multi-key sort with tie handling.
-        return $sorted->sort(function ($x, $y) use ($matches, $rows) {
-            if ($x['points'] !== $y['points']) {
-                return $y['points'] <=> $x['points'];
+        // Walk the configured criteria in order. Each numeric criterion compares
+        // a row field (descending); head_to_head uses the pairwise result (2 tied)
+        // or a mini-table (3+ tied) among exactly the pairs still tied through all
+        // PRIOR criteria. Comparator returns negative when $x should rank first.
+        return $rows->sort(function ($x, $y) use ($matches, $rows, $order) {
+            foreach ($order as $key) {
+                if ($key === 'head_to_head') {
+                    // Determine the cluster tied with x & y through the criteria
+                    // applied BEFORE this one, so the mini-table is scoped right.
+                    $tied = $this->clusterTiedBefore($rows, $x, $order, $key);
+
+                    if ($tied->count() <= 2) {
+                        $h2h = $this->headToHead($matches, $x['pair_id'], $y['pair_id']);
+                        if ($h2h !== 0) return -$h2h; // +1 (x beat y) => x first
+                    } else {
+                        $mini = $this->miniTableRank($matches, $tied->pluck('pair_id')->all());
+                        $rx = $mini[$x['pair_id']] ?? 0;
+                        $ry = $mini[$y['pair_id']] ?? 0;
+                        if ($rx !== $ry) return $ry <=> $rx;
+                    }
+                    continue;
+                }
+
+                $field = \App\Support\TiebreakCriteria::field($key);
+                if ($field === null) continue; // unknown → skip defensively
+                if (($x[$field] ?? 0) !== ($y[$field] ?? 0)) {
+                    return ($y[$field] ?? 0) <=> ($x[$field] ?? 0); // descending
+                }
             }
 
-            // Tie: how many pairs share these points?
-            $tied = $rows->where('points', $x['points']);
+            // Fully tied on every configured criterion: stable by pair_id.
+            return $x['pair_id'] <=> $y['pair_id'];
+        })->values();
+    }
 
-            if ($tied->count() === 2) {
-                // Head-to-head between the two: if A beat B, A ranks first.
-                $h2h = $this->headToHead($matches, $x['pair_id'], $y['pair_id']);
-                if ($h2h !== 0) return -$h2h; // +1 (A won) => A first (negative)
-            } else {
-                // 3+ tied: mini-table among tied pairs only.
-                $mini = $this->miniTableRank($matches, $tied->pluck('pair_id')->all());
-                $rx = $mini[$x['pair_id']] ?? 0;
-                $ry = $mini[$y['pair_id']] ?? 0;
-                if ($rx !== $ry) return $ry <=> $rx; // higher mini-points first
+    /**
+     * The set of rows tied with $x on every NUMERIC criterion that appears before
+     * $stopKey in the order. Used to scope the head-to-head mini-table to exactly
+     * the pairs still level when H2H is reached. (Only numeric criteria before
+     * H2H narrow the cluster; an earlier H2H can't be "before itself".)
+     */
+    private function clusterTiedBefore(Collection $rows, array $x, array $order, string $stopKey): Collection
+    {
+        return $rows->filter(function ($r) use ($x, $order, $stopKey) {
+            foreach ($order as $key) {
+                if ($key === $stopKey) break;
+                if ($key === 'head_to_head') continue; // pairwise, not a cluster narrower
+                $field = \App\Support\TiebreakCriteria::field($key);
+                if ($field === null) continue;
+                if (($r[$field] ?? 0) !== ($x[$field] ?? 0)) return false;
             }
-
-            // Fall through: set diff → game diff → games won.
-            if ($x['set_diff'] !== $y['set_diff'])   return $y['set_diff'] <=> $x['set_diff'];
-            if ($x['game_diff'] !== $y['game_diff']) return $y['game_diff'] <=> $x['game_diff'];
-            return $y['games_for'] <=> $x['games_for'];
+            return true;
         })->values();
     }
 

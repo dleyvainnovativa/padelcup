@@ -43,6 +43,8 @@ class Tournament extends Model
         'iva_enabled',
         'hide_global_ads',
         'day_durations',
+        'day_hours',
+        'tiebreak_order'
     ];
 
     protected function casts(): array
@@ -59,6 +61,8 @@ class Tournament extends Model
             'is_listed' => 'boolean',
             'hide_global_ads' => 'boolean',
             'day_durations' => 'array',
+            'day_hours' => 'array',
+            'tiebreak_order' => 'array',
         ];
     }
 
@@ -167,51 +171,6 @@ class Tournament extends Model
     {
         return $this->timeSlotsForDuration((int) ($this->match_duration_minutes ?: 75));
     }
-
-    /**
-     * Slot labels for a SPECIFIC day, stepping by that day's duration (per-day
-     * override or default). Lets a longer-duration day draw its own rows.
-     */
-    public function timeSlotsForDay(\Carbon\Carbon|string $day): array
-    {
-        return $this->timeSlotsForDuration($this->durationForDay($day));
-    }
-
-    /** Slot labels from play_start to play_end stepping by $step minutes. */
-    private function timeSlotsForDuration(int $step): array
-    {
-        $step = max(1, $step);
-        $slots = [];
-        $start = \Carbon\Carbon::parse($this->play_start ?? '08:00', 'America/Mexico_City');
-        $end = \Carbon\Carbon::parse($this->play_end ?? '23:00', 'America/Mexico_City');
-
-        $cursor = $start->copy();
-        while ($cursor->copy()->addMinutes($step)->lte($end)) {
-            $slots[] = $cursor->format('H:i');
-            $cursor->addMinutes($step);
-        }
-        return $slots;
-    }
-
-    /**
-     * [ 'Y-m-d' => ['slots' => [...], 'step' => minutes] ] for every play day —
-     * each day's own grid rows + step, for the schedule view.
-     *
-     * @return array<string, array{slots: array<int,string>, step: int}>
-     */
-    public function daySlotMap(): array
-    {
-        $map = [];
-        foreach ($this->playDays() as $d) {
-            $step = $this->durationForDay($d);
-            $map[$d->format('Y-m-d')] = [
-                'slots' => $this->timeSlotsForDuration($step),
-                'step' => $step,
-            ];
-        }
-        return $map;
-    }
-
     /**
      * Match duration (minutes) for a specific play day. Uses a per-day override
      * from day_durations ({'Y-m-d' => minutes}) if present, else the tournament
@@ -288,5 +247,83 @@ class Tournament extends Model
         $id = $system instanceof RankingSystem ? $system->id : $system;
         $row = $this->rankingSystems()->where('ranking_system_id', $id)->first();
         return $row && $row->pivot->finalized_at !== null;
+    }
+
+
+    public function hoursForDay(\Carbon\Carbon|string $day): array
+    {
+        $defStart = $this->play_start ?? '08:00';
+        $defEnd   = $this->play_end ?? '23:00';
+
+        $key = $day instanceof \Carbon\Carbon ? $day->format('Y-m-d') : (string) $day;
+        $ov = ($this->day_hours ?? [])[$key] ?? null;
+
+        if (is_array($ov) && ! empty($ov['start']) && ! empty($ov['end']) && $ov['start'] < $ov['end']) {
+            return [(string) $ov['start'], (string) $ov['end']];
+        }
+        return [(string) $defStart, (string) $defEnd];
+    }
+
+
+// ── CHANGE 4 — timeSlotsForDuration(): accept optional start/end ─────────────
+// REPLACE the existing method with this version (adds two optional params;
+// callers that don't pass them get the global window, exactly as before).
+
+    /** Slot labels from a start to an end time, stepping by $step minutes.
+     *  $start/$end default to the tournament's global window when null. */
+    private function timeSlotsForDuration(int $step, ?string $start = null, ?string $end = null): array
+    {
+        $step = max(1, $step);
+        $slots = [];
+        $startT = \Carbon\Carbon::parse($start ?? $this->play_start ?? '08:00', 'America/Mexico_City');
+        $endT   = \Carbon\Carbon::parse($end ?? $this->play_end ?? '23:00', 'America/Mexico_City');
+
+        $cursor = $startT->copy();
+        while ($cursor->copy()->addMinutes($step)->lte($endT)) {
+            $slots[] = $cursor->format('H:i');
+            $cursor->addMinutes($step);
+        }
+        return $slots;
+    }
+
+
+// ── CHANGE 5 — timeSlotsForDay(): feed the per-day window ────────────────────
+// REPLACE the existing method with this version.
+
+    /**
+     * Slot labels for a SPECIFIC day, stepping by that day's duration and bounded by
+     * that day's hours (per-day override or global default).
+     */
+    public function timeSlotsForDay(\Carbon\Carbon|string $day): array
+    {
+        [$start, $end] = $this->hoursForDay($day);
+        return $this->timeSlotsForDuration($this->durationForDay($day), $start, $end);
+    }
+
+
+// ── CHANGE 6 — daySlotMap(): include the per-day window ──────────────────────
+// REPLACE the existing method with this version (adds start/end to each entry
+// for any view/JS that wants to show the day's window; existing keys unchanged).
+
+    /**
+     * [ 'Y-m-d' => ['slots'=>[...], 'step'=>minutes, 'start'=>'HH:MM', 'end'=>'HH:MM'] ]
+     * for every play day — each day's own grid rows, step, and window.
+     *
+     * @return array<string, array{slots: array<int,string>, step: int, start: string, end: string}>
+     */
+    public function daySlotMap(): array
+    {
+        $map = [];
+        foreach ($this->playDays() as $d) {
+            $step = $this->durationForDay($d);
+            [$start, $end] = $this->hoursForDay($d);
+            $map[$d->format('Y-m-d')] = [
+                'slots' => $this->timeSlotsForDuration($step, $start, $end),
+                'step'  => $step,
+                'start' => $start,
+                'end'   => $end,
+            ];
+        }
+        return $map;
     }
 }
