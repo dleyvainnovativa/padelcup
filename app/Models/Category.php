@@ -30,6 +30,7 @@ class Category extends Model
         'tint',
         'has_third_place',
         'whatsapp_group_url',
+        'category_key'
     ];
 
     protected static function booted(): void
@@ -38,6 +39,12 @@ class Category extends Model
             if (blank($c->slug)) {
                 $c->slug = static::uniqueSlug($c->name, $c->tournament_id);
             }
+        });
+
+        // NEW — normalized cross-tournament key, always derived from the name.
+        // saving() fires on both insert and update, so renames stay in sync.
+        static::saving(function (Category $c) {
+            $c->category_key = static::normalizeKey($c->name);
         });
     }
 
@@ -148,5 +155,11 @@ class Category extends Model
     public function qualifiersTotal(int $groupCount): int
     {
         return ($this->advance_per_group * $groupCount) + $this->extra_qualifiers;
+    }
+    public static function normalizeKey(?string $name): string
+    {
+        $name = \Illuminate\Support\Str::lower(trim((string) $name));
+        $name = \Illuminate\Support\Str::ascii($name);   // strip accents
+        return preg_replace('/\s+/', ' ', $name);
     }
 }

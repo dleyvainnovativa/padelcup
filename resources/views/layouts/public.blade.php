@@ -34,6 +34,7 @@
                 {{-- Desktop nav --}}
                 <nav class="ph__nav">
                     <a href="{{ route('public.directory') }}" class="ph__link">Torneos</a>
+                    <a href="{{ route('public.circuits.index') }}" class="ph__link">Circuitos</a>
                     <a href="{{ route('public.search') }}" class="ph__link">Buscar</a>
                     <a href="{{ route('dashboard') }}" class="ph__cta">Soy organizador</a>
                 </nav>
@@ -63,6 +64,7 @@
                 </div>
                 <nav class="ph-oc__nav">
                     <a href="{{ route('public.directory') }}" class="ph-oc__link"><i class="fa-solid fa-trophy"></i> Torneos</a>
+                    <a href="{{ route('public.circuits.index') }}" class="ph-oc__link"><i class="fa-solid fa-ranking-star"></i> Circuitos</a>
                     <a href="{{ route('public.search') }}" class="ph-oc__link"><i class="fa-solid fa-magnifying-glass"></i> Buscar</a>
                 </nav>
                 <a href="{{ route('dashboard') }}" class="ph-oc__cta">Soy organizador</a>
@@ -85,6 +87,7 @@
                 <div class="pf__col">
                     <h4>Plataforma</h4>
                     <a href="{{ route('public.directory') }}">Torneos</a>
+                    <a href="{{ route('public.circuits.index') }}">Circuitos</a>
                     <a href="{{ route('public.search') }}">Buscar</a>
                     <a href="{{ route('dashboard') }}">Soy organizador</a>
                 </div>

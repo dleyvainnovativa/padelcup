@@ -61,7 +61,7 @@
                 </div>
             </div>
 
-            <div class="row g-3 mt-0">
+            <div class="row g-3 mt-0 d-none">
                 <div class="col-6">
                     <label class="form-label" style="font-size:13px;font-weight:500;">Tu comisión por jugador (centavos MXN)</label>
                     <input type="number" name="platform_fee_centavos" value="{{ old('platform_fee_centavos', 5000) }}" min="0"

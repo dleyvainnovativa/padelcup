@@ -81,6 +81,9 @@ $isAdmin = $user && method_exists($user, 'isAdmin') && $user->isAdmin();
     </a>
 
     <div class="nav-label">Operación</div>
+    <a href="{{ $to('ranking-systems.index') }}" class="nav-item {{ $isActive('ranking-systems.*') }}">
+        <i class="fa-solid fa-ranking-star"></i> Rankings
+    </a>
     <a href="{{ $to('payments.index') }}" class="nav-item {{ $isActive('payments.*') }}">
         <i class="fa-solid fa-credit-card"></i> Pagos
     </a>

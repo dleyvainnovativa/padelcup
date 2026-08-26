@@ -48,7 +48,7 @@ class RankingSystemController extends Controller
     {
         $data = $this->validated($request);
 
-        RankingSystem::create([
+        $system = RankingSystem::create([
             'name'        => $data['name'],
             'owner_label' => $data['owner_label'] ?? null,
             'scope'       => 'player',                 // fixed per current design
@@ -57,6 +57,14 @@ class RankingSystemController extends Controller
             'is_active'   => $request->boolean('is_active', true),
             'created_by'  => Auth::id(),
         ]);
+
+        // Cover image upload (optional). Store on the default disk.
+        if ($request->hasFile('cover_image')) {
+            $disk = config('filesystems.default');
+            $system->update([
+                'cover_image_path' => $request->file('cover_image')->store('ranking-covers', $disk),
+            ]);
+        }
 
         return redirect()
             ->route('ranking-systems.index')
@@ -101,6 +109,17 @@ class RankingSystemController extends Controller
             'points'      => $data['points'],
             'is_active'   => $request->boolean('is_active', true),
         ]);
+
+        // Cover image upload (optional). Replace any previous image.
+        if ($request->hasFile('cover_image')) {
+            $disk = config('filesystems.default');
+            if ($rankingSystem->cover_image_path) {
+                \Illuminate\Support\Facades\Storage::disk($disk)->delete($rankingSystem->cover_image_path);
+            }
+            $rankingSystem->update([
+                'cover_image_path' => $request->file('cover_image')->store('ranking-covers', $disk),
+            ]);
+        }
 
         return redirect()
             ->route('ranking-systems.index')
@@ -147,7 +166,7 @@ class RankingSystemController extends Controller
      */
     private function validated(Request $request): array
     {
-        $keys = array_map(fn ($a) => $a->value, RankingAchievement::cases());
+        $keys = array_map(fn($a) => $a->value, RankingAchievement::cases());
 
         $rules = [
             'name'        => ['required', 'string', 'max:120'],
@@ -155,6 +174,7 @@ class RankingSystemController extends Controller
             'stacking'    => ['required', 'in:cumulative,best_only'],
             'is_active'   => ['nullable', 'boolean'],
             'points'      => ['array'],
+            'cover_image' => ['nullable', 'image', 'max:4096'], // 4 MB, like tournaments
         ];
         foreach ($keys as $k) {
             $rules["points.$k"] = ['nullable', 'integer', 'min:0', 'max:100000'];

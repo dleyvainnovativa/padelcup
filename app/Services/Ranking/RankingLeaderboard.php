@@ -8,114 +8,231 @@ use App\Models\RankingSystem;
 use Illuminate\Support\Collection;
 
 /**
- * Phase 4 — reads the ranking_points ledger and produces a leaderboard for a
- * ranking system.
+ * Reads the ranking_points ledger and produces leaderboards for a ranking system.
  *
- * THE KEY WRINKLE: the same human has a SEPARATE Player row per category (dedup
- * only happens on email/phone), so summing raw player_id would list one person
- * many times. We aggregate by the human identity the rest of the app uses:
- * (normalized_name, created_by) — mirroring PublicTournamentController::player().
+ * Player identity: the same human has a SEPARATE Player row per category (dedup
+ * only on email/phone), so we aggregate by (normalized_name, created_by) —
+ * mirroring PublicTournamentController::player().
+ *
+ * Category identity (Phase 1+2): categories are free text per tournament, so the
+ * SAME category typed differently across tournaments is merged via
+ * categories.category_key (normalized name). This gives three views:
+ *   - forSystem()  → one COMBINED leaderboard across all categories (unchanged).
+ *   - byCategory() → a leaderboard PER category_key, each labeled with the most
+ *                    frequent original spelling.
+ *   - categories() → the list of category keys + labels present in the ledger.
  *
  * A leaderboard row:
- *   [
- *     'rank'        => int,     // 1-based, ties share a rank
- *     'name'        => string,  // display name (a representative Player->name)
- *     'points'      => int,     // total across all counted tournaments
- *     'player_ids'  => int[],   // every Player row that is this human
- *     'tournaments' => int,     // distinct tournaments they scored in
- *     'breakdown'   => [ achievement => points ]  // optional detail
- *   ]
+ *   [ rank, name, points, player_ids[], tournaments, breakdown? ]
  */
 class RankingLeaderboard
 {
     /**
-     * Full leaderboard for a system, ranked desc by points.
-     *
-     * @param  bool  $withBreakdown  include per-achievement point breakdown
+     * Combined leaderboard for a system (all categories together). Unchanged
+     * behavior from Phase 4.
      */
-    public function forSystem(RankingSystem $system, bool $withBreakdown = false): Collection
+    public function forSystem(RankingSystem $system, bool $withBreakdown = false, ?int $tournamentId = null): Collection
     {
-        // Pull the ledger with the minimum columns we need, plus the player's
-        // normalized identity for grouping. Join players for normalized_name +
-        // created_by + a display name.
-        $rows = RankingPoint::query()
+        $rows = $this->ledgerRows($system, $tournamentId);
+        if ($rows->isEmpty()) return collect();
+        return $this->buildBoard($rows, $withBreakdown);
+    }
+
+    /**
+     * Per-category leaderboards. Returns a Collection keyed by category_key:
+     *   [
+     *     '5ta femenil' => [
+     *        'key'   => '5ta femenil',
+     *        'label' => '5ta Femenil',        // most frequent original spelling
+     *        'board' => Collection<row>,      // ranked standings for this category
+     *        'players' => int,                // distinct humans
+     *     ],
+     *     ...
+     *   ]
+     * Ordered by label (A→Z) for stable display.
+     */
+    public function byCategory(RankingSystem $system, bool $withBreakdown = false, ?int $tournamentId = null): Collection
+    {
+        $rows = $this->ledgerRows($system, $tournamentId);
+        if ($rows->isEmpty()) return collect();
+
+        return $rows
+            ->groupBy(fn ($r) => $r->cat_key ?? '')
+            ->map(function ($catRows, $key) use ($withBreakdown) {
+                return [
+                    'key'     => $key,
+                    'label'   => $this->representativeLabel($catRows),
+                    'board'   => $this->buildBoard($catRows, $withBreakdown),
+                    'players' => $catRows
+                        ->groupBy(fn ($r) => $r->norm . '|' . ($r->owner ?? ''))
+                        ->count(),
+                ];
+            })
+            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->keyBy('key');
+    }
+
+    /**
+     * Lightweight list of categories present in a system's ledger:
+     *   [ ['key' => ..., 'label' => ..., 'players' => int], ... ]
+     * For building the category selector without computing full boards.
+     */
+    public function categories(RankingSystem $system, ?int $tournamentId = null): Collection
+    {
+        $rows = $this->ledgerRows($system, $tournamentId);
+        if ($rows->isEmpty()) return collect();
+
+        return $rows
+            ->groupBy(fn ($r) => $r->cat_key ?? '')
+            ->map(fn ($catRows, $key) => [
+                'key'     => $key,
+                'label'   => $this->representativeLabel($catRows),
+                'players' => $catRows->groupBy(fn ($r) => $r->norm . '|' . ($r->owner ?? ''))->count(),
+            ])
+            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+    }
+
+    // ── internals ─────────────────────────────────────────────────────────
+
+    /**
+     * List of tournaments that fed this ranking (have ledger rows), for the
+     * tournament selector. [{ id, name, players }], ordered by name.
+     */
+    public function tournaments(RankingSystem $system): Collection
+    {
+        $rows = $this->ledgerRows($system);
+        if ($rows->isEmpty()) return collect();
+
+        return $rows
+            ->groupBy('tournament_id')
+            ->map(fn ($tRows, $id) => [
+                'id'      => (int) $id,
+                'name'    => $tRows->first()->tournament_name ?? ('Torneo #' . $id),
+                'players' => $tRows->groupBy(fn ($r) => $r->norm . '|' . ($r->owner ?? ''))->count(),
+            ])
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+    }
+
+    /**
+     * Pull the ledger joined to players (identity), categories (key + name), and
+     * tournaments (name). Optionally scoped to a single tournament.
+     */
+    private function ledgerRows(RankingSystem $system, ?int $tournamentId = null): Collection
+    {
+        return RankingPoint::query()
             ->where('ranking_points.ranking_system_id', $system->id)
+            ->when($tournamentId, fn ($q) => $q->where('ranking_points.tournament_id', $tournamentId))
             ->join('players', 'players.id', '=', 'ranking_points.player_id')
+            ->join('categories', 'categories.id', '=', 'ranking_points.category_id')
+            ->join('tournaments', 'tournaments.id', '=', 'ranking_points.tournament_id')
             ->selectRaw('
                 players.normalized_name as norm,
                 players.created_by as owner,
                 ranking_points.player_id,
                 ranking_points.tournament_id,
                 ranking_points.achievement,
-                ranking_points.points
+                ranking_points.points,
+                categories.category_key as cat_key,
+                categories.name as cat_name,
+                tournaments.name as tournament_name
             ')
             ->get();
+    }
 
-        if ($rows->isEmpty()) {
-            return collect();
-        }
-
-        // Group by the human: (normalized_name, created_by).
+    /**
+     * Build a ranked board from a set of ledger rows (already scoped to a system
+     * and, for byCategory, to one category).
+     */
+    private function buildBoard(Collection $rows, bool $withBreakdown): Collection
+    {
         $humans = $rows->groupBy(fn ($r) => $r->norm . '|' . ($r->owner ?? ''));
-
-        // Resolve a display name per human (first Player row we can find).
         $displayNames = $this->displayNamesFor($humans);
 
         $board = $humans->map(function ($group, $key) use ($withBreakdown, $displayNames) {
-            $points     = (int) $group->sum('points');
-            $playerIds  = $group->pluck('player_id')->unique()->values()->all();
-            $tourneys   = $group->pluck('tournament_id')->unique()->count();
+            // key is "norm|owner"; split for identity + build a url-safe detail key.
+            $sep = strrpos($key, '|');
+            $norm = $sep === false ? $key : substr($key, 0, $sep);
+            $ownerRaw = $sep === false ? '' : substr($key, $sep + 1);
+            $owner = $ownerRaw === '' ? null : (int) $ownerRaw;
 
             $row = [
                 'name'        => $displayNames[$key] ?? '—',
-                'points'      => $points,
-                'player_ids'  => $playerIds,
-                'tournaments' => $tourneys,
+                'points'      => (int) $group->sum('points'),
+                'player_ids'  => $group->pluck('player_id')->unique()->values()->all(),
+                'tournaments' => $group->pluck('tournament_id')->unique()->count(),
+                // Identity for rank lookup + linking to the detail page.
+                '_norm'       => $norm,
+                '_owner'      => $owner,
+                'key'         => \App\Services\Ranking\RankingPlayerDetail::encodeKey($norm, $owner),
             ];
-
             if ($withBreakdown) {
-                $row['breakdown'] = $group
-                    ->groupBy('achievement')
+                $row['breakdown'] = $group->groupBy('achievement')
                     ->map(fn ($g) => (int) $g->sum('points'))
-                    ->sortDesc()
-                    ->all();
+                    ->sortDesc()->all();
             }
-
             return $row;
         })->values();
 
-        // Rank desc by points; ties share a rank (standard competition ranking).
-        $board = $board->sortByDesc('points')->values();
+        return $this->rankRows($board);
+    }
 
+    /** Standard competition ranking: ties share a rank, next rank skips. */
+    private function rankRows(Collection $board): Collection
+    {
+        $board = $board->sortByDesc('points')->values();
         $rank = 0; $seen = 0; $prev = null;
-        $board = $board->map(function ($row) use (&$rank, &$seen, &$prev) {
+        return $board->map(function ($row) use (&$rank, &$seen, &$prev) {
             $seen++;
-            if ($prev === null || $row['points'] < $prev) {
-                $rank = $seen;         // new (lower) score → rank jumps to position
-            }
+            if ($prev === null || $row['points'] < $prev) $rank = $seen;
             $prev = $row['points'];
             $row['rank'] = $rank;
             return $row;
         });
-
-        return $board;
     }
 
     /**
-     * Resolve a display name per human key. Uses the first Player row of each
-     * group; falls back to a lookup if needed.
+     * Most frequent original spelling among a category's rows → the display
+     * label. Ties broken by the longest (usually most complete) spelling, then
+     * alphabetically for determinism.
+     */
+    private function representativeLabel(Collection $catRows): string
+    {
+        $counts = [];
+        foreach ($catRows as $r) {
+            $name = $r->cat_name ?? '';
+            if ($name === '') continue;
+            $counts[$name] = ($counts[$name] ?? 0) + 1;
+        }
+        if (empty($counts)) return '—';
+
+        arsort($counts); // by frequency desc
+        $top = max($counts);
+        // Candidates tied on frequency → prefer a nicely-cased spelling over an
+        // all-caps one, then the longest (usually most complete), then alpha.
+        $tied = array_keys(array_filter($counts, fn ($c) => $c === $top));
+        usort($tied, function ($a, $b) {
+            $aCaps = ($a === mb_strtoupper($a)) ? 1 : 0;
+            $bCaps = ($b === mb_strtoupper($b)) ? 1 : 0;
+            return ($aCaps <=> $bCaps)                 // non-all-caps first
+                ?: (mb_strlen($b) <=> mb_strlen($a))   // longer first
+                ?: strcmp($a, $b);                     // deterministic
+        });
+        return $tied[0];
+    }
+
+    /**
+     * Resolve a display name per human key (representative Player->name).
      *
      * @param  Collection  $humans  keyed by "norm|owner"
-     * @return array<string,string> [ key => display name ]
+     * @return array<string,string>
      */
     private function displayNamesFor(Collection $humans): array
     {
-        // Collect one player_id per human to fetch a representative name.
         $repIds = $humans->map(fn ($g) => $g->first()->player_id)->all();
-
-        $names = Player::whereIn('id', array_values($repIds))
-            ->get()
-            ->keyBy('id');
+        $names = Player::whereIn('id', array_values($repIds))->get()->keyBy('id');
 
         $out = [];
         foreach ($humans as $key => $group) {

@@ -60,6 +60,9 @@
                 </td>
                 <td class="text-end">
                     <div class="d-inline-flex gap-1">
+                        <a href="{{ route('ranking-systems.leaderboard', $s) }}" class="btn btn-soft btn-sm" title="Ver tabla">
+                            <i class="fa-solid fa-ranking-star"></i>
+                        </a>
                         <a href="{{ route('ranking-systems.edit', $s) }}" class="btn btn-soft btn-sm" title="Editar">
                             <i class="fa-solid fa-pen"></i>
                         </a>

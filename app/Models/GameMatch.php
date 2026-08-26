@@ -390,4 +390,62 @@ class GameMatch extends Model
         }
         return [$a, $b];
     }
+
+    public function searchableNames(array $ghostMapsByCategory = []): string
+    {
+        $names = [];
+
+        $pushPair = function ($pair) use (&$names) {
+            if (! $pair) return;
+            foreach ([$pair->player1 ?? null, $pair->player2 ?? null] as $pl) {
+                if ($pl && filled($pl->name)) $names[] = \Illuminate\Support\Str::lower($pl->name);
+            }
+        };
+
+        foreach (['a' => $this->pairA, 'b' => $this->pairB] as $side => $pair) {
+            if ($pair) {
+                // Bound side: real players.
+                $pushPair($pair);
+                continue;
+            }
+
+            // Unbound side — gather PROJECTED names.
+
+            // 1) Feeder projection: the feeder match's two pairs' players.
+            $feeder = $side === 'a' ? $this->feederA : $this->feederB;
+            if ($feeder) {
+                $pushPair($feeder->pairA ?? null);
+                $pushPair($feeder->pairB ?? null);
+            }
+
+            // 2) Ghost qualifier: projected "Name / Name" string from the map.
+            $ghost = $this->ghostForIn($side, $ghostMapsByCategory);
+            if ($ghost) {
+                // Split "Ana Gómez / Luis Pérez" into individual lowercased tokens.
+                foreach (preg_split('/\s*\/\s*/', $ghost) as $part) {
+                    if (filled($part)) $names[] = \Illuminate\Support\Str::lower(trim($part));
+                }
+            }
+        }
+
+        return implode('|', array_values(array_unique(array_filter($names))));
+    }
+
+    /**
+     * True when at least one side is NOT a bound pair but IS projected (feeder or
+     * ghost qualifier). Used to mark the card as "por confirmar" in search results.
+     */
+    public function isProjected(array $ghostMapsByCategory = []): bool
+    {
+        foreach (['a', 'b'] as $side) {
+            $pair = $side === 'a' ? $this->pairA : $this->pairB;
+            if ($pair) continue; // bound → not projected on this side
+
+            $feeder = $side === 'a' ? $this->feederA : $this->feederB;
+            if ($feeder) return true;
+
+            if ($this->ghostForIn($side, $ghostMapsByCategory)) return true;
+        }
+        return false;
+    }
 }

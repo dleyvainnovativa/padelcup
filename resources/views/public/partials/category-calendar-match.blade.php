@@ -41,7 +41,17 @@
         @if($m->court)<span class="pub-match__court"><i class="fa-solid fa-location-dot"></i> {{ $m->court->name }}</span>@endif
     </div>
     <div class="pub-match__body">
-        <div class="pub-match__ctx">{{ $m->contextLabel() }}</div>
+        <div class="pub-match__ctx">
+            {{ $m->contextLabel() }}
+            @php
+                // This partial passes a FLAT [label => name] map as $ghostQualifiers
+                // (used by ghostFor). isProjected expects [category_id => map], so wrap it.
+                $projected = !$played && $m->isProjected([$m->category_id => ($ghostQualifiers ?? [])]);
+            @endphp
+            @if($projected)
+                <span class="pub-match__projected" title="Participantes por confirmar según resultados previos">Por confirmar</span>
+            @endif
+        </div>
         <div class="pub-match__pairs">
             <span class="{{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? 'is-win' : '' }}">
                 {!! $aLink ?? $m->sideLabel('a') !!}

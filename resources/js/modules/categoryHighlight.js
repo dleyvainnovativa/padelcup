@@ -86,7 +86,10 @@ export function initCategoryHighlight() {
 
     if (!catActive && !nameActive) {
       board.classList.remove('is-highlighting');
-      board.querySelectorAll('[data-match-cat]').forEach((el) => el.classList.remove('is-dimmed'));
+      board.querySelectorAll('[data-match-cat]').forEach((el) => {
+        el.classList.remove('is-dimmed');
+        el.classList.remove('is-projected-hit');
+      });
       return;
     }
 
@@ -95,7 +98,15 @@ export function initCategoryHighlight() {
       const catOk = !catActive || selectedCats.has(el.dataset.matchCat);
       const players = el.dataset.matchPlayers || '';
       const nameOk = !nameActive || players.includes(nameQuery);
-      el.classList.toggle('is-dimmed', !(catOk && nameOk));
+      const shown = catOk && nameOk;
+      el.classList.toggle('is-dimmed', !shown);
+
+      // A name search can match a match whose players are only PROJECTED (a
+      // round-2 slot fed by "Ganador/Perdedor (…)" or a ghost qualifier). Mark
+      // those hits so they render with the dashed "por confirmar" style — the
+      // player might play here, pending earlier results.
+      const isProjectedHit = shown && nameActive && el.dataset.matchProjected === '1';
+      el.classList.toggle('is-projected-hit', isProjectedHit);
     });
   }
 

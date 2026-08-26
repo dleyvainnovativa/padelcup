@@ -538,16 +538,8 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
                                             data-ready="{{ $m->isReadyForResult() ? '1' : '0' }}"
                                             data-status="{{ $status }}"
                                             data-match-cat="{{ $m->category_id }}"
-                                            data-match-players="@php
-                                                $names = [];
-                                                foreach ([$m->pairA, $m->pairB] as $pp) {
-                                                    if (! $pp) continue;
-                                                    foreach ([$pp->player1 ?? null, $pp->player2 ?? null] as $pl) {
-                                                        if ($pl) $names[] = \Illuminate\Support\Str::lower($pl->name);
-                                                    }
-                                                }
-                                                echo e(implode('|', $names));
-                                            @endphp"
+                                            data-match-players="{{ $m->searchableNames($ghostQualifiers ?? []) }}"
+                                            data-match-projected="{{ $m->isProjected($ghostQualifiers ?? []) ? '1' : '0' }}"
                                             draggable="true">
                                             <div class="sched-match__context">
                                                 {{ $m->contextLabel() }}

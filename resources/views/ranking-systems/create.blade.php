@@ -22,7 +22,7 @@
 </div>
 @endif
 
-<form method="POST" action="{{ route('ranking-systems.store') }}">
+<form method="POST" action="{{ route('ranking-systems.store') }}" enctype="multipart/form-data">
     @csrf
     @include('ranking-systems._form')
 

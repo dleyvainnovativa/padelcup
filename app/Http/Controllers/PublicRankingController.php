@@ -4,29 +4,59 @@ namespace App\Http\Controllers;
 
 use App\Models\RankingSystem;
 use App\Services\Ranking\RankingLeaderboard;
+use Illuminate\Http\Request;
 
 /**
- * Phase 4 — public leaderboard for a ranking system. The AVP-facing payoff: a
- * shareable standings page across all tournaments that feed the system.
- *
- * A system is publicly viewable when it is active. (If you later want an explicit
- * is_public flag separate from is_active, add it to ranking_systems and check it
- * here instead.)
+ * Public leaderboard — tournament → category, plus cross-tournament summary.
  */
 class PublicRankingController extends Controller
 {
     public function __construct(private RankingLeaderboard $leaderboard) {}
 
-    /** GET r/{rankingSystem} */
-    public function show(RankingSystem $rankingSystem)
+    public function show(Request $request, RankingSystem $rankingSystem)
     {
         abort_unless($rankingSystem->is_active, 404);
 
-        $board = $this->leaderboard->forSystem($rankingSystem, withBreakdown: false);
+        if ($request->query('view') === 'summary') {
+            return view('public.rankings.summary', [
+                'system'     => $rankingSystem,
+                'categories' => $this->leaderboard->categories($rankingSystem),
+                'combined'   => $this->leaderboard->forSystem($rankingSystem),
+                'byCategory' => $this->leaderboard->byCategory($rankingSystem),
+            ]);
+        }
+
+        $tournaments = $this->leaderboard->tournaments($rankingSystem);
+
+        $tParam = $request->query('tournament', 'all');
+        $tId = ($tParam === 'all' || $tParam === '') ? null : (int) $tParam;
+        if ($tId && ! $tournaments->firstWhere('id', $tId)) $tId = null;
+        $tLabel = $tId ? ($tournaments->firstWhere('id', $tId)['name'] ?? null) : null;
+
+        $categories = $this->leaderboard->categories($rankingSystem, $tId);
+
+        $cat = $request->query('cat', 'all');
+        [$board, $catLabel] = $this->resolveBoard($rankingSystem, $cat, $tId);
 
         return view('public.rankings.show', [
-            'system' => $rankingSystem,
-            'board'  => $board,
+            'system'          => $rankingSystem,
+            'board'           => $board,
+            'tournaments'     => $tournaments,
+            'categories'      => $categories,
+            'activeTour'      => $tId ? (string) $tId : 'all',
+            'activeTourLabel' => $tLabel,
+            'activeCat'       => $cat,
+            'activeLabel'     => $catLabel,
         ]);
+    }
+
+    private function resolveBoard(RankingSystem $system, string $cat, ?int $tId): array
+    {
+        if ($cat === 'all' || $cat === '') {
+            return [$this->leaderboard->forSystem($system, false, $tId), 'General'];
+        }
+        $entry = $this->leaderboard->byCategory($system, false, $tId)->get($cat);
+        return $entry ? [$entry['board'], $entry['label']]
+            : [$this->leaderboard->forSystem($system, false, $tId), 'General'];
     }
 }

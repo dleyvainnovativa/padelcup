@@ -91,7 +91,22 @@ class PublicTournamentController extends Controller
         $calDay = $request->query('day'); // Y-m-d
 
         $calMatches = $category->matches()
-            ->with(['court', 'group', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->with([
+                'court',
+                'group',
+                'pairA.player1',
+                'pairA.player2',
+                'pairB.player1',
+                'pairB.player2',
+                'feederA.pairA.player1',
+                'feederA.pairA.player2',
+                'feederA.pairB.player1',
+                'feederA.pairB.player2',
+                'feederB.pairA.player1',
+                'feederB.pairA.player2',
+                'feederB.pairB.player1',
+                'feederB.pairB.player2'
+            ])
             ->orderBy('starts_at')
             ->orderBy('round')->orderBy('slot')->orderBy('id')
             ->get();
@@ -103,21 +118,21 @@ class PublicTournamentController extends Controller
             ->unique()->values();
 
         // Player search: keep matches whose pair/player names contain the needle,
-        // and collect the distinct matched players for quick profile links.
+        // INCLUDING projected participants (feeder "Ganador/Perdedor (…)" and
+        // ghost qualifiers), so a player finds round-2 slots they may reach.
         $calMatchedPlayers = collect();
         if ($calSearch !== '') {
             $needle = mb_strtolower($calSearch);
-            $calMatches = $calMatches->filter(function ($m) use ($needle) {
-                foreach ([$m->pairA, $m->pairB] as $pair) {
-                    if (! $pair) continue;
-                    if (str_contains(mb_strtolower($pair->name()), $needle)) return true;
-                    foreach ([$pair->player1, $pair->player2] as $p) {
-                        if ($p && str_contains(mb_strtolower($p->name), $needle)) return true;
-                    }
-                }
-                return false;
+
+            // Ghost map for this category, wrapped by category_id for the helper.
+            $ghostMap = [$category->id => app(\App\Services\Tournament\GhostQualifierResolver::class)->mapFor($category)];
+
+            $calMatches = $calMatches->filter(function ($m) use ($needle, $ghostMap) {
+                return str_contains($m->searchableNames($ghostMap), $needle);
             })->values();
 
+            // Collect matched BOUND players for quick profile links (projected
+            // players have no bound Player row to link yet).
             foreach ($calMatches as $m) {
                 foreach ([$m->pairA, $m->pairB] as $pair) {
                     if (! $pair) continue;

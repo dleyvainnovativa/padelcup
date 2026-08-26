@@ -23,7 +23,7 @@
 </div>
 @endif
 
-<form method="POST" action="{{ route('ranking-systems.update', $system) }}">
+<form method="POST" action="{{ route('ranking-systems.update', $system) }}" enctype="multipart/form-data">
     @csrf
     @method('PUT')
     @include('ranking-systems._form')

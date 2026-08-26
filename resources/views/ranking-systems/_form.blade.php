@@ -26,6 +26,21 @@
                     placeholder="Ej. AVP">
             </div>
 
+            <div class="col-12">
+                <label class="form-label" style="font-size:13px;font-weight:600;">Imagen de portada <span style="color:var(--text-faint);font-weight:400;">(opcional)</span></label>
+                @if(!empty($system) && $system->coverImageUrl())
+                    <div style="margin-bottom:8px;">
+                        <img src="{{ $system->coverImageUrl() }}" alt="" style="max-height:120px;border-radius:var(--radius);border:1px solid var(--border);">
+                    </div>
+                @endif
+                <input type="file" name="cover_image" accept="image/*"
+                    class="form-control" style="border-radius:var(--radius);">
+                <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">
+                    Se muestra en la página pública del ranking (circuito). JPG o PNG, máx. 4 MB.
+                </div>
+                @error('cover_image')<div style="font-size:12px;color:var(--danger-text,#c8362b);margin-top:4px;">{{ $message }}</div>@enderror
+            </div>
+
             <div class="col-12 col-md-6">
                 <label class="form-label" style="font-size:13px;font-weight:600;">Acumulación de puntos</label>
                 <select name="stacking" class="form-control" style="border-radius:var(--radius);">

@@ -18,21 +18,30 @@
         </div>
     </div>
     <div class="d-flex gap-2">
-        <a href="{{ route('ranking-systems.edit', $system) }}" class="btn btn-accent">
+        <a href="{{ route('ranking-systems.leaderboard', $system) }}" class="btn btn-accent">
+            <i class="fa-solid fa-ranking-star me-1"></i> Ver tabla
+        </a>
+        <a href="{{ route('ranking-systems.edit', $system) }}" class="btn btn-soft">
             <i class="fa-solid fa-pen me-1"></i> Editar
         </a>
-        {{-- Leaderboard link lands in Phase 4 --}}
     </div>
 </div>
 
 @include('dashboard.partials.flash')
 
 <div class="tc-card">
-    <div class="tc-card__head"><h3><i class="fa-solid fa-list-ol me-1"></i> Puntos por logro</h3></div>
+    <div class="tc-card__head">
+        <h3><i class="fa-solid fa-list-ol me-1"></i> Puntos por logro</h3>
+    </div>
     <div class="tc-card__body">
         <div class="tc-table-wrap">
             <table class="tc-table">
-                <thead><tr><th>Logro</th><th class="text-end">Puntos</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Logro</th>
+                        <th class="text-end">Puntos</th>
+                    </tr>
+                </thead>
                 <tbody>
                     @foreach($achievements as $a)
                     <tr>

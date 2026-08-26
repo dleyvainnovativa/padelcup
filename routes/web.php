@@ -8,11 +8,14 @@ use App\Http\Controllers\Dashboard\CategoryStructureController;
 use App\Http\Controllers\Dashboard\PairController;
 use App\Http\Controllers\Dashboard\PlayerImportController;
 use App\Http\Controllers\Dashboard\RankingLeaderboardController;
+use App\Http\Controllers\Dashboard\RankingPlayerController;
 use App\Http\Controllers\Dashboard\TournamentController;
 use App\Http\Controllers\Dashboard\TournamentRankingController;
 use App\Http\Controllers\Dashboard\TournamentStructureController;
 use App\Http\Controllers\PublicRankingController;
+use App\Http\Controllers\PublicRankingPlayerController;
 use App\Http\Controllers\RankingSystemController;
+use App\Http\Controllers\PublicCircuitController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -150,6 +153,12 @@ Route::middleware(['auth'])->group(function () {
     )
         ->name('ranking-systems.leaderboard');
 
+    Route::get(
+        'ranking-systems/{rankingSystem}/player/{key}',
+        [RankingPlayerController::class, 'show']
+    )
+        ->name('ranking-systems.player');
+
     // Stripe Connect onboarding (managers)
     Route::get('/connect', [\App\Http\Controllers\Dashboard\ConnectController::class, 'index'])->name('connect.index');
     Route::post('/connect/start', [\App\Http\Controllers\Dashboard\ConnectController::class, 'start'])->name('connect.start');
@@ -220,6 +229,12 @@ Route::get('/t/{tournament}/{category:slug}', [\App\Http\Controllers\PublicTourn
 
 Route::get('r/{rankingSystem}', [PublicRankingController::class, 'show'])
     ->name('public.rankings.show');
+Route::get(
+    'r/{rankingSystem}/jugador/{key}',
+    [PublicRankingPlayerController::class, 'show']
+)
+    ->name('public.rankings.player');
+
 
 // Public search (players + tournaments across listed tournaments)
 Route::get('/buscar', [\App\Http\Controllers\PublicSearchController::class, 'index'])->name('public.search');
@@ -234,6 +249,13 @@ Route::view('/reembolsos', 'legal.reembolsos')->name('legal.reembolsos');
 // Quick-register (partner accepts invitation via token — PUBLIC, no auth)
 Route::get('/invitacion/{invitation}', [\App\Http\Controllers\Registration\QuickRegistrationController::class, 'show'])->name('quick.show');
 Route::post('/invitacion/{invitation}', [\App\Http\Controllers\Registration\QuickRegistrationController::class, 'store'])->name('quick.store');
+
+
+Route::get('circuitos', [PublicCircuitController::class, 'index'])
+    ->name('public.circuits.index');
+
+Route::get('circuitos/{rankingSystem}', [PublicCircuitController::class, 'show'])
+    ->name('public.circuits.show');
 
 // Webhooks (CSRF-exempt; see routes/webhooks.php for bootstrap notes)
 require __DIR__ . '/webhooks.php';

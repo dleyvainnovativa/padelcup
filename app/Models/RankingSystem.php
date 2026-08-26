@@ -15,7 +15,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class RankingSystem extends Model
 {
     protected $fillable = [
-        'name', 'owner_label', 'scope', 'stacking', 'points', 'is_active', 'created_by',
+        'name',
+        'owner_label',
+        'cover_image_path',
+        'scope',
+        'stacking',
+        'points',
+        'is_active',
+        'created_by',
     ];
 
     protected $casts = [
@@ -79,5 +86,11 @@ class RankingSystem extends Model
     public function scopeActive($q)
     {
         return $q->where('is_active', true);
+    }
+    public function coverImageUrl(): ?string
+    {
+        if (blank($this->cover_image_path)) return null;
+        return \Illuminate\Support\Facades\Storage::disk(config('filesystems.default'))
+            ->url($this->cover_image_path);
     }
 }
