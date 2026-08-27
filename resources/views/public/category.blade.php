@@ -62,6 +62,7 @@
                 @foreach($groups as $group)
                 <div class="pub-card">
                     <div class="pub-card__head">{{ $group['name'] }}</div>
+                    <div class="pub-table-wrap">
                     <table class="pub-table">
                         <thead>
                             <tr>
@@ -69,6 +70,7 @@
                                 <th>Pareja</th>
                                 <th>PJ</th>
                                 <th>Pts</th>
+                                <th title="Sets ganados–perdidos">Sets</th>
                                 <th>G+</th>
                                 <th>G-</th>
                                 <th>Dif</th>
@@ -85,6 +87,7 @@
                                 </td>
                                 <td>{{ $row['played'] }}</td>
                                 <td><strong>{{ $row['points'] }}</strong></td>
+                                <td class="pub-mono">{{ $row['sets_for'] }}–{{ $row['sets_against'] }}</td>
                                 <td><strong>{{ $row['games_for'] }}</strong></td>
                                 <td><strong>{{ $row['games_against'] }}</strong></td>
                                 <td class="pub-mono">{{ $row['game_diff'] > 0 ? '+' : '' }}{{ $row['game_diff'] }}</td>
@@ -92,6 +95,7 @@
                             @endforeach
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 @endforeach
             </div>
@@ -104,6 +108,7 @@
             {{-- General --}}
             <div x-show="view === 'general'" x-cloak>
                 <div class="pub-card">
+                    <div class="pub-table-wrap">
                     <table class="pub-table">
                         <thead>
                             <tr>
@@ -112,6 +117,7 @@
                                 <th>Grupo</th>
                                 <th>PJ</th>
                                 <th>Pts</th>
+                                <th title="Sets ganados–perdidos">Sets</th>
                                 <th>G+</th>
                                 <th>G-</th>
                                 <th>Dif</th>
@@ -126,6 +132,7 @@
                                 <td class="pub-muted">{{ $row['group_name'] }}</td>
                                 <td>{{ $row['played'] }}</td>
                                 <td><strong>{{ $row['points'] }}</strong></td>
+                                <td class="pub-mono">{{ $row['sets_for'] }}–{{ $row['sets_against'] }}</td>
                                 <td><strong>{{ $row['games_for'] }}</strong></td>
                                 <td><strong>{{ $row['games_against'] }}</strong></td>
                                 <td class="pub-mono">{{ $row['game_diff'] > 0 ? '+' : '' }}{{ $row['game_diff'] }}</td>
@@ -133,6 +140,7 @@
                             @endforeach
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
         </div>

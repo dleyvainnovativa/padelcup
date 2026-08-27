@@ -886,7 +886,10 @@ input:-webkit-autofill:focus {
 .pub-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; }
 .pub-card__head { padding: 10px 14px; font-weight: 700; font-size: 14px; border-bottom: 1px solid var(--border); }
 .pub-card__body { padding: 8px 14px; }
-.pub-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 14px; }
+.pub-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 100%)); gap: 14px; }
+.pub-groups {
+  grid-template-columns: repeat(auto-fill, minmax(min(350px, 100%), 1fr));
+}
 
 .pub-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .pub-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-faint); padding: 8px 10px; border-bottom: 1px solid var(--border); }
@@ -2230,3 +2233,35 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 }
 .pc-pager__ellipsis { border: none; background: transparent; }
 .pc-pager__meta { font-size: 12px; color: var(--text-muted); }
+
+/* ==========================================================================
+   Public standings — horizontal scroll on narrow screens. Append to public CSS.
+   The Sets column made the table wider than a phone; wrap it so it scrolls
+   instead of clipping the right-hand columns.
+   ========================================================================== */
+
+.pub-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;   /* momentum scroll on iOS */
+  scrollbar-width: thin;
+}
+
+/* Keep columns from crushing; below this the wrapper scrolls. */
+.pub-table-wrap .pub-table {
+  min-width: 460px;
+}
+
+/* Thin, themed scrollbar (WebKit). */
+.pub-table-wrap::-webkit-scrollbar { height: 6px; }
+.pub-table-wrap::-webkit-scrollbar-track { background: transparent; }
+.pub-table-wrap::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 999px;
+}
+.pub-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* Optional: keep the pair name column from collapsing too far. */
+.pub-table-wrap .pub-table td:nth-child(2) { min-width: 120px; }
