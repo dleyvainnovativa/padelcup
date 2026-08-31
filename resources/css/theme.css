@@ -53,6 +53,8 @@
   --text:          #16181d;
   --text-muted:    #646a78;
   --text-faint:    #9aa0ad;
+  --lp-indigo:      #646a78ce;  /* legacy indigo-thumb color for scrollbars */
+  
 
   /* ---- Brand accent (the only brand color) ---- */
   --accent:        #635bff;
@@ -87,6 +89,8 @@
   --text:          #f3f4f7;
   --text-muted:    #a0a6b4;
   --text-faint:    #6b7180;
+  --lp-indigo:      #a0a6b4dc;  /* legacy indigo-thumb color for scrollbars */
+
 
   --accent:        #7d76ff;
   --accent-hover:  #948eff;
@@ -1349,7 +1353,7 @@ input:-webkit-autofill:focus {
   display: block;
   font-size: 11px;
   font-weight: 600;
-  color: var(--lp-indigo, #635bff);
+  color: var(--text-muted, #635bff);
   margin-top: 1px;
   line-height: 1.2;
 }
@@ -1362,7 +1366,7 @@ input:-webkit-autofill:focus {
     display: block;
     font-size: 11px;
     font-weight: 600;
-    color: var(--lp-indigo, #635bff);
+    color: var(--text-muted, #635bff);
     margin-top: 1px;
     line-height: 1.2;
 }
@@ -1372,7 +1376,7 @@ input:-webkit-autofill:focus {
     border-style: dashed;
     opacity: .95;
 }
-.pub-next--ghost .pub-next__tag { color: var(--lp-indigo, #635bff); }
+.pub-next--ghost .pub-next__tag { color: var(--text-muted, #635bff); }
 
 /* Dashboard schedule board ghost (append to theme.css). */
 .sched-match__ghost {
@@ -1388,17 +1392,17 @@ input:-webkit-autofill:focus {
 .pub-subs { margin: 8px 0 14px; display: flex; flex-direction: column; gap: 6px; }
 .pub-sub-note {
     font-size: 13px; color: var(--text, #1a1a2e);
-    background: color-mix(in srgb, var(--lp-indigo, #635bff) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--lp-indigo, #635bff) 20%, transparent);
+    background: color-mix(in srgb, var(--text-muted, #635bff) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--text-muted, #635bff) 20%, transparent);
     border-radius: 8px; padding: 7px 11px;
 }
-.pub-sub-note i { color: var(--lp-indigo, #635bff); margin-right: 4px; }
+.pub-sub-note i { color: var(--text-muted, #635bff); margin-right: 4px; }
 .pub-sub-note--out {
     background: var(--bg-subtle, #f4f4f7);
     border-color: var(--border, #e2e2ea);
 }
 .pub-sub-note--out i { color: var(--pub-muted, #6b7280); }
-.pub-sub-note a { color: var(--lp-indigo, #635bff); text-decoration: none; }
+.pub-sub-note a { color: var(--text-muted, #635bff); text-decoration: none; }
 .pub-sub-note a:hover { text-decoration: underline; }
 .pub-sub-note__when { color: var(--pub-muted, #6b7280); font-size: 11px; }
 
@@ -1410,8 +1414,8 @@ input:-webkit-autofill:focus {
     display: inline-block; margin-left: 5px; padding: 0 5px;
     font-size: 9px; font-weight: 700; line-height: 15px; letter-spacing: .02em;
     border-radius: 3px; vertical-align: middle;
-    background: color-mix(in srgb, var(--lp-indigo, #635bff) 12%, transparent);
-    color: var(--lp-indigo, #635bff);
+    background: color-mix(in srgb, var(--text-muted, #635bff) 12%, transparent);
+    color: var(--text-muted, #635bff);
 }
 /* Dashboard bracket (append to theme.css): */
 .bmatch-grp {
@@ -1427,7 +1431,7 @@ input:-webkit-autofill:focus {
    doesn't affect other scroll areas. */
 .pub-ads__track--carousel {
     scrollbar-width: thin;                 /* Firefox */
-    scrollbar-color: color-mix(in srgb, var(--lp-indigo, transparent) 35%, transparent) transparent;
+    scrollbar-color: color-mix(in srgb, var(--text-muted, transparent) 35%, transparent) transparent;
     -webkit-overflow-scrolling: touch;     /* momentum scroll on iOS */
     scroll-snap-type: x proximity;         /* gentle snap when the user scrolls */
     padding-bottom: 2px;
@@ -1443,22 +1447,22 @@ input:-webkit-autofill:focus {
     background: transparent;
 }
 .pub-ads__track--carousel::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--lp-indigo, transparent) 30%, transparent);
+    background: color-mix(in srgb, var(--text-muted, transparent) 30%, transparent);
     border-radius: 999px;
 }
 .pub-ads__track--carousel::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in srgb, var(--lp-indigo, transparent) 55%, transparent);
+    background: color-mix(in srgb, var(--text-muted, transparent) 55%, transparent);
 }
 @media (min-width: 1280px) {
     .pub-ads__track--carousel::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--lp-indigo, var(--text-muted)) 30%, transparent);
+    background: color-mix(in srgb, var(--text-muted, var(--text-muted)) 30%, transparent);
     border-radius: 999px;
 }
 .pub-ads__track--carousel::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in srgb, var(--lp-indigo, var(--text-muted)) 55%, transparent);
+    background: color-mix(in srgb, var(--text-muted, var(--text-muted)) 55%, transparent);
 }
 .pub-ads__track--carousel {
-    scrollbar-color: color-mix(in srgb, var(--lp-indigo, var(--text-muted)) 35%, transparent) transparent;
+    scrollbar-color: color-mix(in srgb, var(--text-muted, var(--text-muted)) 35%, transparent) transparent;
 }
 }
 /* ===== Cruces cross-table ===== append to public/landing CSS ===== */
@@ -1469,11 +1473,11 @@ input:-webkit-autofill:focus {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--lp-indigo, #635bff) 35%, transparent) transparent;
+    scrollbar-color: color-mix(in srgb, var(--text-muted, #635bff) 35%, transparent) transparent;
 }
 .cruces-scroll::-webkit-scrollbar { height: 6px; }
 .cruces-scroll::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--lp-indigo, #635bff) 30%, transparent);
+    background: color-mix(in srgb, var(--text-muted, #635bff) 30%, transparent);
     border-radius: 999px;
 }
 
@@ -1522,7 +1526,7 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 .cruces__cell { font-weight: 600; color: var(--text-muted, #1a1a2e); font-variant-numeric: tabular-nums; }
 .cruces__cell.is-won  { color: #1a7f37; background: color-mix(in srgb, #1a7f37 7%, transparent); }
 .cruces__cell.is-lost { color: var(--text-muted, #8a8a99); }
-.cruces__cell--sched  { color: var(--lp-indigo, #635bff); font-weight: 600; font-size: 11px; }
+.cruces__cell--sched  { color: var(--text-muted, #635bff); font-weight: 600; font-size: 11px; }
 .cruces__cell--empty  { color: var(--border, #c9c9d4); }
 
 /* The diagonal (a pair vs itself). */
@@ -1543,8 +1547,8 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
     display: inline-block; margin: 1px;
     padding: 1px 7px; border-radius: 999px;
     font-size: 11px; font-weight: 700;
-    background: color-mix(in srgb, var(--lp-indigo, #635bff) 12%, transparent);
-    color: var(--lp-indigo, #635bff);
+    background: color-mix(in srgb, var(--text-muted, #635bff) 12%, transparent);
+    color: var(--text-muted, #635bff);
 }
 .cruces__cross-pill.is-done {
     background: var(--bg-subtle, #f4f4f7);
@@ -1561,7 +1565,7 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 .cruces tbody tr:nth-child(even) td { background-color: color-mix(in srgb, var(--bg-subtle, #f4f4f7) 45%, transparent); }
 .cruces tbody tr:nth-child(even) .cruces__rank,
 .cruces tbody tr:nth-child(even) .cruces__pair { background: color-mix(in srgb, var(--bg-subtle, #f4f4f7) 92%, var(--bg-subtle, #fff)); }
-.cruces tbody tr:hover td { background-color: color-mix(in srgb, var(--lp-indigo, #635bff) 5%, transparent); }
+.cruces tbody tr:hover td { background-color: color-mix(in srgb, var(--text-muted, #635bff) 5%, transparent); }
 
 /* Category tabs on the public player page (only shown when in >1 category). */
 .pub-cat-tabs {
@@ -1575,9 +1579,9 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
     padding: 5px 12px; border-radius: 999px; cursor: pointer;
     transition: all .12s ease;
 }
-.pub-cat-tab:hover { border-color: var(--lp-indigo, #635bff); color: var(--lp-indigo, #635bff); }
+.pub-cat-tab:hover { border-color: var(--text-muted, #635bff); color: var(--text-muted, #635bff); }
 .pub-cat-tab.is-active {
-    background: var(--lp-indigo, #635bff); border-color: var(--lp-indigo, #635bff); color: #fff;
+    background: var(--text-muted, #635bff); border-color: var(--text-muted, #635bff); color: #fff;
 }
 
 .sched-grid-wrap {
@@ -2402,3 +2406,57 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 .sv-match__when { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 .sv-match__reason { color: var(--text-faint); }
 .sv-match--error .sv-match__reason { color: var(--danger-text, #c8362b); font-weight: 600; }
+
+/* ==========================================================================
+   Themed scrollbars — match the existing indigo-thumb pattern (cruces-scroll,
+   ads carousel) on the sidebar, slot sheet, and table scroll areas.
+   Append to theme.css.
+
+   Firefox: scrollbar-width + scrollbar-color (thumb, track).
+   WebKit:  ::-webkit-scrollbar (size) + -thumb (color). Track stays transparent.
+   Both width (vertical) and height (horizontal) are set so it applies to
+   vertical scrollers (sidebar, sheet) and horizontal ones (tables) alike.
+   ========================================================================== */
+
+.sidebar,
+.sched-sheet,
+.tc-table-wrap,
+.tc-table,
+.pub-table-wrap {
+  scrollbar-width: thin;                                                   /* Firefox */
+  scrollbar-color: color-mix(in srgb, var(--lp-indigo, #635bff) 35%, transparent) transparent;
+}
+
+.sidebar::-webkit-scrollbar,
+.sched-sheet::-webkit-scrollbar,
+.tc-table-wrap::-webkit-scrollbar,
+.tc-table::-webkit-scrollbar,
+.pub-table-wrap::-webkit-scrollbar {
+  width: 6px;      /* vertical scrollers */
+  height: 6px;     /* horizontal scrollers */
+}
+
+.sidebar::-webkit-scrollbar-track,
+.sched-sheet::-webkit-scrollbar-track,
+.tc-table-wrap::-webkit-scrollbar-track,
+.tc-table::-webkit-scrollbar-track,
+.pub-table-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.sched-sheet::-webkit-scrollbar-thumb,
+.tc-table-wrap::-webkit-scrollbar-thumb,
+.tc-table::-webkit-scrollbar-thumb,
+.pub-table-wrap::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--lp-indigo, #635bff) 30%, transparent);
+  border-radius: 999px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+.sched-sheet::-webkit-scrollbar-thumb:hover,
+.tc-table-wrap::-webkit-scrollbar-thumb:hover,
+.tc-table::-webkit-scrollbar-thumb:hover,
+.pub-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--lp-indigo, #635bff) 55%, transparent);
+}
