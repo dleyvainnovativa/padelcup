@@ -16,26 +16,27 @@
             <div class="page-sub">{{ $tournament->name }}</div>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <a href="{{ route('venues.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-location-dot me-1"></i> Canchas</a>
+            <a href="{{ route('venues.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-location-dot me-1"></i><span class="btn-label">Canchas</span></a>
             <button type="button" class="btn btn-soft" @click="showCapacity = !showCapacity">
-                <i class="fa-solid fa-calculator me-1"></i> Capacidad
+                <i class="fa-solid fa-calculator me-1"></i><span class="btn-label">Capacidad</span>
             </button>
             <button type="button" class="btn btn-soft" @click="showPhases = !showPhases">
-                <i class="fa-solid fa-clock me-1"></i> Ventanas de fase
+                <i class="fa-solid fa-clock me-1"></i><span class="btn-label">Ventanas de fase</span>
             </button>
             <form method="POST" action="{{ route('schedule.auto', $tournament) }}"
                 data-confirm="Se programarán automáticamente los partidos sin horario en los espacios libres. ¿Continuar?"
                 data-confirm-title="Auto-programar" data-confirm-ok="Programar">
                 @csrf
-                <button class="btn btn-accent"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Auto-programar</button>
+                <button class="btn btn-accent"><i class="fa-solid fa-wand-magic-sparkles me-1"></i><span class="btn-label">Auto-programar</span></button>
             </form>
             <div x-data="{ open: false }" style="position:relative;">
                 <button type="button" class="btn btn-soft" @click="open = !open" @click.outside="open = false">
-                    <i class="fa-solid fa-file-pdf me-1"></i> Exportar PDF <i class="fa-solid fa-chevron-down" style="font-size:10px;margin-left:4px;"></i>
+                    <i class="fa-solid fa-file-pdf me-1"></i><span class="btn-label">Exportar PDF</span> <i class="fa-solid fa-chevron-down" style="font-size:10px;margin-left:4px;"></i>
                 </button>
                 <div x-show="open" x-cloak class="pdf-menu">
                     <a href="{{ route('schedule.pdf', $tournament) }}" class="pdf-menu__item"><i class="fa-regular fa-clock me-1"></i> Por horario</a>
                     <a href="{{ route('schedule.pdf', ['tournament' => $tournament, 'order' => 'category']) }}" class="pdf-menu__item"><i class="fa-solid fa-layer-group me-1"></i> Por categoría</a>
+                    <a href="{{ route('schedule.exportCrucesPdf', $tournament) }}" class="pdf-menu__item"><i class="fa-solid fa-layer-group me-1"></i> Por cruces</a>
                     <a href="{{ route('schedule.exportEliminationPdf', $tournament) }}" class="btn btn-soft btn-sm">
                         <i class="fa-solid fa-sitemap me-1"></i> PDF eliminación
                     </a>
@@ -43,86 +44,107 @@
             </div>
             <form method="POST" action="{{ route('schedule.conflicts', $tournament) }}">
                 @csrf
-                <button class="btn btn-soft"><i class="fa-solid fa-user-clock me-1"></i> Revisar conflictos</button>
+                <button class="btn btn-soft"><i class="fa-solid fa-user-clock me-1"></i><span class="btn-label">Revisar conflictos</span></button>
             </form>
+            <button type="button" class="btn btn-soft"
+                    data-validate-schedule="{{ route('schedule.validation', $tournament) }}">
+                <i class="fa-solid fa-clipboard-check me-1"></i><span class="btn-label">Validar horarios</span>
+            </button>
             <form method="POST" action="{{ route('schedule.clear', $tournament) }}"
                 data-confirm="Se quitarán TODOS los partidos del calendario (los resultados se conservan). ¿Continuar?"
                 data-confirm-title="Limpiar calendario" data-confirm-ok="Limpiar" data-confirm-variant="danger">
                 @csrf
-                <button class="btn btn-danger"><i class="fa-solid fa-trash-can me-1"></i> Limpiar</button>
+                <button class="btn btn-danger"><i class="fa-solid fa-trash-can me-1"></i><span class="btn-label">Limpiar</span></button>
             </form>
 
         </div>
     </div>
-    @if($multiCategoryPlayers->isNotEmpty())
-
-    <details class="panel mc-cheatsheet">
-        <summary style="cursor:pointer;font-weight:600;">
+    @php
+        $mcCount = $multiCategoryPlayers->count();
+        $prefCount = (!empty($preferredSchedulePlayers)) ? $preferredSchedulePlayers->count() : 0;
+        $busyCount = (!empty($busyDayPlayers)) ? $busyDayPlayers->count() : 0;
+        $playersTotal = $mcCount + $prefCount + $busyCount;
+    @endphp
+    @if($playersTotal > 0)
+    <div x-data="{ playersSheet: false }" @close-players-sheet.window="playersSheet = false">
+        {{-- Trigger --}}
+        <button type="button" class="btn btn-soft mb-3" @click="playersSheet = true">
             <i class="fa-solid fa-user-group me-1"></i>
-            Jugadores en 2+ categorías ({{ $multiCategoryPlayers->count() }})
-        </summary>
-        <div class="mc-cheatsheet__list" style="margin-top:10px;">
-            @foreach($multiCategoryPlayers as $row)
-            <div class="mc-player">
-                <span class="mc-player__count">{{ count($row['categories']) }}</span>
-                <span class="mc-player__name">{{ $row['name'] }}</span>
-                <span class="mc-player__cats">— {{ implode(', ', $row['categories']) }}</span>
-            </div>
-            @endforeach
-        </div>
-    </details>
-    @endif
+            <span class="btn-label">Jugadores</span>
+            <span class="pl-sheet__badge">{{ $playersTotal }}</span>
+        </button>
 
-    @if(!empty($preferredSchedulePlayers) && $preferredSchedulePlayers->isNotEmpty())
-    <details class="panel mc-cheatsheet">
-        <summary style="cursor:pointer;font-weight:600;">
-            <i class="fa-solid fa-user-clock me-1"></i>
-            Jugadores con horario preferido ({{ $preferredSchedulePlayers->count() }})
-        </summary>
-        <div class="mc-cheatsheet__list" style="margin-top:10px;">
-            @foreach($preferredSchedulePlayers as $row)
-            <div class="mc-player">
-                <span class="mc-player__count">{{ count($row['rules']) }}</span>
-                <span class="mc-player__name">{{ $row['name'] }}</span>
-                <span class="mc-player__cats">
-                    — {{ implode(' · ', $row['rules']) }}
-                    @if(!empty($row['categories']))
-                    <span style="color:var(--text-faint);">({{ implode(', ', $row['categories']) }})</span>
-                    @endif
-                </span>
-            </div>
-            @endforeach
-        </div>
-    </details>
-    @endif
+        {{-- Bottom sheet (reuses sched-sheet chrome) --}}
+        <div class="sched-sheet-overlay" :class="{ 'is-open': playersSheet }"
+             x-show="playersSheet" x-cloak
+             @click.self="playersSheet = false">
+            <div class="sched-sheet" role="dialog" aria-modal="true" style="max-height:82vh;overflow-y:auto;"
+                 x-data="playersSheet()">
+                <div class="sched-sheet__handle"></div>
+                <div class="sched-sheet__head">
+                    <div>
+                        <div class="sched-sheet__title">Jugadores</div>
+                        <div class="sched-sheet__sub">Avisos de programación</div>
+                    </div>
+                    <button class="sched-sheet__close" aria-label="Cerrar" @click="playersSheet = false">&times;</button>
+                </div>
 
-    @if(!empty($busyDayPlayers) && $busyDayPlayers->isNotEmpty())
-    <details class="panel mc-cheatsheet">
-        <summary style="cursor:pointer;font-weight:600;">
-            <i class="fa-solid fa-gauge-high me-1"></i>
-            Jugadores con 3+ partidos en un día ({{ $busyDayPlayers->count() }})
-        </summary>
-        <div style="font-size:12px;color:var(--text-faint);margin-top:6px;">
-            Cuenta todos los partidos del jugador en el día, sumando sus categorías.
-        </div>
-        <div class="mc-cheatsheet__list" style="margin-top:10px;">
-            @foreach($busyDayPlayers as $row)
-            <div class="mc-player">
-                <span class="mc-player__count mc-player__count--warn">{{ $row['max'] }}</span>
-                <span class="mc-player__name">{{ $row['name'] }}</span>
-                <span class="mc-player__cats">
-                    @foreach($row['days'] as $d)
-                    — {{ $d['label'] }}: <strong>{{ $d['count'] }}</strong>
-                    <span style="color:var(--text-faint);">({{ implode(', ', $d['times']) }})</span>
+                {{-- Search --}}
+                <div class="sched-player-search" style="margin-bottom:14px;">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" x-model="q" placeholder="Buscar jugador por nombre…" autocomplete="off">
+                    <button type="button" class="sched-player-search__clear" x-show="q" @click="q=''" title="Limpiar"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+
+                <div style="font-size:12px;color:var(--text-faint);margin-bottom:10px;">
+                    Toca un jugador para resaltar sus partidos en el calendario.
+                </div>
+
+                @if($mcCount)
+                <div class="pl-sheet__section" data-pl-section>
+                    <div class="pl-sheet__section-title"><i class="fa-solid fa-user-group me-1"></i> En 2+ categorías ({{ $mcCount }})</div>
+                    @foreach($multiCategoryPlayers as $row)
+                    <button type="button" class="pl-row" data-pl-name="{{ Str::lower($row['name']) }}" @click="pick(@js($row['name']))">
+                        <span class="mc-player__count">{{ count($row['categories']) }}</span>
+                        <span class="pl-row__name">{{ $row['name'] }}</span>
+                        <span class="pl-row__meta">{{ implode(', ', $row['categories']) }}</span>
+                    </button>
                     @endforeach
-                    @if(!empty($row['categories']))
-                    <span style="color:var(--text-faint);">· {{ implode(', ', $row['categories']) }}</span>
-                    @endif
-                </span>
+                </div>
+                @endif
+
+                @if($prefCount)
+                <div class="pl-sheet__section" data-pl-section>
+                    <div class="pl-sheet__section-title"><i class="fa-solid fa-user-clock me-1"></i> Con horario preferido ({{ $prefCount }})</div>
+                    @foreach($preferredSchedulePlayers as $row)
+                    <button type="button" class="pl-row" data-pl-name="{{ Str::lower($row['name']) }}" @click="pick(@js($row['name']))">
+                        <span class="mc-player__count">{{ count($row['rules']) }}</span>
+                        <span class="pl-row__name">{{ $row['name'] }}</span>
+                        <span class="pl-row__meta">{{ implode(' · ', $row['rules']) }}@if(!empty($row['categories'])) ({{ implode(', ', $row['categories']) }})@endif</span>
+                    </button>
+                    @endforeach
+                </div>
+                @endif
+
+                @if($busyCount)
+                <div class="pl-sheet__section" data-pl-section>
+                    <div class="pl-sheet__section-title"><i class="fa-solid fa-gauge-high me-1"></i> Con 3+ partidos en un día ({{ $busyCount }})</div>
+                    @foreach($busyDayPlayers as $row)
+                    <button type="button" class="pl-row" data-pl-name="{{ Str::lower($row['name']) }}" @click="pick(@js($row['name']))">
+                        <span class="mc-player__count mc-player__count--warn">{{ $row['max'] }}</span>
+                        <span class="pl-row__name">{{ $row['name'] }}</span>
+                        <span class="pl-row__meta">
+                            @foreach($row['days'] as $d){{ $d['label'] }}: {{ $d['count'] }}@if(!$loop->last) · @endif @endforeach
+                        </span>
+                    </button>
+                    @endforeach
+                </div>
+                @endif
+
+                <div class="pl-sheet__empty" x-show="empty" x-cloak>Sin coincidencias.</div>
             </div>
-            @endforeach
         </div>
-    </details>
+    </div>
     @endif
 
     <div x-show="showCapacity" x-cloak class="tc-card mb-3">
@@ -469,11 +491,17 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
 
         <div class="row g-3">
             <div class="col-12 col-lg-3">
-                <div class="tc-card">
-                    <div class="tc-card__head">
-                        <h3>Sin programar</h3>
+                <div class="tc-card" x-data="{ trayOpen: false }">
+                    <div class="tc-card__head" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"
+                         @click="trayOpen = !trayOpen">
+                        <h3 style="margin:0;">
+                            Sin programar
+                            <span class="sched-tray__count">{{ $unscheduled->count() }}</span>
+                        </h3>
+                        <i class="fa-solid" :class="trayOpen ? 'fa-chevron-up' : 'fa-chevron-down'" style="color:var(--text-faint);font-size:12px;"></i>
                     </div>
-                    <div class="tc-card__body" id="sched-tray" style="display:flex;flex-direction:column;gap:6px;min-height:60px;">
+                    <div class="tc-card__body" id="sched-tray" x-show="trayOpen" x-cloak
+                         style="display:flex;flex-direction:column;gap:6px;min-height:60px;">
                         @forelse($unscheduled as $m)
                         <div class="sched-chip" draggable="true"
                             data-match-id="{{ $m->id }}"

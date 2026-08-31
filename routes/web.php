@@ -106,6 +106,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('calendario/conflictos', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'conflicts'])->name('schedule.conflicts');
         Route::get('calendario/pdf', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportPdf'])->name('schedule.pdf');
         Route::get('calendario/pdf-eliminacion', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportEliminationPdf'])->name('schedule.exportEliminationPdf');
+        Route::get('calendario/pdf-cruces', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportCrucesPdf'])
+    ->name('schedule.exportCrucesPdf');
+    Route::get('calendario/validar-horarios', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'scheduleValidation'])
+    ->name('schedule.validation');
         Route::post('calendario/fases', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'savePhaseWindows'])->name('schedule.phases');
         Route::post('calendario/switch-court', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'switchCourt'])->name('schedule.switchCourt');
 

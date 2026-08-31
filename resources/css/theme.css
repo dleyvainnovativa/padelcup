@@ -1648,17 +1648,7 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
    border:1px solid var(--border); with border-spacing:0 that now renders as
    adjacent 1px lines. If you see doubled/thicker lines you don't like, switch
    .sched-cell to the shorthand below instead (top+left only) for hairlines. */
-.sched-cell {
-  /* border already defined in your existing .sched-cell rule; nothing to add.
-     If you prefer single hairlines with border-spacing:0, replace the existing
-     .sched-cell border with:
-        border: 0;
-        border-bottom: 1px solid var(--border);
-        border-right: 1px solid var(--border);
-     and add to .sched-grid:  border-top:1px solid var(--border);
-                              border-left:1px solid var(--border);
-  */
-}
+
 .sched-grid-wrap::-webkit-scrollbar { height: 6px; }
 .sched-grid-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
@@ -2265,3 +2255,150 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 
 /* Optional: keep the pair name column from collapsing too far. */
 .pub-table-wrap .pub-table td:nth-child(2) { min-width: 120px; }
+
+/* ==========================================================================
+   Schedule mobile: icon-only toolbar + players bottom sheet. Append to theme.css.
+   ========================================================================== */
+
+/* --- Toolbar: hide button labels on narrow screens, show icons only --- */
+@media (max-width: 640px) {
+  .page-head .btn .btn-label { display: none; }
+  /* Icon centers once the label is gone. */
+  .page-head .btn i.me-1 { margin-right: 0 !important; }
+  /* Square-ish icon buttons. */
+  .page-head .btn { padding-left: 11px; padding-right: 11px; }
+  /* Keep the PDF chevron tucked. */
+  .page-head .btn .fa-chevron-down { margin-left: 2px !important; }
+}
+
+/* --- "Jugadores" trigger badge --- */
+.pl-sheet__badge {
+  display: inline-block; min-width: 18px; margin-left: 6px;
+  padding: 0 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent); font-size: 11px; font-weight: 700; line-height: 18px;
+  text-align: center;
+}
+
+/* --- Players sheet content --- */
+.pl-sheet__section { margin-bottom: 16px; }
+.pl-sheet__section-title {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-muted); margin-bottom: 8px;
+}
+.pl-row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 10px; margin-bottom: 6px; text-align: left;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.pl-row:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--surface)); }
+.pl-row__name { font-weight: 600; font-size: 13px; flex: 0 0 auto; color: var(--text); }
+.pl-row__meta {
+  font-size: 11px; color: var(--text-faint); margin-left: auto; text-align: right;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%;
+}
+.pl-sheet__empty { text-align: center; color: var(--text-faint); font-size: 13px; padding: 20px 0; }
+
+/* ==========================================================================
+   Schedule additions: sin-programar accordion, sheet search, iOS zoom fix.
+   Append to theme.css.
+   ========================================================================== */
+
+/* --- "Sin programar" accordion --- */
+.sched-tray__count {
+  display: inline-block; min-width: 20px; margin-left: 6px;
+  padding: 0 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent); font-size: 12px; font-weight: 700; line-height: 20px;
+  text-align: center; vertical-align: middle;
+}
+
+/* --- Search bar inside the slot sheet --- */
+.sched-sheet__search {
+  position: relative; margin-bottom: 12px;
+}
+.sched-sheet__search i {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-faint); font-size: 13px; pointer-events: none;
+}
+.sched-sheet__search-input {
+  width: 100%; padding: 10px 12px 10px 34px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--text);
+  font-size: 16px;                 /* 16px+ => iOS won't zoom on focus */
+}
+.sched-sheet__search-input:focus { outline: none; border-color: var(--accent); }
+
+/* ==========================================================================
+   iOS Safari zoom-on-focus fix.
+   Safari zooms the viewport when a focused form control has font-size < 16px.
+   Force 16px on all text-entry controls at coarse-pointer / small widths so the
+   zoom never triggers. Desktop styling is unaffected.
+   ========================================================================== */
+@media (max-width: 820px) {
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  textarea,
+  select,
+  .form-control,
+  .form-select {
+    font-size: 16px !important;
+  }
+}
+
+/* ==========================================================================
+   Schedule validation sheet. Append to theme.css.
+   ========================================================================== */
+
+.sv-list { display: flex; flex-direction: column; gap: 8px; }
+
+/* Player accordion */
+.sv-player { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.sv-player__head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 12px; background: var(--surface); border: none; cursor: pointer; text-align: left;
+}
+.sv-player__name { font-weight: 700; font-size: 14px; flex: 1; color: var(--text); }
+.sv-player__chev { color: var(--text-faint); font-size: 12px; transition: transform .15s; }
+.sv-player.is-open .sv-player__chev { transform: rotate(180deg); }
+.sv-player__body { display: none; padding: 4px 12px 12px; }
+.sv-player.is-open .sv-player__body { display: block; }
+.sv-player__rules {
+  font-size: 11px; color: var(--text-muted); background: var(--bg-subtle, #f4f5f7);
+  border-radius: 8px; padding: 6px 9px; margin-bottom: 10px;
+}
+
+/* Status pill */
+.sv-pill { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.sv-pill--ok      { background: color-mix(in srgb, var(--success, #1a7f4b) 14%, transparent); color: var(--success-text, #1a7f4b); }
+.sv-pill--error   { background: color-mix(in srgb, var(--danger, #e5484d) 14%, transparent); color: var(--danger-text, #c8362b); }
+.sv-pill--pending { background: var(--bg-subtle, #f0f0f4); color: var(--text-muted); }
+
+/* Match rows */
+.sv-match {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 10px; border-radius: 9px; margin-bottom: 6px;
+  border: 1px solid var(--border);
+}
+.sv-match__icon { font-size: 14px; margin-top: 1px; }
+.sv-match--ok      { border-color: color-mix(in srgb, var(--success, #1a7f4b) 30%, transparent); }
+.sv-match--ok      .sv-match__icon { color: var(--success-text, #1a7f4b); }
+.sv-match--error   { border-color: color-mix(in srgb, var(--danger, #e5484d) 35%, transparent); background: color-mix(in srgb, var(--danger, #e5484d) 5%, transparent); }
+.sv-match--error   .sv-match__icon { color: var(--danger-text, #c8362b); }
+.sv-match--pending .sv-match__icon { color: var(--text-faint); }
+.sv-match__body { flex: 1; min-width: 0; }
+.sv-match__ctx { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .03em; }
+.sv-match__label { font-size: 13px; font-weight: 600; }
+.sv-match__when { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.sv-match__reason { color: var(--text-faint); }
+.sv-match--error .sv-match__reason { color: var(--danger-text, #c8362b); font-weight: 600; }

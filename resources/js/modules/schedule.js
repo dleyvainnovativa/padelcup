@@ -8,7 +8,6 @@
 
 import { post } from '../core/http';
 import toast from '../core/toast';
-import modal from '../core/modal';
 
 const isTouch = window.matchMedia('(hover: none), (pointer: coarse)').matches;
 const MONTHS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
@@ -260,14 +259,7 @@ function initMultiSelect(board, cfg) {
   goBtn.addEventListener('click', async () => {
     if (!selected.size) return;
     const n = selected.size;
-    const ok = await modal.confirm({
-      title: n === 1 ? 'Quitar partido' : 'Quitar partidos',
-      body: `¿Quitar ${n} ${n === 1 ? 'partido' : 'partidos'} del calendario?`,
-      confirmText: 'Quitar',
-      cancelText: 'Cancelar',
-      variant: 'danger',
-    });
-    if (!ok) return;
+    if (!window.confirm(`¿Quitar ${n} ${n === 1 ? 'partido' : 'partidos'} del calendario?`)) return;
 
     goBtn.disabled = true;
     goBtn.textContent = 'Quitando…';
@@ -354,15 +346,7 @@ function initDrag(board, place, switchCourt, selection) {
 
       const res = await place(draggedId, targetCourt, date, slot, false);
       if (res && res.conflicts) {
-        const ok = await modal.confirm({
-          title: 'Conflictos de horario',
-          intro: 'Se detectaron estos conflictos:',
-          bodyList: res.conflicts,
-          confirmText: 'Programar de todos modos',
-          cancelText: 'Cancelar',
-          variant: 'danger',
-        });
-        if (ok) {
+        if (window.confirm(res.conflicts.join('\n') + '\n\n¿Programar de todos modos?')) {
           await place(draggedId, targetCourt, date, slot, true);
         }
       }
@@ -385,6 +369,10 @@ function buildSheet() {
         <button class="sched-sheet__close" aria-label="Cerrar">&times;</button>
       </div>
       <div class="sched-sheet__label">Partidos disponibles</div>
+      <div class="sched-sheet__search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" class="sched-sheet__search-input" placeholder="Buscar por jugador…" autocomplete="off">
+      </div>
       <div class="sched-sheet__list"></div>
     </div>`;
   document.body.appendChild(overlay);
@@ -393,6 +381,7 @@ function buildSheet() {
   const titleEl = overlay.querySelector('.sched-sheet__title');
   const subEl = overlay.querySelector('.sched-sheet__sub');
   const listEl = overlay.querySelector('.sched-sheet__list');
+  const searchInput = overlay.querySelector('.sched-sheet__search-input');
 
   function hide() { overlay.classList.remove('is-open'); }
   overlay.addEventListener('click', (e) => { if (e.target === overlay) hide(); });
@@ -401,17 +390,34 @@ function buildSheet() {
   function show(title, subtitle, matches, busyPlayers, onPick) {
     titleEl.textContent = title;
     subEl.textContent = subtitle;
+    searchInput.value = '';
+
+    render(matches, onPick, '');
+
+    // Live filter by player name (matches the side labels a/b, which carry names).
+    searchInput.oninput = () => render(matches, onPick, searchInput.value.trim().toLowerCase());
+
+    overlay.classList.add('is-open');
+    // Do NOT autofocus on touch — avoids the iOS keyboard popping over the sheet.
+  }
+
+  function render(matches, onPick, needle) {
     listEl.innerHTML = '';
 
-    if (!matches.length) {
-      listEl.innerHTML = '<div class="sched-sheet__empty">No hay partidos sin programar.</div>';
-      overlay.classList.add('is-open');
+    const filtered = needle
+      ? matches.filter((m) => (`${m.a} ${m.b}`).toLowerCase().includes(needle))
+      : matches;
+
+    if (!filtered.length) {
+      listEl.innerHTML = needle
+        ? '<div class="sched-sheet__empty">Sin coincidencias.</div>'
+        : '<div class="sched-sheet__empty">No hay partidos sin programar.</div>';
       return;
     }
 
     // Group by category.
     const groups = {};
-    matches.forEach((m) => { (groups[m.category] ||= []).push(m); });
+    filtered.forEach((m) => { (groups[m.category] ||= []).push(m); });
 
     Object.entries(groups).forEach(([category, ms]) => {
       const g = document.createElement('div');
@@ -445,8 +451,6 @@ function buildSheet() {
       });
       listEl.appendChild(g);
     });
-
-    overlay.classList.add('is-open');
   }
 
   return { show, hide };

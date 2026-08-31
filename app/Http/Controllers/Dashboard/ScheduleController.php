@@ -422,11 +422,13 @@ class ScheduleController extends Controller
         });
 
         if ($order === 'category') {
-            // Category → datetime. Unscheduled (null starts_at) sort last.
+            // Category → datetime → court. Unscheduled (null starts_at) sort last;
+            // ties on time break by court for a stable, readable order.
             $grouped = $showable
                 ->sortBy([
                     fn($m) => $m->category->name,
                     fn($m) => $m->starts_at ? $m->starts_at->timestamp : PHP_INT_MAX,
+                    fn($m) => $m->court?->name ?? '~',
                 ])
                 ->groupBy(fn($m) => $m->category->name);
 
@@ -459,6 +461,256 @@ class ScheduleController extends Controller
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-calendario.pdf');
+    }
+
+    /**
+     * Cross-table ("cruces") PDF: one matrix per group, ordered category → group.
+     * Group-phase matches only (group_id set). Each cell shows the score when the
+     * match is confirmed, else the scheduled time, else blank. Landscape A4.
+     */
+    public function exportCrucesPdf(Request $request, Tournament $tournament)
+    {
+        $this->authorize('view', $tournament);
+
+        // Group-phase matches only. Bracket matches (group_id null) are excluded.
+        $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->whereNotNull('group_id')
+            ->with([
+                'category:id,name',
+                'group:id,name,category_id',
+                'court:id,name',
+                'pairA.player1:id,name', 'pairA.player2:id,name',
+                'pairB.player1:id,name', 'pairB.player2:id,name',
+            ])
+            ->get();
+
+        // Build the per-group cross-tables, ordered category → group.
+        // $blocks = [ ['category'=>..., 'group'=>..., 'pairs'=>[...],
+        //             'grid'=>[[cell]], 'pills'=>[..], 'horario'=>[..] ], ... ]
+        $blocks = [];
+
+        $byCatGroup = $matches
+            ->groupBy(fn($m) => $m->category->name)
+            ->sortKeys();
+
+        foreach ($byCatGroup as $catName => $catMatches) {
+            $groups = $catMatches->groupBy(fn($m) => $m->group->name)->sortKeys();
+
+            foreach ($groups as $groupName => $groupMatches) {
+                // Distinct pairs in this group, in a stable order (by pair id).
+                $pairs = collect();
+                foreach ($groupMatches as $m) {
+                    if ($m->pairA) $pairs->put($m->pairA->id, $m->pairA);
+                    if ($m->pairB) $pairs->put($m->pairB->id, $m->pairB);
+                }
+                $pairs = $pairs->sortKeys()->values();
+                $index = [];
+                foreach ($pairs as $i => $p) $index[$p->id] = $i;
+                $n = $pairs->count();
+                if ($n === 0) continue;
+
+                $grid = array_fill(0, $n, array_fill(0, $n, null));
+                $pills = array_fill(0, $n, []);
+                $horario = array_fill(0, $n, []);
+
+                foreach ($groupMatches as $m) {
+                    if (! $m->pairA || ! $m->pairB) continue;
+                    $ia = $index[$m->pairA->id] ?? null;
+                    $ib = $index[$m->pairB->id] ?? null;
+                    if ($ia === null || $ib === null) continue;
+
+                    $grid[$ia][$ib] = $this->crucesCell($m, true);
+                    $grid[$ib][$ia] = $this->crucesCell($m, false);
+
+                    $pills[$ia][] = ($ia + 1) . '-' . ($ib + 1);
+                    $pills[$ib][] = ($ib + 1) . '-' . ($ia + 1);
+
+                    $slot = $this->crucesSlot($m);
+                    if ($slot) { $horario[$ia][] = $slot; $horario[$ib][] = $slot; }
+                }
+
+                $blocks[] = [
+                    'category' => $catName,
+                    'group'    => $groupName,
+                    'pairs'    => $pairs,
+                    'grid'     => $grid,
+                    'pills'    => $pills,
+                    'horario'  => $horario,
+                ];
+            }
+        }
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('dashboard.schedule.pdf-cruces', [
+            'tournament'  => $tournament,
+            'blocks'      => $blocks,
+            'generatedAt' => now('America/Mexico_City'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-cruces.pdf');
+    }
+
+    /** Cell content: confirmed score (from a pair's perspective), else time, else ''. */
+    private function crucesCell(GameMatch $m, bool $fromA): string
+    {
+        if ($m->state === \App\Enums\MatchState::Confirmed) {
+            [$aSets, $bSets] = $m->setsWon();
+            return $fromA ? "{$aSets}-{$bSets}" : "{$bSets}-{$aSets}";
+        }
+        if ($m->starts_at) {
+            return $m->starts_at->timezone('America/Mexico_City')
+                ->locale('es')->isoFormat('ddd HH:mm');
+        }
+        return '';
+    }
+
+    /** "mié. 18:15 · Cancha 2" for the Horario column, or null if unscheduled. */
+    private function crucesSlot(GameMatch $m): ?string
+    {
+        if (! $m->starts_at) return null;
+        $when = $m->starts_at->timezone('America/Mexico_City')->locale('es')->isoFormat('ddd DD MMM · HH:mm');
+        $court = $m->court?->name;
+        return $court ? "{$when} · {$court}" : $when;
+    }
+
+    /**
+     * Validate scheduled matches against players' preferred-schedule rules.
+     * Returns JSON for the "Validar horarios" bottom sheet: one entry per
+     * rule-bearing player with their matches classified ok / error / pending.
+     */
+    public function scheduleValidation(Tournament $tournament)
+    {
+        $this->authorize('view', $tournament);
+
+        $windows = \App\Models\PlayerAvailability::windowsFor($tournament);
+        if (empty($windows)) {
+            return response()->json(['players' => []]);
+        }
+
+        $duration = (int) ($tournament->match_duration_minutes ?: 75);
+        $tz = 'America/Mexico_City';
+
+        // All matches in the tournament with both pairs + players, for name matching.
+        $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->with([
+                'category:id,name',
+                'court:id,name',
+                'pairA.player1:id,name', 'pairA.player2:id,name',
+                'pairB.player1:id,name', 'pairB.player2:id,name',
+            ])
+            ->get();
+
+        $dayLabel = fn (string $ymd) => \Illuminate\Support\Str::ucfirst(
+            \Carbon\Carbon::parse($ymd, $tz)->locale('es')->isoFormat('ddd DD MMM')
+        );
+
+        // Collect, per normalized player name, the matches they appear in + display name.
+        $players = []; // normName => ['name'=>, 'matches'=>[GameMatch,...]]
+        foreach ($matches as $m) {
+            foreach ([$m->pairA, $m->pairB] as $pair) {
+                if (! $pair) continue;
+                foreach ([$pair->player1, $pair->player2] as $p) {
+                    if (! $p) continue;
+                    $key = \App\Models\Player::normalize($p->name);
+                    if (! isset($windows[$key])) continue; // only rule-bearing players
+                    $players[$key] ??= ['name' => $p->name, 'matches' => []];
+                    $players[$key]['matches'][$m->id] = $m; // dedupe by id
+                }
+            }
+        }
+
+        $out = [];
+        foreach ($players as $key => $info) {
+            $rulesByDay = $windows[$key];
+            $matchRows = [];
+            $okCount = $errCount = $pendingCount = 0;
+
+            foreach ($info['matches'] as $m) {
+                $opponent = $m->sideLabel('a') . ' vs ' . $m->sideLabel('b');
+                $ctx = $m->contextLabel();
+
+                if (! $m->starts_at) {
+                    $pendingCount++;
+                    $matchRows[] = [
+                        'status' => 'pending', 'reason' => 'Sin programar',
+                        'context' => $ctx, 'label' => $opponent,
+                        'when' => null, 'court' => $m->court?->name,
+                    ];
+                    continue;
+                }
+
+                $local = $m->starts_at->timezone($tz);
+                $ymd = $local->format('Y-m-d');
+                $rule = $rulesByDay[$ymd] ?? null;
+                [$status, $reason] = $this->validateAgainstRule($local, $duration, $rule);
+
+                if ($status === 'ok') $okCount++; else $errCount++;
+
+                $matchRows[] = [
+                    'status'  => $status,
+                    'reason'  => $reason,
+                    'context' => $ctx,
+                    'label'   => $opponent,
+                    'when'    => $local->locale('es')->isoFormat('ddd DD MMM · HH:mm'),
+                    'court'   => $m->court?->name,
+                ];
+            }
+
+            // Rules as readable strings for the header.
+            ksort($rulesByDay);
+            $ruleStrings = [];
+            foreach ($rulesByDay as $ymd => $win) {
+                if (is_array($win) && ! empty($win['off'])) { $ruleStrings[] = $dayLabel($ymd) . ': no disponible'; continue; }
+                $from = is_array($win) ? ($win['from'] ?? null) : $win;
+                $until = is_array($win) ? ($win['until'] ?? null) : null;
+                if (! $from) continue;
+                $ruleStrings[] = $until ? $dayLabel($ymd) . " {$from}–{$until}" : $dayLabel($ymd) . " desde {$from}";
+            }
+
+            // Order matches within a player: errors first, then pending, then ok.
+            $rank = ['error' => 0, 'pending' => 1, 'ok' => 2];
+            usort($matchRows, fn($a, $b) => $rank[$a['status']] <=> $rank[$b['status']]);
+
+            $out[] = [
+                'name'    => $info['name'],
+                'rules'   => $ruleStrings,
+                'ok'      => $okCount,
+                'errors'  => $errCount,
+                'pending' => $pendingCount,
+                'matches' => $matchRows,
+            ];
+        }
+
+        // Players with problems first, then pending-only, then all-ok; then name.
+        usort($out, function ($a, $b) {
+            $sev = fn($x) => $x['errors'] > 0 ? 0 : ($x['pending'] > 0 ? 1 : 2);
+            return [$sev($a), strtolower($a['name'])] <=> [$sev($b), strtolower($b['name'])];
+        });
+
+        return response()->json(['players' => $out]);
+    }
+
+    /**
+     * Validate one match's local start against a day's rule.
+     * @return array{0:string,1:string}  [status(ok|error), reason]
+     */
+    private function validateAgainstRule(\Carbon\Carbon $start, int $durationMin, ?array $rule): array
+    {
+        if ($rule === null) return ['ok', 'Sin regla ese día'];
+        if (! empty($rule['off'])) return ['error', 'Jugador no disponible ese día'];
+
+        $end = $start->copy()->addMinutes($durationMin);
+        $day = $start->format('Y-m-d');
+        $tz = 'America/Mexico_City';
+
+        if (! empty($rule['from'])) {
+            $fromDt = \Carbon\Carbon::parse("{$day} {$rule['from']}", $tz);
+            if ($start->lt($fromDt)) return ['error', "Empieza antes de {$rule['from']}"];
+        }
+        if (! empty($rule['until'])) {
+            $untilDt = \Carbon\Carbon::parse("{$day} {$rule['until']}", $tz);
+            if ($end->gt($untilDt)) return ['error', "Termina después de {$rule['until']}"];
+        }
+        return ['ok', 'Dentro del horario'];
     }
 
     public function exportEliminationPdf(
