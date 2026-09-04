@@ -14,32 +14,41 @@
 // - Loops seamlessly by cloning the leading ads onto the end.
 
 export function initAdCarousel() {
-  const tracks = document.querySelectorAll('[data-ad-carousel]');
-  tracks.forEach(setupTrack);
+  document.querySelectorAll('[data-ad-carousel]').forEach((track) =>
+    setupTrack(track, { itemClass: 'pub-ad', cloneClass: 'pub-ad--clone', scrollClass: 'pub-ads__track--carousel' })
+  );
 }
 
-function setupTrack(track) {
-  const ads = Array.from(track.children).filter((c) => c.classList.contains('pub-ad'));
+// Sponsors reuse the exact same logic — just different item/clone classes.
+export function initSponsorCarousel() {
+  document.querySelectorAll('[data-sponsor-carousel]').forEach((track) =>
+    setupTrack(track, { itemClass: 'pub-sponsor', cloneClass: 'pub-sponsor--clone', scrollClass: 'pub-sponsors__track--carousel' })
+  );
+}
+
+function setupTrack(track, opts) {
+  const { itemClass, cloneClass, scrollClass } = opts;
+  const ads = Array.from(track.children).filter((c) => c.classList.contains(itemClass));
   if (ads.length <= 1) return; // nothing to rotate
 
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Always a horizontal, MANUALLY scrollable row — without changing ad sizes.
+  // Always a horizontal, MANUALLY scrollable row — without changing item sizes.
   track.style.display = 'flex';
   track.style.overflowX = 'auto';
   track.style.scrollBehavior = 'smooth';
   track.style.gap = track.style.gap || '12px';
-  track.classList.add('pub-ads__track--carousel'); // for the thin-scrollbar CSS
-  ads.forEach((ad) => { ad.style.flex = '0 0 auto'; });
+  track.classList.add(scrollClass); // for the thin-scrollbar CSS
+  ads.forEach((ad) => { ad.style.flex = ad.style.flex || '0 0 auto'; });
 
   if (reduce) return; // reduced motion: manual scroll only, no autoplay
 
-  // Clone leading ads to the end so the auto-loop is seamless.
+  // Clone leading items to the end so the auto-loop is seamless.
   ads.forEach((ad) => {
     const c = ad.cloneNode(true);
     c.setAttribute('aria-hidden', 'true');
     c.dataset.clone = '1';
-    c.classList.add('pub-ad--clone');
+    c.classList.add(cloneClass);
     track.appendChild(c);
   });
 
@@ -56,7 +65,7 @@ function setupTrack(track) {
   const stop = () => {
     if (stopped) return;
     stopped = true;
-    document.querySelectorAll('.pub-ad--clone').forEach((t) => t.classList.add('d-none'));
+    document.querySelectorAll('.' + cloneClass).forEach((t) => t.classList.add('d-none'));
     if (timer) { clearInterval(timer); timer = null; }
     // Leave the current scroll position as-is; the cloned ads just look like the
     // set repeating, which is fine for manual browsing.

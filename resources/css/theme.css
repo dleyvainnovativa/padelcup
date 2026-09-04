@@ -2460,3 +2460,56 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 .pub-table-wrap::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--lp-indigo, #635bff) 55%, transparent);
 }
+
+/* ==========================================================================
+   Sponsors carousel — auto-slide like ads, 2 logos/slide mobile, 3 desktop.
+   Append to theme.css. Overrides the previous static .pub-sponsors__track.
+   ========================================================================== */
+
+/* The JS sets display:flex + overflow-x:auto on the track and adds
+   .pub-sponsors__track--carousel. We size each item so ~2 fit on mobile and ~3
+   on desktop, and stop the old wrap/centering that fought the carousel. */
+.pub-sponsors__track {
+  display: flex;
+  flex-wrap: nowrap;          /* was wrap+center; carousel needs a single row */
+  gap: 24px;
+  align-items: center;
+  padding: 0 18px;
+}
+
+/* Each sponsor takes ~1/2 the row on mobile (2 visible)… */
+.pub-sponsors__track > .pub-sponsor {
+  flex: 0 0 calc(50% - 24px);
+  justify-content: center;
+}
+
+/* …and ~1/3 on desktop (3 visible). */
+@media (min-width: 768px) {
+  .pub-sponsors__track > .pub-sponsor {
+    flex: 0 0 calc(33.333% - 24px);
+  }
+}
+
+/* Keep logos tidy within their slot. */
+.pub-sponsors__track > .pub-sponsor img {
+  max-height: 60px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* Thin themed scrollbar once the carousel is active (matches ads). */
+.pub-sponsors__track--carousel {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--lp-indigo, #635bff) 35%, transparent) transparent;
+  scroll-behavior: smooth;
+  padding-bottom: 4px;
+}
+.pub-sponsors__track--carousel::-webkit-scrollbar { height: 6px; }
+.pub-sponsors__track--carousel::-webkit-scrollbar-track { background: transparent; }
+.pub-sponsors__track--carousel::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--lp-indigo, #635bff) 30%, transparent);
+  border-radius: 999px;
+}
+.pub-sponsors__track--carousel::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--lp-indigo, #635bff) 55%, transparent);
+}

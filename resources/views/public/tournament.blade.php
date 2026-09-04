@@ -60,8 +60,8 @@
 
     @if($sponsors->isNotEmpty())
     <h2 class="pub-section-title" style="margin-top:32px;">Patrocinadores</h2>
-    <div class="pub-sponsors" data-carousel>
-        <div class="pub-sponsors__track">
+    <div class="pub-sponsors">
+        <div class="pub-sponsors__track" data-sponsor-carousel>
             @foreach($sponsors as $sponsor)
             @php $inner = '<img src="'.$sponsor->imageUrl().'" alt="'.e($sponsor->name).'">'; @endphp
             @if($sponsor->link_url)
