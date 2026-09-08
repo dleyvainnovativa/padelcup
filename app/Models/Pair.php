@@ -12,6 +12,7 @@ class Pair extends Model
 
     protected $fillable = [
         'category_id',
+        'is_singles',
         'player1_id',
         'player2_id',
         'display_name',
@@ -21,7 +22,10 @@ class Pair extends Model
 
     protected function casts(): array
     {
-        return ['schedule_preferences' => 'array'];
+        return [
+            'schedule_preferences' => 'array',
+            'is_singles' => 'boolean',
+        ];
     }
 
     // --- Relationships -------------------------------------------------
@@ -59,9 +63,28 @@ class Pair extends Model
         return (bool) array_intersect($this->playerIds(), $other->playerIds());
     }
 
+    /**
+     * A doubles unit is "complete" once its second player exists. A singles
+     * unit is complete the moment player1 exists — there is no second slot to
+     * wait on, so a lone player2_id === null must NOT read as incomplete.
+     */
     public function isComplete(): bool
     {
+        if ($this->is_singles) {
+            return $this->player1_id !== null;
+        }
+
         return $this->player2_id !== null;
+    }
+
+    /**
+     * Number of players this unit expects — also the number of fees due.
+     * Singles: 1. Doubles: 2. Used by PaymentReconciler to know how many
+     * paid halves confirm the registration.
+     */
+    public function expectedPlayerCount(): int
+    {
+        return $this->is_singles ? 1 : 2;
     }
 
     public function name(): string
@@ -69,7 +92,14 @@ class Pair extends Model
         if (filled($this->display_name)) {
             return $this->display_name;
         }
+
         $p1 = $this->player1?->name ?? '—';
+
+        // Singles: the unit IS one player — no partner slot, no "/ (pendiente)".
+        if ($this->is_singles) {
+            return $p1;
+        }
+
         $p2 = $this->player2?->name ?? '(pendiente)';
         return "{$p1} / {$p2}";
     }

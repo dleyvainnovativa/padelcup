@@ -107,14 +107,15 @@ $belowMin = $occupied < $category->min_pairs;
             <form method="POST" action="{{ route('pairs.store', [$tournament, $category]) }}">
                 @csrf
                 <div class="row g-3">
-                    <div class="col-12 col-md-6">
-                        <div style="font-size:12px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Jugador 1</div>
+                    <div class="col-12 {{ $category->isSingles() ? '' : 'col-md-6' }}">
+                        <div style="font-size:12px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">{{ $category->isSingles() ? 'Jugador' : 'Jugador 1' }}</div>
                         <input type="text" name="player1_name" placeholder="Nombre*" required
                             class="form-control mb-2 @error('player1_name') is-invalid @enderror" style="border-radius:var(--radius);">
                         @error('player1_name')<div class="invalid-feedback d-block mb-2">{{ $message }}</div>@enderror
                         <input type="email" name="player1_email" placeholder="Correo (opcional)" class="form-control mb-2" style="border-radius:var(--radius);">
                         <input type="text" name="player1_phone" placeholder="Teléfono (opcional)" class="form-control" style="border-radius:var(--radius);">
                     </div>
+                    @unless($category->isSingles())
                     <div class="col-12 col-md-6">
                         <div style="font-size:12px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Jugador 2</div>
                         <input type="text" name="player2_name" placeholder="Nombre*" required
@@ -123,6 +124,7 @@ $belowMin = $occupied < $category->min_pairs;
                         <input type="email" name="player2_email" placeholder="Correo (opcional)" class="form-control mb-2" style="border-radius:var(--radius);">
                         <input type="text" name="player2_phone" placeholder="Teléfono (opcional)" class="form-control" style="border-radius:var(--radius);">
                     </div>
+                    @endunless
                 </div>
                 <div class="d-flex align-items-center justify-content-between mt-3">
                     <div class="form-check">
@@ -200,11 +202,12 @@ $belowMin = $occupied < $category->min_pairs;
                                 class="d-flex flex-wrap align-items-end gap-2">
                                 @csrf @method('PATCH')
                                 <div>
-                                    <label style="font-size:11px;color:var(--text-faint);display:block;">Jugador 1</label>
+                                    <label style="font-size:11px;color:var(--text-faint);display:block;">{{ $pair->is_singles ? 'Jugador' : 'Jugador 1' }}</label>
                                     <input type="text" name="player1_name" required
                                         value="{{ $pair->player1?->name }}"
                                         class="form-control form-control-sm" style="border-radius:var(--radius);min-width:180px;">
                                 </div>
+                                @unless($pair->is_singles)
                                 <div>
                                     <label style="font-size:11px;color:var(--text-faint);display:block;">Jugador 2</label>
                                     <input type="text" name="player2_name"
@@ -212,6 +215,7 @@ $belowMin = $occupied < $category->min_pairs;
                                         @disabled(! $pair->player2)
                                     class="form-control form-control-sm" style="border-radius:var(--radius);min-width:180px;">
                                 </div>
+                                @endunless
                                 <button type="submit" class="btn btn-accent btn-sm"><i class="fa-solid fa-check me-1"></i> Guardar</button>
                                 <button type="button" class="btn btn-soft btn-sm" data-cancel-names="{{ $pair->id }}">Cancelar</button>
                                 <span style="font-size:11px;color:var(--text-faint);">

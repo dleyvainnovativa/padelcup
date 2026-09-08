@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CategoryFormat;
 use App\Enums\RegistrationStatus;
+use App\Enums\CategoryPlayFormat;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -17,6 +18,7 @@ class Category extends Model
         'name',
         'slug',
         'format',
+        'play_format',
         'group_format',
         'mexicano_pairing',
         'preferred_group_size',
@@ -64,6 +66,7 @@ class Category extends Model
     {
         return [
             'format' => CategoryFormat::class,
+            'play_format' => CategoryPlayFormat::class,
             'group_format' => \App\Enums\GroupFormat::class,
             'mexicano_pairing' => \App\Enums\MexicanoPairing::class,
             'registration_opens_at' => 'datetime',
@@ -161,5 +164,9 @@ class Category extends Model
         $name = \Illuminate\Support\Str::lower(trim((string) $name));
         $name = \Illuminate\Support\Str::ascii($name);   // strip accents
         return preg_replace('/\s+/', ' ', $name);
+    }
+    public function isSingles(): bool
+    {
+        return $this->play_format === \App\Enums\CategoryPlayFormat::Singles;
     }
 }

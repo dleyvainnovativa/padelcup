@@ -14,21 +14,25 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Registration logic. Phase 2 covers the MANAGER path:
+ * Registration logic. Covers the MANAGER path:
  *   - manager-created pairs are confirmed immediately
  *   - payment is tracked separately (pay-later allowed)
  *   - capacity (max_pairs) is enforced as a hard block
  *
- * The self-registration path (payment-gated, invitations, holds) is layered
- * on in Phase 4 — this service is where that branch will live too.
+ * Singles: in a singles category the "pair" is a single player. The manager
+ * form omits player 2, so player2 arrives empty and the pair is created solo
+ * with is_singles = true. The competition engine treats it like any other
+ * unit (player2_id = null is already tolerated everywhere).
  */
 class RegistrationService
 {
     /**
-     * Create a manager pair in a category from two player definitions.
+     * Create a manager pair in a category from player definitions.
      *
      * Each player def: ['name' => ..., 'email' => ?, 'phone' => ?, 'player_id' => ?]
      * If player_id is given, that existing Player is used; otherwise one is created.
+     *
+     * For a singles category, $player2 is ignored (no second player is created).
      *
      * @throws ValidationException when the category is full.
      */
@@ -41,14 +45,19 @@ class RegistrationService
     ): Pair {
         $this->assertHasCapacity($category);
 
-        return DB::transaction(function () use ($category, $player1, $player2, $manager, $markPaid) {
+        $isSingles = $category->isSingles();
+
+        return DB::transaction(function () use ($category, $player1, $player2, $manager, $markPaid, $isSingles) {
             $p1 = $this->resolvePlayer($player1, $manager);
-            $p2 = $this->resolvePlayer($player2, $manager);
+
+            // Singles: no second player. Doubles: resolve as before.
+            $p2 = $isSingles ? null : $this->resolvePlayer($player2, $manager);
 
             $pair = Pair::create([
                 'category_id' => $category->id,
+                'is_singles' => $isSingles,
                 'player1_id' => $p1->id,
-                'player2_id' => $p2->id,
+                'player2_id' => $p2?->id,
             ]);
 
             Registration::create([

@@ -22,10 +22,14 @@ use Illuminate\Validation\ValidationException;
  * the slot is valid. A pending-payment registration HOLDS a capacity slot with
  * a TTL (released by the ExpireInvitations command on timeout).
  *
- * Three partner flows, all built on one PairInvitation mechanism:
- *   1. payBoth     — registering player pays for both; partner added by name.
- *   2. inviteEmail — pay self, send a quick-register link (token) by email/share.
- *   3. (existing player target) — same link mechanism, pre-targeted.
+ * Partner flows, all built on one PairInvitation mechanism:
+ *   1. pay_both    — registering player pays for both; partner added by name.
+ *   2. invite      — pay self, send a quick-register link (token) by email/share.
+ *
+ * Singles flow (tennis-style categories, play_format = singles):
+ *   3. singles     — one player, one fee, NO partner and NO invitation. The
+ *                    pair is created solo (player2_id = null, is_singles = true)
+ *                    and confirms on that single payment.
  */
 class SelfRegistrationService
 {
@@ -35,10 +39,11 @@ class SelfRegistrationService
     ) {}
 
     /**
-     * Begin a self-registration. Creates the pair (player2 maybe null), the
-     * registration in pending_payment with a hold, and—unless paying for
-     * both—a pending invitation. Returns charge client secrets to collect.
+     * Begin a self-registration. Creates the pair, the registration in
+     * pending_payment with a hold, and—unless singles or paying for both—a
+     * pending invitation. Returns charge client secrets to collect.
      *
+     * @param  string  $flow  'pay_both' | 'invite' | 'singles'
      * @return array{registration: Registration, charges: array<int, array>}
      */
     public function begin(
@@ -46,10 +51,11 @@ class SelfRegistrationService
         User $registrant,
         array $player1,
         ?array $player2,
-        string $flow, // 'pay_both' | 'invite'
+        string $flow,
     ): array {
         $this->assertOpenForRegistration($category);
         $this->assertHasCapacity($category);
+        $this->assertFlowMatchesFormat($category, $flow);
 
         return DB::transaction(function () use ($category, $registrant, $player1, $player2, $flow) {
             // Resolve the registering player from their account (or create).
@@ -60,9 +66,11 @@ class SelfRegistrationService
                 'phone' => $player1['phone'] ?? $p1->phone,
             ]))->save();
 
+            $isSingles = $flow === 'singles';
             $payBoth = $flow === 'pay_both';
 
             // Player 2 exists immediately only when paying for both.
+            // Singles never has a player 2.
             $p2 = null;
             if ($payBoth) {
                 $p2 = Player::create([
@@ -75,6 +83,7 @@ class SelfRegistrationService
 
             $pair = Pair::create([
                 'category_id' => $category->id,
+                'is_singles' => $isSingles,
                 'player1_id' => $p1->id,
                 'player2_id' => $p2?->id,
                 'schedule_preferences' => $player1['schedule_preferences'] ?? null,
@@ -96,7 +105,10 @@ class SelfRegistrationService
             // Build the charges to collect now.
             $charges = [];
 
-            if ($payBoth) {
+            if ($isSingles) {
+                // One player, one fee, no invitation. Confirms on this charge.
+                $charges[] = $this->stripe->createPlayerCharge($registration, $p1, $registrant);
+            } elseif ($payBoth) {
                 // ONE combined Checkout covering both players (two line items).
                 $result = $this->stripe->createPairCharge($registration, $p1, $p2, $registrant);
                 $charges[] = ['checkout_url' => $result['checkout_url']];
@@ -133,6 +145,13 @@ class SelfRegistrationService
 
         return DB::transaction(function () use ($invitation, $partner) {
             $pair = $invitation->pair;
+
+            // Guard: a singles pair must never gain a second player via invite.
+            if ($pair->is_singles) {
+                throw ValidationException::withMessages([
+                    'invitation' => 'Esta inscripción es de singles y no admite pareja.',
+                ]);
+            }
 
             // Create or link the partner player (quick-register: no account).
             $p2 = ! empty($partner['player_id'])
@@ -181,6 +200,26 @@ class SelfRegistrationService
     {
         if ($category->isFull()) {
             throw ValidationException::withMessages(['registration' => 'La categoría está llena.']);
+        }
+    }
+
+    /**
+     * Enforce the flow/format contract so a doubles category can't be entered
+     * as singles (skipping a fee) and a singles category can't be entered with
+     * partner flows (creating an impossible second slot).
+     */
+    public function assertFlowMatchesFormat(Category $category, string $flow): void
+    {
+        if ($category->isSingles() && $flow !== 'singles') {
+            throw ValidationException::withMessages([
+                'flow' => 'Esta categoría es de singles; regístrate como jugador individual.',
+            ]);
+        }
+
+        if (! $category->isSingles() && $flow === 'singles') {
+            throw ValidationException::withMessages([
+                'flow' => 'Esta categoría es de dobles; debes registrar una pareja.',
+            ]);
         }
     }
 }

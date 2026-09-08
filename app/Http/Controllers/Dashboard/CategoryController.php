@@ -68,6 +68,17 @@ class CategoryController extends Controller
                 ->withInput()
                 ->withErrors(['max_pairs' => "Ya hay {$occupied} parejas; el cupo no puede ser menor."]);
         }
+        if (
+            $request->filled('play_format')
+            && $request->input('play_format') !== $category->play_format?->value
+            && $category->pairs()->exists()
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'play_format' => 'No puedes cambiar entre dobles y singles cuando ya hay inscripciones. Crea una categoría nueva.',
+                ]);
+        }
 
         $category->update($request->validated());
 

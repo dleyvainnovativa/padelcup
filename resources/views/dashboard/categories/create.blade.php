@@ -31,6 +31,17 @@
                     </select>
                     @error('format')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label" style="font-size:13px;font-weight:500;">Modalidad</label>
+                    <select name="play_format" class="form-select @error('play_format') is-invalid @enderror" style="border-radius:var(--radius);">
+                        <option value="doubles" @selected(old('play_format','doubles')==='doubles' )>Dobles</option>
+                        <option value="singles" @selected(old('play_format')==='singles' )>Singles</option>
+                    </select>
+                    @error('play_format')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">
+                        Singles = un jugador por inscripción (tenis). Dobles = pareja (pádel).
+                    </div>
+                </div>
                 <div class="col-6 col-md-3">
                     <label class="form-label" style="font-size:13px;font-weight:500;">Grupo preferido</label>
                     <select name="preferred_group_size" class="form-select" style="border-radius:var(--radius);">

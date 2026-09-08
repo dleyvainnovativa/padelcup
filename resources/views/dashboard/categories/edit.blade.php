@@ -30,6 +30,23 @@
                         <option value="hybrid" @selected($category->format->value==='hybrid')>Grupos → eliminación</option>
                     </select>
                 </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label" style="font-size:13px;font-weight:500;">Modalidad</label>
+                    @php $hasPairs = $category->pairs()->exists(); @endphp
+                    <select name="play_format" class="form-select @error('play_format') is-invalid @enderror"
+                        style="border-radius:var(--radius);" @disabled($hasPairs)>
+                        <option value="doubles" @selected(old('play_format', $category->play_format?->value)==='doubles')>Dobles</option>
+                        <option value="singles" @selected(old('play_format', $category->play_format?->value)==='singles')>Singles</option>
+                    </select>
+                    @error('play_format')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    @if($hasPairs)
+                    <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">
+                        No se puede cambiar con inscripciones existentes.
+                    </div>
+                    {{-- Disabled selects don't submit; keep the value so validation passes. --}}
+                    <input type="hidden" name="play_format" value="{{ $category->play_format?->value }}">
+                    @endif
+                </div>
                 <div class="col-6 col-md-3">
                     <label class="form-label" style="font-size:13px;font-weight:500;">Grupo preferido</label>
                     <select name="preferred_group_size" class="form-select" style="border-radius:var(--radius);">

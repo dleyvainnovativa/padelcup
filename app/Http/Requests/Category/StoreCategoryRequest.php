@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Category;
 
 use App\Enums\CategoryFormat;
+use App\Enums\CategoryPlayFormat;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Enum;
 
@@ -18,6 +19,7 @@ class StoreCategoryRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'format' => ['required', new Enum(CategoryFormat::class)],
+            'play_format' => ['required', new Enum(CategoryPlayFormat::class)],
             'group_format' => ['nullable', new Enum(\App\Enums\GroupFormat::class)],
             'mexicano_pairing' => ['nullable', new Enum(\App\Enums\MexicanoPairing::class)],
             'preferred_group_size' => ['required', 'integer', 'in:3,4'],

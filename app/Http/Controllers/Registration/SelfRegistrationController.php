@@ -24,11 +24,19 @@ class SelfRegistrationController extends Controller
     /** Begin self-registration; redirects to the payment page. */
     public function store(Request $request, Category $category)
     {
+        // The allowed flows depend on the category's play format: a singles
+        // category only accepts the 'singles' flow; a doubles category accepts
+        // the two partner flows. The service re-checks this contract too.
+        $allowedFlows = $category->isSingles()
+            ? 'singles'
+            : 'pay_both,invite';
+
         $data = $request->validate([
-            'flow' => ['required', 'in:pay_both,invite'],
+            'flow' => ['required', 'in:' . $allowedFlows],
             'player1_name' => ['required', 'string', 'max:255'],
             'player1_phone' => ['nullable', 'string', 'max:30'],
-            // Pay-both requires partner details; invite requires at most an email.
+            // Pay-both requires partner details; invite requires at most an
+            // email; singles requires no partner fields at all.
             'player2_name' => ['required_if:flow,pay_both', 'nullable', 'string', 'max:255'],
             'player2_email' => ['nullable', 'email', 'max:255'],
             'player2_phone' => ['nullable', 'string', 'max:30'],
@@ -68,7 +76,7 @@ class SelfRegistrationController extends Controller
         $registration->load(['payments', 'category.tournament']);
 
         // The single pending charge (pay-both = one combined session;
-        // invite = the registrant's one charge). Distinct session url.
+        // invite / singles = the registrant's one charge). Distinct session url.
         $next = $registration->payments
             ->where('status', \App\Enums\PaymentStatus::Pending)
             ->sortBy('id')
