@@ -62,7 +62,8 @@ $existingCats = collect($preview)->where('exists', true)->count();
                     <tr>
                         <th>Categoría</th>
                         <th>Estado</th>
-                        <th>Parejas</th>
+                        <th>Modalidad</th>
+                        <th>Inscr.</th>
                         <th>Grupo</th>
                         <th>Formato</th>
                         <th>Avanzan</th>
@@ -92,6 +93,19 @@ $existingCats = collect($preview)->where('exists', true)->count();
                             <x-pill variant="neutral" dot>Existente</x-pill>
                             @else
                             <x-pill variant="accent" dot>Nueva</x-pill>
+                            @endif
+                        </td>
+                        <td>
+                            @if(($row['play_format'] ?? 'doubles') === 'singles')
+                            <x-pill variant="accent">Singles</x-pill>
+                            @else
+                            <x-pill variant="neutral">Dobles</x-pill>
+                            @endif
+                            @if($row['format_mismatch'] ?? false)
+                            <div style="font-size:10px;color:var(--warning-text);margin-top:3px;">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                El archivo indicaba otra modalidad; se usa la de la categoría existente.
+                            </div>
                             @endif
                         </td>
                         <td>{{ $row['pairs'] }}</td>

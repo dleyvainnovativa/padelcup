@@ -258,14 +258,12 @@
 
             e.preventDefault();
 
-            const proceed = window.tcConfirm ?
-                await window.tcConfirm({
-                    title: 'Cambiar horario del torneo',
-                    body: 'Cambiar la duración o la ventana de juego puede sacar algunos partidos del calendario. Los que queden fuera del nuevo horario se moverán a «Sin programar» (los demás se conservan). ¿Continuar?',
-                    confirmText: 'Continuar',
-                    variant: 'accent',
-                }) :
-                window.confirm('Cambiar el horario puede mover algunos partidos a «Sin programar». ¿Continuar?');
+            const proceed = await window.tcConfirm({
+                title: 'Cambiar horario del torneo',
+                body: 'Cambiar la duración o la ventana de juego puede sacar algunos partidos del calendario. Los que queden fuera del nuevo horario se moverán a «Sin programar» (los demás se conservan). ¿Continuar?',
+                confirmText: 'Continuar',
+                variant: 'accent',
+            });
 
             if (proceed) {
                 confirmed = true;

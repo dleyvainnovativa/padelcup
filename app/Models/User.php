@@ -4,7 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Notifications\Notifiable;
+use App\Models\PlayerClaim;
+use App\Models\Player;
 
 class User extends Authenticatable
 {
@@ -78,6 +81,26 @@ class User extends Authenticatable
             ->take(2)
             ->implode('');
     }
-
     // Player profile links (the Player/User split) are added in Phase 1.
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
+    }
+    /** Claims this user has submitted. */
+    public function playerClaims()
+    {
+        return $this->hasMany(PlayerClaim::class);
+    }
+
+    /** Player records linked to this account (populated when a claim is approved). */
+    public function players()
+    {
+        return $this->hasMany(Player::class);
+    }
+
+    /** True once at least one player record is linked (claim approved). */
+    public function hasLinkedPlayers(): bool
+    {
+        return $this->players()->exists();
+    }
 }

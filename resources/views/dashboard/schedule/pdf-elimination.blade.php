@@ -7,20 +7,20 @@
         * { font-family: DejaVu Sans, sans-serif; }
         body { font-size: 11px; color: #1a1a2e; margin: 0; }
 
-        .head { border-bottom: 2px solid #635bff; padding-bottom: 10px; margin-bottom: 16px; }
+        .head { border-bottom: 2px solid #0e3b2e; padding-bottom: 10px; margin-bottom: 16px; }
         .head h1 { font-size: 20px; margin: 0 0 4px; color: #111; }
         .head .sub { font-size: 11px; color: #666; }
 
         .cat { margin-bottom: 20px; page-break-inside: avoid; }
         .cat-title {
-            background: #635bff; color: #fff; padding: 6px 10px;
+            background: #0e3b2e; color: #fff; padding: 6px 10px;
             font-size: 13px; font-weight: bold; border-radius: 4px;
         }
 
         .round { margin-top: 10px; }
         .round-name {
             font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
-            color: #635bff; font-weight: bold; margin: 0 0 4px; padding-left: 2px;
+            color: #0e3b2e; font-weight: bold; margin: 0 0 4px; padding-left: 2px;
         }
 
         table { width: 100%; border-collapse: collapse; }
@@ -39,16 +39,16 @@
         }
         .side-name { font-weight: bold; font-size: 11px; color: #1a1a2e; }        .side-label { color: #666; font-size: 10px; }
         .side-ghost {
-            display: block; color: #635bff; font-weight: bold; font-size: 10px;
+            display: block; color: #0e3b2e; font-weight: bold; font-size: 10px;
             margin-top: 1px;
         }
         .side-win { color: #1a7f37; }
-        .sc { float: right; color: #635bff; font-weight: bold; font-size: 10px; }
+        .sc { float: right; color: #0e3b2e; font-weight: bold; font-size: 10px; }
 
         .pending { color: #999; font-style: italic; font-size: 10px; }
         .foot { margin-top: 8px; font-size: 9px; color: #999; }
         .legend { margin-top: 4px; font-size: 9px; color: #888; }
-        .legend b { color: #635bff; }
+        .legend b { color: #0e3b2e; }
     </style>
 </head>
 
@@ -116,7 +116,7 @@
     @endforelse
 
     <div class="foot">
-        PadelCup · {{ $tournament->name }} · Fase de eliminación
+        Voleo · {{ $tournament->name }} · Fase de eliminación
     </div>
 </body>
 

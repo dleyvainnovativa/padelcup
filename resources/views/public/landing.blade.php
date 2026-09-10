@@ -1,6 +1,6 @@
 @extends('layouts.public')
 
-@section('title', 'PadelCup · Gestión de torneos de pádel')
+@section('title', 'Voleo · Gestión de torneos de pádel')
 
 
 @section('content')
@@ -8,19 +8,20 @@
 
     {{-- ===== HERO ===== --}}
     <section class="lp-hero">
-        <div class="lp-aurora" aria-hidden="true">
-            <span class="lp-aurora__blob lp-aurora__blob--1"></span>
-            <span class="lp-aurora__blob lp-aurora__blob--2"></span>
-            <span class="lp-aurora__blob lp-aurora__blob--3"></span>
+        <div class="lp-balls" aria-hidden="true">
+            <span class="lp-ball lp-ball--1"></span>
+            <span class="lp-ball lp-ball--2"></span>
+            <span class="lp-ball lp-ball--3"></span>
+            <span class="lp-ball lp-ball--4"></span>
         </div>
 
         <div class="lp-hero__inner">
             <div class="lp-hero__copy" data-reveal>
                 <span class="lp-badge"><i class="fa-solid fa-table-tennis-paddle-ball"></i> Plataforma para torneos de pádel</span>
-                <h1 class="lp-hero__title">Organiza torneos de pádel <span class="lp-grad-text">sin el caos</span>.</h1>
+                <h1 class="lp-hero__title">Tu torneo, <span class="lp-grad-text">punto a punto</span>.</h1>
                 <p class="lp-hero__sub">
                     Inscripciones, grupos, llaves, calendario y resultados en vivo — todo en un solo lugar.
-                    Comparte la página pública y deja que tus jugadores sigan cada partido.
+                    Comparte la página pública y convierte tus torneos en una fuente de ingresos.
                 </p>
                 <div class="lp-hero__cta">
                     <a href="{{ route('public.directory') }}" class="lp-btn lp-btn--primary">
@@ -99,6 +100,36 @@
                 <h3>Comparte por WhatsApp</h3>
                 <p>Enlaces y tarjetas de resultados listas para mandar al grupo de cada categoría.</p>
             </div>
+            <div class="lp-feature" data-reveal>
+                <div class="lp-feature__icon"><i class="fa-solid fa-table-tennis-paddle-ball"></i></div>
+                <h3>Dobles y singles</h3>
+                <p>Categorías de pareja o de un solo jugador, en el mismo torneo.</p>
+            </div>
+        </div>
+    </section>
+
+    {{-- ===== THREE AUDIENCES ===== --}}
+    <section class="lp-section">
+        <div class="lp-section__head" data-reveal>
+            <h2>Una sola plataforma, tres beneficiados</h2>
+            <p>Voleo conecta a quienes organizan, a quienes juegan y a quienes patrocinan.</p>
+        </div>
+        <div class="lp-aud">
+            <div class="lp-aud__card lp-aud__card--org" data-reveal>
+                <div class="lp-aud__icon"><i class="fa-solid fa-gear"></i></div>
+                <h3>Organizadores</h3>
+                <p>Crea torneos, arma categorías (dobles o singles), genera grupos y llaves, captura resultados y publica todo en minutos.</p>
+            </div>
+            <div class="lp-aud__card lp-aud__card--ply" data-reveal data-reveal-delay="1">
+                <div class="lp-aud__icon"><i class="fa-solid fa-user"></i></div>
+                <h3>Jugadores</h3>
+                <p>Se inscriben y pagan en línea, encuentran su partido y siguen resultados en tiempo real desde el teléfono.</p>
+            </div>
+            <div class="lp-aud__card lp-aud__card--spo" data-reveal data-reveal-delay="2">
+                <div class="lp-aud__icon"><i class="fa-solid fa-bullhorn"></i></div>
+                <h3>Patrocinadores</h3>
+                <p>Aparecen en páginas públicas con miles de vistas: un espacio de marca que el organizador puede vender.</p>
+            </div>
         </div>
     </section>
 
@@ -129,7 +160,12 @@
     {{-- ===== CTA BAND ===== --}}
     <section class="lp-cta" data-reveal>
         <div class="lp-cta__inner">
-            <h2>¿Listo para tu próximo torneo?</h2>
+            <div class="lp-balls" aria-hidden="true">
+                <span class="lp-ball lp-ball--1"></span>
+                <span class="lp-ball lp-ball--2"></span>
+                <span class="lp-ball lp-ball--3"></span>
+            </div>
+            <h2>¿Listo para tu <span class="lime">próximo torneo</span>?</h2>
             <p>Explora los torneos publicados o entra como organizador y arma el tuyo hoy.</p>
             <div class="lp-hero__cta">
                 <a href="{{ route('public.directory') }}" class="lp-btn lp-btn--primary"><i class="fa-solid fa-trophy"></i> Ver torneos</a>

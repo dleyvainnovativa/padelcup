@@ -1,6 +1,6 @@
 {
-  "name": "PadelCup",
-  "short_name": "PadelCup",
+  "name": "Voleo",
+  "short_name": "Voleo",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
@@ -15,7 +15,7 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#635bff",
-  "background_color": "#635bff",
+  "theme_color": "#0b4940",
+  "background_color": "#0b4940",
   "display": "standalone"
 }

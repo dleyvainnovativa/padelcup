@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * ranking_systems — a named, association-owned ranking with its own points
- * schedule. Multiple systems coexist (AVP, a regional league, PadelCup's own).
+ * schedule. Multiple systems coexist (AVP, a regional league, Voleo's own).
  *
  * Design notes:
  *   - scope is fixed to 'player' for now (points awarded to each player of a

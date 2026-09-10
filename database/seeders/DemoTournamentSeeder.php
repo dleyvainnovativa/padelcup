@@ -23,9 +23,9 @@ class DemoTournamentSeeder extends Seeder
     public function run(): void
     {
         $admin = User::firstOrCreate(
-            ['email' => 'admin@padelcup.mx'],
+            ['email' => 'admin@voleo.mx'],
             [
-                'name' => 'Admin PadelCup',
+                'name' => 'Admin Voleo',
                 'password' => Hash::make('password'),
                 'role' => 'admin',
                 'terms_accepted_at' => now(),
@@ -34,7 +34,7 @@ class DemoTournamentSeeder extends Seeder
         );
 
         $manager = User::firstOrCreate(
-            ['email' => 'manager@padelcup.mx'],
+            ['email' => 'manager@voleo.mx'],
             [
                 'name' => 'Daniel Manager',
                 'password' => Hash::make('password'),

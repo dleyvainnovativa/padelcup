@@ -7,13 +7,13 @@
         * { font-family: DejaVu Sans, sans-serif; }
         body { font-size: 10px; color: #1a1a2e; margin: 0; }
 
-        .head { border-bottom: 2px solid #635bff; padding-bottom: 8px; margin-bottom: 14px; }
+        .head { border-bottom: 2px solid #0e3b2e; padding-bottom: 8px; margin-bottom: 14px; }
         .head h1 { font-size: 18px; margin: 0 0 3px; color: #111; }
         .head .sub { font-size: 10px; color: #666; }
 
         .block { margin-bottom: 16px; page-break-inside: avoid; }
         .block-title {
-            background: #635bff; color: #fff; font-size: 11px; font-weight: bold;
+            background: #0e3b2e; color: #fff; font-size: 11px; font-weight: bold;
             padding: 5px 9px; border-radius: 5px 5px 0 0;
         }
         .block-title .cat { opacity: .85; font-weight: normal; }
@@ -32,12 +32,12 @@
         .col-horario { width: 150px; }
 
         td.pair-name { font-weight: bold; font-size: 9px; color: #222; }
-        td.cell { text-align: center; font-size: 9px; color: #635bff; }
+        td.cell { text-align: center; font-size: 9px; color: #0e3b2e; }
         td.cell.score { color: #111; font-weight: bold; }
         td.diag { background-image: repeating-linear-gradient(45deg, #f0f0f4, #f0f0f4 3px, #fff 3px, #fff 6px); }
 
         .pill {
-            display: inline-block; background: #eef0ff; color: #4b45cc;
+            display: inline-block; background: #e3efe9; color: #0e3b2e;
             border-radius: 8px; padding: 1px 6px; font-size: 8px; font-weight: bold;
             margin: 1px;
         }
@@ -100,7 +100,7 @@
         <div class="empty">No hay partidos de fase de grupos para mostrar.</div>
     @endforelse
 
-    <div class="foot">PadelCup · {{ $tournament->name }}</div>
+    <div class="foot">Voleo · {{ $tournament->name }}</div>
 </body>
 
 </html>

@@ -7,7 +7,7 @@ use App\Models\RankingSystem;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeds a default "PadelCup" ranking system with placeholder points, ready to
+ * Seeds a default "Voleo" ranking system with placeholder points, ready to
  * clone/edit per association once the AVP provides real numbers.
  *
  * created_by is left null here (system-level default). If you prefer it owned by
@@ -25,9 +25,9 @@ class RankingSystemSeeder extends Seeder
     public function run(): void
     {
         RankingSystem::updateOrCreate(
-            ['name' => 'PadelCup (predeterminado)'],
+            ['name' => 'Voleo (predeterminado)'],
             [
-                'owner_label' => 'PadelCup',
+                'owner_label' => 'Voleo',
                 'scope'       => 'player',
                 'stacking'    => 'cumulative',
                 'points'      => RankingAchievement::defaultSchedule(),

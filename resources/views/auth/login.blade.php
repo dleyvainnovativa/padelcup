@@ -21,9 +21,7 @@
     <a href="{{ route('oauth.redirect', 'google') }}" class="btn btn-soft d-flex align-items-center justify-content-center gap-2">
         <i class="fa-brands fa-google"></i> Continuar con Google
     </a>
-    <a href="{{ route('oauth.redirect', 'apple') }}" class="btn btn-soft d-flex align-items-center justify-content-center gap-2">
-        <i class="fa-brands fa-apple"></i> Continuar con Apple
-    </a>
+
 </div>
 
 <div class="d-flex align-items-center gap-2 my-3" style="color:var(--text-faint);font-size:12px;">

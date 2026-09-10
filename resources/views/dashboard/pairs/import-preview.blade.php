@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@php $slots = ($isSingles ?? false) ? ['player1'] : ['player1', 'player2']; @endphp
 
 @section('title', 'Previsualizar parejas')
 
@@ -119,15 +120,19 @@ $currentFormat = $currentFormat ?? 'mex';
                 <thead>
                     <tr>
                         <th>#</th>
+                        @if(($isSingles ?? false))
+                        <th>Jugador</th>
+                        @else
                         <th>Jugador 1</th>
                         <th>Jugador 2</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($rows as $i => $row)
                     <tr>
                         <td style="color:var(--text-faint);">{{ $i + 1 }}</td>
-                        @foreach(['player1', 'player2'] as $slot)
+                        @foreach($slots as $slot)
                         <td>
                             <div style="font-weight:500;">{{ $row[$slot]['name'] }}</div>
                             <div style="font-size:11px;color:var(--text-faint);">

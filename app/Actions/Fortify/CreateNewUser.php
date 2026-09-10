@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use App\Notifications\WelcomeNotification;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 class CreateNewUser implements CreatesNewUsers
@@ -29,7 +30,7 @@ class CreateNewUser implements CreatesNewUsers
             'terms.accepted' => 'Debes aceptar los términos y el aviso de privacidad.',
         ])->validate();
 
-        return User::create([
+        $user = User::create([
             'name' => $input['name'],
             'email' => $input['email'],
             'password' => Hash::make($input['password']),
@@ -37,5 +38,9 @@ class CreateNewUser implements CreatesNewUsers
             'terms_accepted_at' => now(),
             'terms_version' => config('app.terms_version', '1.0'),
         ]);
+
+        $user->notify(new WelcomeNotification(viaSocial: false));
+
+        return $user;
     }
 }

@@ -40,10 +40,13 @@ class TournamentImportController extends Controller
             return back()->withErrors(['file' => implode(' ', $parsed['errors'])])->withInput();
         }
 
-        $preview = $this->import->preview($tournament, $parsed['groups']);
+        $preview = $this->import->preview($tournament, $parsed['groups'], $parsed['formats']);
 
-        // Stash the parsed groups so commit doesn't need to re-upload.
-        session(['import_groups_' . $tournament->id => $parsed['groups']]);
+        // Stash the parsed groups + formats so commit doesn't need a re-upload.
+        session([
+            'import_groups_' . $tournament->id => $parsed['groups'],
+            'import_formats_' . $tournament->id => $parsed['formats'],
+        ]);
 
         return view('dashboard.tournaments.import-preview', [
             'tournament' => $tournament,
@@ -63,13 +66,15 @@ class TournamentImportController extends Controller
             return redirect()->route('tournaments.import.form', $tournament)
                 ->withErrors(['file' => 'La sesión de importación expiró. Vuelve a subir el archivo.']);
         }
+        $formats = session('import_formats_' . $tournament->id, []);
 
         // Per-category settings from the editable preview table (keyed by name).
         $settings = $request->input('settings', []);
         $autoGenerate = $request->boolean('auto_generate', true);
 
-        $result = $this->import->commit($tournament, $groups, $request->user(), $settings, $autoGenerate);
+        $result = $this->import->commit($tournament, $groups, $request->user(), $settings, $autoGenerate, $formats);
         session()->forget('import_groups_' . $tournament->id);
+        session()->forget('import_formats_' . $tournament->id);
 
         $msg = "Importación completa: {$result['imported']} parejas";
         if ($result['categories_created'] > 0) $msg .= ", {$result['categories_created']} categorías creadas";

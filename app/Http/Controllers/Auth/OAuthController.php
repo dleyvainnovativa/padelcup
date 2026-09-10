@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use App\Notifications\WelcomeNotification;
 use Laravel\Socialite\Facades\Socialite;
 
 class OAuthController extends Controller
@@ -70,10 +71,16 @@ class OAuthController extends Controller
                 'terms_accepted_at' => now(),
                 'terms_version' => config('app.terms_version', '1.0'),
             ]);
+
+            // Welcome only brand-new social accounts (not existing-account links).
+            if ($user->email) {
+                $user->notify(new WelcomeNotification(viaSocial: true));
+            }
         }
 
         Auth::login($user, remember: true);
 
-        return redirect()->intended(route('dashboard'));
+        $target = $user->isPlayer() ? route('player.dashboard') : route('dashboard');
+        return redirect()->intended($target);
     }
 }

@@ -15,7 +15,7 @@
         }
 
         .head {
-            border-bottom: 2px solid #635bff;
+            border-bottom: 2px solid #0e3b2e;
             padding-bottom: 10px;
             margin-bottom: 16px;
         }
@@ -36,7 +36,7 @@
         }
 
         .cat-title {
-            background: #635bff;
+            background: #0e3b2e;
             color: #fff;
             padding: 6px 10px;
             font-size: 13px;
@@ -73,7 +73,7 @@
         }
 
         .court {
-            color: #635bff;
+            color: #0e3b2e;
             font-weight: bold;
             white-space: nowrap;
         }
@@ -91,7 +91,7 @@
 
         .ghost {
             display: block;
-            color: #635bff;
+            color: #0e3b2e;
             font-weight: bold;
             font-size: 10px;
         }
@@ -185,7 +185,7 @@
     @endforelse
 
     <div class="foot">
-        Generado el {{ $generatedAt->translatedFormat('d M Y · H:i') }} · PadelCup
+        Generado el {{ $generatedAt->translatedFormat('d M Y · H:i') }} · Voleo
     </div>
 </body>
 

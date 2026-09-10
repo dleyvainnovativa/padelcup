@@ -3,7 +3,7 @@
 <div class="lp-mock">
     <div class="lp-mock__bar">
         <span class="lp-mock__dot"></span><span class="lp-mock__dot"></span><span class="lp-mock__dot"></span>
-        <span class="lp-mock__url">padelcup.mx/t/copa-verano</span>
+        <span class="lp-mock__url">voleo.mx/t/copa-verano</span>
     </div>
     <div class="lp-mock__body">
         <div class="lp-mock__head">

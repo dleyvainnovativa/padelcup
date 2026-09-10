@@ -9,12 +9,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Panel') · PadelCup</title>
+    <title>@yield('title', 'Panel') · Voleo</title>
     <link rel="icon" type="image/png" href="{{asset('img/icons/favicon-96x96.png')}}" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="{{asset('img/icons/favicon.svg')}}" />
     <link rel="shortcut icon" href="{{asset('img/icons/favicon.ico')}}" />
     <link rel="apple-touch-icon" sizes="180x180" href="{{asset('img/icons/apple-touch-icon.png')}}" />
-    <meta name="apple-mobile-web-app-title" content="PadelCup" />
+    <meta name="apple-mobile-web-app-title" content="Voleo" />
     <link rel="manifest" href="{{asset('img/icons/site.webmanifest')}}" />
 
     {{-- Font Awesome (CDN for now; can be self-hosted later) --}}

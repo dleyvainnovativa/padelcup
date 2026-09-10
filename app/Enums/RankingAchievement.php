@@ -59,7 +59,7 @@ enum RankingAchievement: string
         };
     }
 
-    /** Default placeholder points for the seeded "PadelCup" system. */
+    /** Default placeholder points for the seeded "Voleo" system. */
     public function defaultPoints(): int
     {
         return match ($this) {

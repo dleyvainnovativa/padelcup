@@ -16,6 +16,10 @@ use App\Http\Controllers\PublicRankingController;
 use App\Http\Controllers\PublicRankingPlayerController;
 use App\Http\Controllers\RankingSystemController;
 use App\Http\Controllers\PublicCircuitController;
+use App\Http\Controllers\Player\PlayerClaimController;
+use App\Http\Controllers\Admin\PlayerClaimController as AdminPlayerClaimController;
+use App\Http\Controllers\Player\PlayerDashboardController;
+use App\Http\Controllers\Player\PlayerStatsController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,6 +27,15 @@ use Illuminate\Support\Facades\Route;
 | Web Routes
 |--------------------------------------------------------------------------
 */
+
+Route::get('email', function () {
+    return view('emails.welcome', [
+        'name' => 'Juan Pérez',
+        'viaSocial' => false,
+        'dashboardUrl' => route('dashboard'),
+        'directoryUrl' => route('public.directory'),
+    ]);
+})->name('landing');
 
 // --- Social login (Socialite) ---
 Route::get('/auth/{provider}/redirect', [OAuthController::class, 'redirect'])->name('oauth.redirect');
@@ -107,9 +120,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('calendario/pdf', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportPdf'])->name('schedule.pdf');
         Route::get('calendario/pdf-eliminacion', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportEliminationPdf'])->name('schedule.exportEliminationPdf');
         Route::get('calendario/pdf-cruces', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportCrucesPdf'])
-    ->name('schedule.exportCrucesPdf');
-    Route::get('calendario/validar-horarios', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'scheduleValidation'])
-    ->name('schedule.validation');
+            ->name('schedule.exportCrucesPdf');
+        Route::get('calendario/validar-horarios', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'scheduleValidation'])
+            ->name('schedule.validation');
         Route::post('calendario/fases', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'savePhaseWindows'])->name('schedule.phases');
         Route::post('calendario/switch-court', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'switchCourt'])->name('schedule.switchCourt');
 
@@ -185,7 +198,6 @@ Route::middleware(['auth'])->group(function () {
 
     // Sidebar stubs still pending real controllers (Phase 5-8)
     Route::view('/brackets', 'dashboard.index')->name('brackets.index');
-    Route::view('/settings', 'dashboard.index')->name('settings.index');
 
     // Aliases used by the sidebar links
     Route::get('/categories', fn() => redirect()->route('tournaments.index'))->name('categories.index');
@@ -209,6 +221,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/patrocinadores', [\App\Http\Controllers\Admin\SponsorController::class, 'store'])->name('sponsors.store');
     Route::post('/patrocinadores/{sponsor}', [\App\Http\Controllers\Admin\SponsorController::class, 'update'])->name('sponsors.update');
     Route::delete('/patrocinadores/{sponsor}', [\App\Http\Controllers\Admin\SponsorController::class, 'destroy'])->name('sponsors.destroy');
+
+    Route::get('/reclamos', [AdminPlayerClaimController::class, 'index'])->name('claims.index');
+    Route::post('/reclamos/{claim}/aprobar', [AdminPlayerClaimController::class, 'approve'])->name('claims.approve');
+    Route::post('/reclamos/{claim}/rechazar', [AdminPlayerClaimController::class, 'reject'])->name('claims.reject');
 });
 
 // Route::get('/', fn() => redirect()->route('dashboard'));
@@ -261,5 +277,12 @@ Route::get('circuitos', [PublicCircuitController::class, 'index'])
 Route::get('circuitos/{rankingSystem}', [PublicCircuitController::class, 'show'])
     ->name('public.circuits.show');
 
+Route::middleware(['auth', 'role:player'])->prefix('mi-perfil')->name('player.')->group(function () {
+    Route::get('/', [PlayerDashboardController::class, 'index'])->name('dashboard');
+    Route::get('estadisticas', [PlayerStatsController::class, 'index'])->name('stats');   // ADD
+    Route::get('reclamar', [PlayerClaimController::class, 'create'])->name('claim.create');
+    Route::post('reclamar', [PlayerClaimController::class, 'store'])->name('claim.store');
+    Route::get('reclamos', [PlayerClaimController::class, 'index'])->name('claims');
+});
 // Webhooks (CSRF-exempt; see routes/webhooks.php for bootstrap notes)
 require __DIR__ . '/webhooks.php';

@@ -1,5 +1,5 @@
 /* ============================================================
-   PadelCup — theme.css
+   Voleo — theme.css
    The single custom stylesheet. Bootstrap handles grid/spacing/
    utilities; this file owns design tokens, light/dark theming,
    branding, animations, and the few reusable components Bootstrap
@@ -43,76 +43,100 @@
   --t-fast: .15s ease;
   --t-base: .25s ease;
 
-  /* ---- Neutrals (LIGHT) ---- */
-  --bg:            #fbfbfd;
-  --bg-subtle:     #f3f4f7;
+  /* ---- Voleo brand palette (raw hues; use the semantic tokens below) ---- */
+  --brand-lime:        #d9f27a;   /* hero accent / motifs / logo ball — NOT buttons on light */
+  --brand-lime-deep:   #c2e34d;
+  --brand-lavender:    #c9a9f5;   /* soft secondary surface / info */
+  --brand-lavender-soft:#efe6fb;
+  --brand-forest:      #0e3b2e;   /* primary action color (light) */
+  --brand-navy:        #1a1145;   /* ink on lime, deep accents */
+  --brand-cream:       #f1dbaf;   /* warm neutral accent (sparingly) */
+
+  /* ---- Neutrals (LIGHT) — warmed slightly toward the forest/green family ---- */
+  --bg:            #fbfcfa;
+  --bg-subtle:     #f1f4ee;
   --surface:       #ffffff;
-  --surface-2:     #fafbfc;
-  --border:        #e7e9ef;
-  --border-strong: #d4d8e0;
-  --text:          #16181d;
-  --text-muted:    #646a78;
-  --text-faint:    #9aa0ad;
-  --lp-indigo:      #646a78ce;  /* legacy indigo-thumb color for scrollbars */
+  --surface-2:     #fafcf8;
+  --border:        #e4e9e0;
+  --border-strong: #d0d8ca;
+  --text:          #13211c;
+  --text-muted:    #5c6b62;
+  --text-faint:    #97a399;
+  --lp-indigo:      #5c6b62ce;  /* scrollbar thumb (name kept for compatibility) */
   
 
-  /* ---- Brand accent (the only brand color) ---- */
-  --accent:        #635bff;
-  --accent-hover:  #524bdb;
-  --accent-soft:   #eeedff;
-  --accent-text:   #4b44c7;
+  /* ---- Brand accent = forest green ---- */
+  --accent:        #0e3b2e;
+  --accent-hover:  #0a2c22;
+  --accent-soft:   #e3efe9;
+  --accent-text:   #0e3b2e;
+  --on-accent:     #ffffff;   /* text/icon color on an accent fill (flips in dark) */
 
-  /* ---- Status colors (pills/alerts ONLY) ---- */
+  /* ---- Status colors (pills/alerts ONLY) — unchanged, already accessible ---- */
   --success:       #15803d;  --success-soft: #dcf5e4;  --success-text: #136b35;
   --warning:       #b45309;  --warning-soft: #fbeccd;  --warning-text: #8f4208;
   --danger:        #be123c;  --danger-soft:  #fce0e7;  --danger-text:  #a30f33;
 
-  /* ---- Muted category tints (auto-assigned, identity not status) ---- */
-  --cat-1: #6b7fae;  --cat-1-soft: #eaedf4;   /* slate blue   */
-  --cat-2: #7a9a82;  --cat-2-soft: #ebf1ec;   /* sage green   */
-  --cat-3: #ad7d8e;  --cat-3-soft: #f4ecef;   /* dusty rose   */
-  --cat-4: #9a8a6b;  --cat-4-soft: #f1eee7;   /* warm taupe   */
-  --cat-5: #7d8a9a;  --cat-5-soft: #eceff3;   /* cool gray    */
-  --cat-6: #8a7da8;  --cat-6-soft: #efecf4;   /* muted violet */
+  /* ---- Category tints regenerated from the Voleo family ---- */
+  --cat-1: #0e3b2e;  --cat-1-soft: #e3efe9;   /* forest      */
+  --cat-2: #7d9a3c;  --cat-2-soft: #eef4dc;   /* lime-olive  */
+  --cat-3: #8a6fc0;  --cat-3-soft: #efe6fb;   /* lavender    */
+  --cat-4: #b08a4a;  --cat-4-soft: #f6ecd7;   /* cream-gold  */
+  --cat-5: #3f7d6a;  --cat-5-soft: #e0efe9;   /* teal-forest */
+  --cat-6: #a65b7a;  --cat-6-soft: #f7e6ee;   /* rose        */
 
   /* Focus ring */
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+
+  --voleo-logo: var(--accent);
+  --voleo-dot: var(--brand-lime-deep);
 }
 
 [data-theme="dark"] {
-  --bg:            #0b0c0f;
-  --bg-subtle:     #14161b;
-  --surface:       #15171c;
-  --surface-2:     #1b1e25;
-  --border:        #262932;
-  --border-strong: #343845;
-  --text:          #f3f4f7;
-  --text-muted:    #a0a6b4;
-  --text-faint:    #6b7180;
-  --lp-indigo:      #a0a6b4dc;  /* legacy indigo-thumb color for scrollbars */
+  /* ---- Neutrals (DARK) — provisional forest-tinted dark; swap when the
+         real dark palette lands from marketing. ---- */
+
+  --bg:            #0b0d0c;
+  --bg-subtle:     #10120f;
+  --surface:       #121615;
+  --surface-2:     #181d1b;
+  --border:        #252b28;
+  --border-strong: #333c37;
+  --text:          #eaf3ee;
+  --text-muted:    #9db3a7;
+  --text-faint:    #6a8175;
+  --lp-indigo:      #9db3a7dc;  /* scrollbar thumb */
 
 
-  --accent:        #7d76ff;
-  --accent-hover:  #948eff;
-  --accent-soft:   #211e3b;
-  --accent-text:   #aaa4ff;
+  /* ---- On dark, the accent flips to LIME (forest disappears on dark; lime
+         sings and carries dark text). --on-accent flips to near-black. ---- */
+  --accent:        #d9f27a;
+  --accent-hover:  #e4f79a;
+  --accent-soft:   #1c2e14;
+  --accent-text:   #d9f27a;
+  --on-accent:     #0a1512;
+  --brand-lime: #d9f27a; --brand-lime-deep: #c2e34d;
+  --brand-lavender: #c9a9f5; --brand-lavender-soft: #2a2136;
+  --brand-forest: #0e3b2e; --brand-navy: #1a1145; --brand-cream: #f1dbaf;
 
   --success: #4ade80; --success-soft: #11301e; --success-text: #86efac;
   --warning: #fbbf24; --warning-soft: #2f2207; --warning-text: #fcd34d;
   --danger:  #fb7185; --danger-soft:  #371019; --danger-text:  #fda4af;
 
-  --cat-1: #8a9bc4; --cat-1-soft: #1b2233;
-  --cat-2: #93b09b; --cat-2-soft: #18241b;
-  --cat-3: #c498a8; --cat-3-soft: #2c1f24;
-  --cat-4: #b8a684; --cat-4-soft: #29241a;
-  --cat-5: #9aa6b6; --cat-5-soft: #1e242c;
-  --cat-6: #a596c2; --cat-6-soft: #241f2e;
+  --cat-1: #86c9a8; --cat-1-soft: #12241c;
+  --cat-2: #b9d16a; --cat-2-soft: #1e2a12;
+  --cat-3: #b79ce0; --cat-3-soft: #221a30;
+  --cat-4: #d0af6c; --cat-4-soft: #2a2115;
+  --cat-5: #6fbfa4; --cat-5-soft: #12261f;
+  --cat-6: #d391ac; --cat-6-soft: #2c1a22;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
   --shadow-md: 0 4px 14px rgb(0 0 0 / 0.45);
   --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.55);
 
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  --voleo-logo: var(--text);
+  --voleo-dot: #eaf89a;
 }
 
 /* ---------------------------------------------------------------
@@ -167,7 +191,7 @@ a:hover { color: var(--accent-hover); }
 .sidebar-brand .logo {
   width: 30px; height: 30px; border-radius: var(--radius);
   background: var(--accent); display: grid; place-items: center;
-  color: #fff; font-size: 14px; flex: none;
+  color: var(--on-accent); font-size: 14px; flex: none;
 }
 
 .nav-label {
@@ -217,7 +241,7 @@ a:hover { color: var(--accent-hover); }
 
 .avatar {
   width: 36px; height: 36px; border-radius: 50%;
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--on-accent);
   display: grid; place-items: center; font-weight: 600; font-size: 13px; flex: none;
 }
 
@@ -250,10 +274,10 @@ a:hover { color: var(--accent-hover); }
 
 /* Buttons (layer on Bootstrap; or use standalone) */
 .btn-accent {
-  background: var(--accent); color: #fff; border: 1px solid var(--accent);
+  background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent);
   box-shadow: var(--shadow-sm);
 }
-.btn-accent:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+.btn-accent:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--on-accent); }
 .btn-soft {
   background: var(--surface); color: var(--text);
   border: 1px solid var(--border-strong);
@@ -424,7 +448,7 @@ a:hover { color: var(--accent-hover); }
   transition: background .12s, color .12s, border-color .12s;
 }
 .sched-day:hover { color: var(--text); }
-.sched-day.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sched-day.is-active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 .sched-chip {
   background: var(--surface); border: 1px solid var(--border-strong);
@@ -559,7 +583,7 @@ a:hover { color: var(--accent-hover); }
 .sched-ctrl-err { color: var(--danger-text); font-size: 12px; margin: 6px 0; white-space: pre-line; }
 .sched-ctrl-save {
   width: 100%; margin-top: 8px; border: 0; border-radius: var(--radius);
-  background: var(--accent); color: #fff; font-weight: 600; padding: 10px; cursor: pointer;
+  background: var(--accent); color: var(--on-accent); font-weight: 600; padding: 10px; cursor: pointer;
 }
 .sched-ctrl-save:disabled { opacity: .6; }
 .sched-ctrl-note { font-size: 12px; color: var(--text-faint); }
@@ -669,9 +693,9 @@ a:hover { color: var(--accent-hover); }
 }
 .tc-tab:hover { color: var(--text); }
 .tc-tab.is-active {
-  background: var(--accent); color: #fff; box-shadow: var(--shadow-sm);
+  background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-sm);
 }
-.tc-tab.is-active:hover { color: #fff; }
+.tc-tab.is-active:hover { color: var(--on-accent); }
 
 /* ---------------------------------------------------------------
    Group builder (drag on desktop, tap-to-move on mobile)
@@ -767,7 +791,7 @@ input:-webkit-autofill:focus {
 .public-brand .logo {
   width: 30px; height: 30px; border-radius: var(--radius);
   background: var(--accent); display: grid; place-items: center;
-  color: #fff; font-size: 14px; flex: none;
+  color: var(--on-accent); font-size: 14px; flex: none;
 }
 .public-main {
   flex: 1;
@@ -828,7 +852,7 @@ input:-webkit-autofill:focus {
 .pub-player-head { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
 .pub-player-avatar {
   width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
-  background: var(--accent); color: #fff; display: flex; align-items: center;
+  background: var(--accent); color: var(--on-accent); display: flex; align-items: center;
   justify-content: center; font-size: 24px; font-weight: 700; text-transform: uppercase;
 }
 .pub-chip {
@@ -836,7 +860,7 @@ input:-webkit-autofill:focus {
   background: var(--bg-subtle); border-radius: 999px; font-size: 12px; color: var(--text-muted);
   text-decoration: none;
 }
-.pub-chip--link:hover { background: var(--accent); color: #fff; }
+.pub-chip--link:hover { background: var(--accent); color: var(--on-accent); }
 .pub-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
 .pub-stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; text-align: center; }
 .pub-stat__n { font-size: 24px; font-weight: 700; }
@@ -865,7 +889,7 @@ input:-webkit-autofill:focus {
 }
 
 .pub-btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 14px; font-weight: 500; text-decoration: none; cursor: pointer; }
-.pub-btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pub-btn--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .pub-btn:hover { border-color: var(--accent); }
 .pub-btn--icon { padding: 9px 14px; }
 .pub-title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -884,7 +908,7 @@ input:-webkit-autofill:focus {
 
 .pub-tabs, .pub-subtabs { display: flex; gap: 4px; background: var(--bg-subtle); padding: 4px; border-radius: var(--radius); margin-bottom: 16px; width: fit-content; }
 .pub-tab, .pub-subtab { border: 0; background: transparent; padding: 7px 16px; border-radius: 7px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; }
-.pub-tab.is-active, .pub-subtab.is-active { background: var(--accent); color: #fff; }
+.pub-tab.is-active, .pub-subtab.is-active { background: var(--accent); color: var(--on-accent); }
 .pub-subtabs { margin-bottom: 12px; }
 
 .pub-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; }
@@ -942,7 +966,7 @@ input:-webkit-autofill:focus {
 .pub-day-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .pub-day-chip { padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--text-muted); text-decoration: none; text-transform: capitalize; }
 .pub-day-chip:hover { border-color: var(--accent); }
-.pub-day-chip.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pub-day-chip.is-active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 .pub-day { margin-bottom: 20px; }
 .pub-day__title { font-size: 14px; font-weight: 700; text-transform: capitalize; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--border); }
@@ -993,7 +1017,7 @@ input:-webkit-autofill:focus {
 [data-bracket-board].is-swapping [data-swap-slot] { cursor: pointer; border-radius: 6px; outline: 1px dashed var(--border-strong); outline-offset: 1px; }
 [data-bracket-board].is-swapping [data-swap-slot]:hover { background: var(--bg-subtle); outline-color: var(--accent); }
 [data-bracket-board].is-swapping [data-swap-slot].is-selected { background: color-mix(in srgb, var(--accent) 18%, transparent); outline: 2px solid var(--accent); }
-[data-swap-toggle].is-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+[data-swap-toggle].is-active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 
 /* Manager dashboard widgets */
 .dash-alert {
@@ -1051,7 +1075,7 @@ input:-webkit-autofill:focus {
 .mc-cheatsheet { margin-bottom: 16px; }
 .mc-cheatsheet__list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
 .mc-player { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; }
-.mc-player__count { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.mc-player__count { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 .mc-player__name { font-weight: 600; }
 .mc-player__cats { color: var(--text-muted); font-size: 12px; }
 
@@ -1066,12 +1090,12 @@ input:-webkit-autofill:focus {
 [data-sched-board].is-highlighting [data-match-cat]:not(.is-dimmed) { transition: opacity .12s; }
 
 /* Reuse the 6 category tints for the chip dots (matches Category::tintClass). */
-.cat-chips .cat-tint-1 { background: #635bff; }
-.cat-chips .cat-tint-2 { background: #30a46c; }
-.cat-chips .cat-tint-3 { background: #e5484d; }
-.cat-chips .cat-tint-4 { background: #f5a623; }
-.cat-chips .cat-tint-5 { background: #8e4ec6; }
-.cat-chips .cat-tint-6 { background: #0091ff; }
+.cat-chips .cat-tint-1 { background: var(--cat-1); }
+.cat-chips .cat-tint-2 { background: var(--cat-2); }
+.cat-chips .cat-tint-3 { background: var(--cat-3); }
+.cat-chips .cat-tint-4 { background: var(--cat-4); }
+.cat-chips .cat-tint-5 { background: var(--cat-5); }
+.cat-chips .cat-tint-6 { background: var(--cat-6); }
 
 /* Player search-highlight bar (sits with the category chips) */
 .sched-highlight-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -1317,7 +1341,7 @@ input:-webkit-autofill:focus {
   border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--surface); color: var(--text); cursor: pointer;
 }
-.sched-select-toggle.is-on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.sched-select-toggle.is-on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 
 /* While selecting, matches show a grab-me affordance and can't be dragged. */
 .is-selecting .sched-match { cursor: pointer; }
@@ -1581,7 +1605,7 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 }
 .pub-cat-tab:hover { border-color: var(--text-muted, #635bff); color: var(--text-muted, #635bff); }
 .pub-cat-tab.is-active {
-    background: var(--text-muted, #635bff); border-color: var(--text-muted, #635bff); color: #fff;
+    background: var(--text-muted, #635bff); border-color: var(--text-muted, #635bff); color: var(--on-accent);
 }
 
 .sched-grid-wrap {
@@ -2194,7 +2218,7 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 }
 
 /* ==========================================================================
-   PadelCup paginator. Append to theme.css.
+   Voleo paginator. Append to theme.css.
    ========================================================================== */
 
 .pc-pager {
@@ -2218,7 +2242,7 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
   color: var(--accent);
 }
 .pc-pager__item--active .pc-pager__link {
-  background: var(--accent); border-color: var(--accent); color: #fff;
+  background: var(--accent); border-color: var(--accent); color: var(--on-accent);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .pc-pager__item--disabled .pc-pager__link {
@@ -2512,4 +2536,254 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 }
 .pub-sponsors__track--carousel::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--lp-indigo, #635bff) 55%, transparent);
+}
+
+/* ============================================================
+   Voleo — public tournament HERO (Step 2)
+   Append to theme.css. Scoped to .pub-hero so brand color + ball
+   motifs appear ONLY on the tournament landing hero, never in
+   working views (schedule, standings, brackets).
+   ============================================================ */
+.pub-hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--brand-lime);
+  border-radius: var(--radius-lg);
+  padding: 30px 26px 34px;
+  margin-bottom: 22px;
+}
+/* Dark mode: lime as a full-bleed background is too hot; use an elevated
+   surface with a lime hairline instead. */
+[data-theme="dark"] .pub-hero {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+/* Text inside the hero: navy ink on lime (light), normal text on dark. */
+.pub-hero .pub-status { color: var(--brand-forest); }
+.pub-hero h1 { color: var(--brand-navy); font-size: 30px; letter-spacing: -0.01em; }
+.pub-hero .pub-sub,
+.pub-hero .pub-desc { color: color-mix(in srgb, var(--brand-navy) 72%, transparent); }
+[data-theme="dark"] .pub-hero .pub-status { color: var(--accent); }
+[data-theme="dark"] .pub-hero h1 { color: var(--text); }
+[data-theme="dark"] .pub-hero .pub-sub,
+[data-theme="dark"] .pub-hero .pub-desc { color: var(--text-muted); }
+
+/* Hero CTAs: forest fill + navy-tinted ghost on light; lime + outline on dark. */
+.pub-hero__cta {
+  background: var(--brand-forest);
+  border-color: var(--brand-forest);
+  color: #fff;
+}
+.pub-hero__cta:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.pub-hero__cta--ghost {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--brand-navy) 30%, transparent);
+  color: var(--brand-navy);
+}
+[data-theme="dark"] .pub-hero__cta {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+[data-theme="dark"] .pub-hero__cta--ghost {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+/* Floating tennis-ball motifs — hero only. Decorative, aria-hidden in markup. */
+.pub-hero__ball {
+  position: absolute;
+  border-radius: 50%;
+  z-index: 1;
+  pointer-events: none;
+}
+.pub-hero__ball--1 {
+  width: 90px; height: 90px; top: -22px; right: 60px;
+  background: color-mix(in srgb, var(--brand-navy) 12%, var(--brand-lime));
+}
+.pub-hero__ball--2 {
+  width: 46px; height: 46px; bottom: 18px; right: 150px;
+  background: color-mix(in srgb, var(--brand-navy) 12%, var(--brand-lime));
+}
+.pub-hero__ball--3 {
+  width: 130px; height: 130px; bottom: -60px; right: -30px;
+  background: color-mix(in srgb, var(--brand-navy) 8%, var(--brand-lime));
+}
+[data-theme="dark"] .pub-hero__ball--1,
+[data-theme="dark"] .pub-hero__ball--2 { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+[data-theme="dark"] .pub-hero__ball--3 { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+/* Mobile: shrink hero padding + hide the biggest ball so text never crowds. */
+@media (max-width: 600px) {
+  .pub-hero { padding: 22px 18px 26px; }
+  .pub-hero h1 { font-size: 24px; }
+  .pub-hero__ball--3 { display: none; }
+}
+
+.sched-match {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+.sched-match:hover { border-color: var(--accent); }
+
+/* Keep the drag/selected affordances readable on the new neutral base. */
+.sched-match.picked { box-shadow: var(--focus-ring); border-color: var(--accent); }
+
+/* is-playing / is-played keep their colored fills (defined earlier). Re-assert
+   here only to guarantee they win over the neutral base regardless of order. */
+.sched-match.is-playing {
+  background: color-mix(in srgb, var(--warning) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--warning) 50%, transparent);
+}
+.sched-match.is-played {
+  background: color-mix(in srgb, var(--success) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
+}
+
+/* ============================================================
+   Voleo — sponsors as AD-SIZED slides (1–2 per view)
+   Append to theme.css AFTER the existing .pub-sponsors rules
+   (both the ~810 block and the ~2466 carousel block) so it wins.
+   Each sponsor now renders as a large bordered card at ad width,
+   with the logo shown big and centered inside — matching .pub-ad.
+   ============================================================ */
+
+/* Track: horizontal scroll-snap row, like the ads track. */
+.pub-sponsors { border: 0; background: transparent; padding: 0; overflow: visible; }
+.pub-sponsors__track {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  justify-content: flex-start;   /* was center — carousel needs left-anchored */
+  padding: 0 0 6px;
+}
+
+/* Each sponsor = an ad-sized card. Desktop ~2 per view, mobile ~1. */
+.pub-sponsors__track > .pub-sponsor {
+  flex: 0 0 min(48%, 480px);
+  scroll-snap-align: start;
+  aspect-ratio: 16 / 9;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px 28px;
+  transition: border-color .15s, transform .08s;
+}
+.pub-sponsors__track > .pub-sponsor:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+/* Logo shown large and centered, contained within the card. */
+.pub-sponsors__track > .pub-sponsor img {
+  max-height: 150px;
+  max-width: 100%;
+  width: auto;
+  object-fit: contain;
+  opacity: .95;
+}
+.pub-sponsors__track > .pub-sponsor:hover img { opacity: 1; }
+
+/* Mobile: one full-width sponsor card per view. */
+@media (max-width: 600px) {
+  .pub-sponsors__track > .pub-sponsor img { max-height: 120px; }
+  .pub-sponsors__track > .pub-sponsor { flex: 0 0 88%; }
+}
+
+/* Single sponsor: don't stretch full width — cap it like a lone ad. */
+.pub-sponsors__track > .pub-sponsor:only-child { flex: 0 0 min(70%, 480px); }
+
+/* Themed scrollbar (fixes the stray indigo that was here). */
+.pub-sponsors__track--carousel,
+.pub-sponsors__track {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 35%, transparent) transparent;
+  scroll-behavior: smooth;
+}
+.pub-sponsors__track::-webkit-scrollbar { height: 6px; }
+.pub-sponsors__track::-webkit-scrollbar-track { background: transparent; }
+.pub-sponsors__track::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 999px;
+}
+.pub-sponsors__track::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+
+/* Panel + text explicit in both themes. */
+.ph-oc__panel { background: var(--surface); border-left-color: var(--border); }
+.ph-oc__link { color: var(--text); }
+.ph-oc__link:hover { background: var(--bg-subtle); }
+.ph-oc__head .ph__brand { color: var(--text); }
+.ph-oc__close { color: var(--text); border-color: var(--border); background: var(--bg-subtle); }
+
+/* Icons: forest on light, lime on dark (were invisible forest-on-dark). */
+.ph-oc__link i { color: var(--accent); }
+[data-theme="dark"] .ph-oc__link i { color: var(--lp-lime, #d9f27a); }
+
+/* CTA: flat forest / lime (was indigo gradient). */
+.ph-oc__cta {
+  background: var(--accent);
+  color: #fff;
+}
+[data-theme="dark"] .ph-oc__cta { background: var(--lp-lime, #d9f27a); color: #0a1512; }
+
+/* Theme toggle, fixed top-right on the auth shell. Reuses .icon-btn. */
+.auth-theme {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 10;
+}
+
+/* Centered brand logo above the auth card content. */
+.auth-brand {
+  display: flex;
+  justify-content: center;
+  padding: 0 0 20px;
+  text-decoration: none;
+}
+
+.sidebar-badge {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 6px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 16px;
+}
+[data-theme="dark"] .sidebar-badge { color: #0a1512; }
+
+.sidebar {
+  /* dvh accounts for mobile browser chrome that 100vh ignores; the fallback
+     keeps desktop unchanged. */
+  height: 100dvh;
+  /* Respect the device safe area (iOS home indicator) + a little breathing room
+     so "Cerrar sesión" is never flush against the edge. */
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+}
+
+/* The logout block already uses .mt-auto to pin to the bottom; give it a touch
+   more separation and ensure it can't be clipped. */
+.sidebar .mt-auto {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* On the mobile off-canvas sidebar, the same safe area applies. */
+@media (max-width: 992px) {
+  .sidebar {
+    height: 100dvh;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  }
 }

@@ -9,13 +9,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'PadelCup') · PadelCup</title>
+    <title>@yield('title', 'Voleo') · Voleo</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="icon" type="image/png" href="{{asset('img/icons/favicon-96x96.png')}}" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="{{asset('img/icons/favicon.svg')}}" />
     <link rel="shortcut icon" href="{{asset('img/icons/favicon.ico')}}" />
     <link rel="apple-touch-icon" sizes="180x180" href="{{asset('img/icons/apple-touch-icon.png')}}" />
-    <meta name="apple-mobile-web-app-title" content="PadelCup" />
+    <meta name="apple-mobile-web-app-title" content="Voleo" />
     <link rel="manifest" href="{{asset('img/icons/site.webmanifest')}}" />
     <script defer src="https://cloud.umami.is/script.js" data-website-id="0a011394-4f7c-4132-a067-040697576e3e"></script>
     @vite(['resources/css/app.css','resources/css/landing.css', 'resources/css/share.css', 'resources/js/app.js'])
@@ -23,12 +23,11 @@
 </head>
 
 <body>
-    <div class="public-shell">
+    <div class="public-shell @yield('shell_class')">
         <header class="ph" data-ph>
             <div class="ph__inner">
-                <a href="/" class="ph__brand">
-                    <span class="ph__logo"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
-                    PadelCup
+                <a href="/" class="public-brand">
+                    <x-logo :height="26" />
                 </a>
 
                 {{-- Desktop nav --}}
@@ -56,9 +55,8 @@
             <div class="ph-oc__backdrop" data-ph-close></div>
             <aside class="ph-oc__panel" role="dialog" aria-modal="true" aria-label="Menú">
                 <div class="ph-oc__head">
-                    <a href="/" class="ph__brand">
-                        <span class="ph__logo"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
-                        PadelCup
+                    <a href="/" class="public-brand">
+                        <x-logo :height="26" />
                     </a>
                     <button class="ph-oc__close" data-ph-close aria-label="Cerrar menú"><i class="fa-solid fa-xmark"></i></button>
                 </div>
@@ -78,9 +76,8 @@
         <footer class="pf">
             <div class="pf__inner">
                 <div class="pf__brand-col">
-                    <a href="/" class="pf__brand">
-                        <span class="pf__logo"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
-                        PadelCup
+                    <a href="/" class="public-brand pb-4">
+                        <x-logo :height="26" />
                     </a>
                     <p class="pf__tagline">Organiza torneos de pádel sin el caos: inscripciones, llaves, calendario y resultados en vivo.</p>
                 </div>
@@ -100,11 +97,11 @@
                 </div>
                 <div class="pf__col">
                     <h4>Contacto</h4>
-                    <a href="mailto:contacto@padelcup.mx">contacto@padelcup.mx</a>
+                    <a href="mailto:contacto@voleo.mx">contacto@voleo.mx</a>
                 </div>
             </div>
             <div class="pf__bottom">
-                <span class="pf__copy">© {{ date('Y') }} PadelCup. Todos los derechos reservados.</span>
+                <span class="pf__copy">© {{ date('Y') }} Voleo. Todos los derechos reservados.</span>
                 <span class="pf__made">Desarrollado por <a href="https://innovativa.mx">Innovativa</a></span>
             </div>
         </footer>

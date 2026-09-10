@@ -23,7 +23,7 @@
     <p>Podemos compartir datos con proveedores de pago y de infraestructura estrictamente para operar el servicio. No realizamos transferencias que requieran tu consentimiento sin obtenerlo, salvo las excepciones de ley.</p>
 
     <h2>Derechos ARCO</h2>
-    <p>Puedes ejercer tus derechos de Acceso, Rectificación, Cancelación y Oposición, así como revocar tu consentimiento, enviando una solicitud a <a href="mailto:privacidad@padelcup.mx">privacidad@padelcup.mx</a> con tu nombre, el derecho que deseas ejercer y la información que permita atender tu solicitud.</p>
+    <p>Puedes ejercer tus derechos de Acceso, Rectificación, Cancelación y Oposición, así como revocar tu consentimiento, enviando una solicitud a <a href="mailto:privacidad@voleo.mx">privacidad@voleo.mx</a> con tu nombre, el derecho que deseas ejercer y la información que permita atender tu solicitud.</p>
 
     <h2>Cambios al aviso</h2>
     <p>Cualquier modificación a este Aviso se publicará en esta página.</p>

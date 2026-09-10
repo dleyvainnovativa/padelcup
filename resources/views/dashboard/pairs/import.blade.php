@@ -1,21 +1,28 @@
 @extends('layouts.app')
 
-@section('title', 'Importar parejas')
+@section('title', $category->isSingles() ? 'Importar jugadores' : 'Importar parejas')
 
 @section('content')
 <div class="page-head">
     <div>
-        <h1>Importar parejas</h1>
+        <h1>{{ $category->isSingles() ? 'Importar jugadores' : 'Importar parejas' }}</h1>
         <div class="page-sub">{{ $category->name }} · {{ $tournament->name }}</div>
     </div>
 </div>
 
 <div class="tc-card" style="max-width:600px;">
     <div class="tc-card__body">
+        @if($category->isSingles())
+        <p style="font-size:13px;color:var(--text-muted);">
+            Sube un CSV con <strong>un jugador por fila</strong>. Columnas:
+        </p>
+        <pre style="font-size:12px;background:var(--bg-subtle);padding:10px 12px;border-radius:var(--radius);overflow:auto;color:var(--text-muted);">player1_name,player1_email,player1_phone,leader</pre>
+        @else
         <p style="font-size:13px;color:var(--text-muted);">
             Sube un CSV con <strong>una pareja por fila</strong>. Columnas:
         </p>
         <pre style="font-size:12px;background:var(--bg-subtle);padding:10px 12px;border-radius:var(--radius);overflow:auto;color:var(--text-muted);">player1_name,player1_email,player1_phone,player2_name,player2_email,player2_phone,leader</pre>
+        @endif
         <p style="font-size:12px;color:var(--text-faint);">
             Solo los nombres son obligatorios. El correo y teléfono son opcionales.
             Revisarás posibles duplicados antes de confirmar.

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A named ranking with its own points schedule. Owned by an association (AVP,
- * regional league) or PadelCup itself. Feeds off many tournaments (pivot) and
+ * regional league) or Voleo itself. Feeds off many tournaments (pivot) and
  * accumulates points into the ranking_points ledger.
  */
 class RankingSystem extends Model
@@ -77,7 +77,7 @@ class RankingSystem extends Model
         return $out;
     }
 
-    /** Convenience: seed a new system with the default PadelCup schedule. */
+    /** Convenience: seed a new system with the default Voleo schedule. */
     public static function defaultPoints(): array
     {
         return RankingAchievement::defaultSchedule();

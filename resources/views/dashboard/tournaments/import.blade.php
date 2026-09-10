@@ -21,10 +21,9 @@
 <div class="tc-card mb-3">
     <div class="tc-card__body">
         <p style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">
-            Sube un archivo <strong>CSV o XLSX</strong>, o pega los datos. Cada fila es una pareja. La columna <code>category</code> agrupa las parejas; las categorías que no existan se crearán con valores por defecto (las puedes editar después).
-        </p>
+            Sube un archivo <strong>CSV o XLSX</strong>, o pega los datos. Cada fila es una inscripción. La columna <code>category</code> agrupa las inscripciones; las categorías que no existan se crearán con valores por defecto (las puedes editar después). La columna opcional <code>play_format</code> (<code>doubles</code> o <code>singles</code>) define la modalidad; si se omite, se asume dobles. En categorías <code>singles</code> no hace falta el jugador 2. </p>
         <div style="background:var(--bg-subtle);border-radius:var(--radius);padding:10px 12px;font-family:var(--font-mono,monospace);font-size:11px;overflow-x:auto;white-space:nowrap;color:var(--text-muted);">
-            category,player1_name,player1_email,player1_phone,player2_name,player2_email,player2_phone,leader
+            category,player1_name,player1_email,player1_phone,player2_name,player2_email,player2_phone,play_format,leader
         </div>
     </div>
 </div>
@@ -47,7 +46,7 @@
             <div x-show="mode === 'paste'" x-cloak>
                 <label class="form-label" style="font-size:13px;font-weight:500;">Pega aquí (incluye el encabezado)</label>
                 <textarea name="pasted" rows="10" class="form-control" style="border-radius:var(--radius);font-family:var(--font-mono,monospace);font-size:12px;"
-                    placeholder="category,player1_name,player1_email,player1_phone,player2_name,player2_email,player2_phone,leader&#10;5ta Femenil,Ana Ríos,ana@mail.com,5551234567,Lucía Paz,,">{{ old('pasted') }}</textarea>
+                    placeholder="category,player1_name,player1_email,player1_phone,player2_name,player2_email,player2_phone,play_format,leader&#10;5ta Femenil,Ana Ríos,ana@mail.com,5551234567,Lucía Paz,,,doubles,&#10;Singles Varonil,Beto Sur,,,,,,singles,">{{ old('pasted') }}</textarea>
             </div>
         </div>
     </div>

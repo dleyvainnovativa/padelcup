@@ -38,7 +38,7 @@
     <p>Podemos actualizar esta Política. Los cambios se publican en esta página.</p>
 
     <h2>10. Contacto</h2>
-    <p>Para ejercer tus derechos o resolver dudas: <a href="mailto:privacidad@padelcup.mx">privacidad@padelcup.mx</a>.</p>
+    <p>Para ejercer tus derechos o resolver dudas: <a href="mailto:privacidad@voleo.mx">privacidad@voleo.mx</a>.</p>
 
     <p class="legal-footer-links">
         <a href="{{ route('legal.terminos') }}">Términos</a> ·

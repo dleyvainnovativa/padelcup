@@ -3,7 +3,7 @@
         @if($t->coverImageUrl())
         <img src="{{ $t->coverImageUrl() }}" alt="{{ $t->name }}" loading="lazy">
         @else
-        <span class="pp-card__cover-fallback"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
+        <span class="pp-card__cover-fallback"><x-logo :height="26" /></span>
         @endif
         @if($live)
         <span class="pp-card__live"><span class="pp-card__live-dot"></span> En vivo</span>

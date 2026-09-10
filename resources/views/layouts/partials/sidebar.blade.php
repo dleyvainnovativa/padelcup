@@ -1,33 +1,61 @@
 {{-- resources/views/layouts/partials/sidebar.blade.php
-     Context-aware sidebar:
-       • GLOBAL context (dashboard, tournament list, admin): top-level nav.
-       • TOURNAMENT context (inside /tournaments/{tournament}/...): swaps to
-         that tournament's working nav, with links resolved to THIS tournament.
-     Role-aware: admins get an "Administración" section.
+     Role-aware, context-aware sidebar.
+
+     Roles:
+       • player  → only "Mi perfil" (their own area). No manager nav.
+       • manager → global manager nav + tournament-context nav.
+       • admin   → everything a manager sees + an "Administración" section.
+
+     Contexts (manager/admin only):
+       • GLOBAL      → top-level nav (panel, torneos, operación, config).
+       • TOURNAMENT  → inside /tournaments/{tournament}/… swaps to that
+                       tournament's working nav, resolved to THIS tournament.
 --}}
 @php
 $isActive = fn (string $pattern) => request()->routeIs($pattern) ? 'active' : '';
 $to = fn (string $name, $params = []) => \Route::has($name) ? route($name, $params) : '#';
 
-// Detect tournament context from the current route's {tournament} binding.
+$user = auth()->user();
+$isAdmin = $user && $user->isAdmin();
+$isManager = $user && $user->isManager();
+$isPlayer = $user && $user->isPlayer();
+$isStaff = $isAdmin || $isManager; // sees the manager working area
+
+// Tournament context only matters for staff.
 $ctxTournament = request()->route('tournament');
 if (is_string($ctxTournament)) {
 $ctxTournament = \App\Models\Tournament::where('slug', $ctxTournament)->first();
 }
-$inTournament = $ctxTournament instanceof \App\Models\Tournament;
-
-$user = auth()->user();
-$isAdmin = $user && method_exists($user, 'isAdmin') && $user->isAdmin();
+$inTournament = $isStaff && $ctxTournament instanceof \App\Models\Tournament;
 @endphp
 
 <aside class="sidebar" id="appSidebar">
-    <a href="{{ $to('dashboard') }}" class="sidebar-brand">
-        <span class="logo"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
-        PadelCup
+    <a href="{{ $isStaff ? $to('dashboard') : $to('player.dashboard') }}" class="sidebar-brand">
+        <x-logo :height="26" />
     </a>
 
-    @if($inTournament)
-    {{-- ===== TOURNAMENT CONTEXT ===== --}}
+    @if($isPlayer)
+    {{-- ===================== PLAYER ===================== --}}
+    <a href="{{ $to('player.dashboard') }}" class="nav-item {{ $isActive('player.dashboard') }}">
+        <i class="fa-solid fa-gauge-high"></i> Mi perfil
+    </a>
+    <a href="{{ $to('player.claims') }}" class="nav-item {{ $isActive('player.claims') }}">
+        <i class="fa-solid fa-clipboard-check"></i> Mis solicitudes
+    </a>
+    <a href="{{ $to('player.claim.create') }}" class="nav-item {{ $isActive('player.claim.*') }}">
+        <i class="fa-solid fa-user-plus"></i> Reclamar perfil
+    </a>
+    <a href="{{ $to('player.stats') }}" class="nav-item {{ $isActive('player.stats') }}">
+        <i class="fa-solid fa-chart-line"></i> Estadísticas
+    </a>
+
+    <div class="nav-label">Explorar</div>
+    <a href="{{ $to('public.directory') }}" class="nav-item" target="_blank" rel="noopener">
+        <i class="fa-solid fa-magnifying-glass"></i> Ver torneos
+    </a>
+
+    @elseif($inTournament)
+    {{-- ============== STAFF · TOURNAMENT CONTEXT ============== --}}
     <a href="{{ $to('tournaments.index') }}" class="nav-item nav-back">
         <i class="fa-solid fa-arrow-left"></i> Todos los torneos
     </a>
@@ -58,7 +86,6 @@ $isAdmin = $user && method_exists($user, 'isAdmin') && $user->isAdmin();
         <i class="fa-solid fa-user-clock"></i> Disponibilidad
     </a>
 
-
     <div class="nav-label">Promoción</div>
     <a href="{{ $to('sponsors.index', $ctxTournament) }}" class="nav-item {{ $isActive('sponsors.*') }}">
         <i class="fa-solid fa-handshake"></i> Patrocinadores
@@ -71,8 +98,9 @@ $isAdmin = $user && method_exists($user, 'isAdmin') && $user->isAdmin();
     <a href="{{ $to('public.tournament', $ctxTournament) }}" class="nav-item" target="_blank" rel="noopener">
         <i class="fa-solid fa-up-right-from-square"></i> Ver página pública
     </a>
-    @else
-    {{-- ===== GLOBAL CONTEXT ===== --}}
+
+    @elseif($isStaff)
+    {{-- ============== STAFF · GLOBAL CONTEXT ============== --}}
     <a href="{{ $to('dashboard') }}" class="nav-item {{ $isActive('dashboard') }}">
         <i class="fa-solid fa-gauge-high"></i> Panel
     </a>
@@ -95,11 +123,9 @@ $isAdmin = $user && method_exists($user, 'isAdmin') && $user->isAdmin();
     <a href="{{ $to('connect.index') }}" class="nav-item {{ $isActive('connect.*') }}">
         <i class="fa-brands fa-stripe-s"></i> Cobros
     </a>
-    <a href="{{ $to('settings.index') }}" class="nav-item {{ $isActive('settings.*') }}">
-        <i class="fa-solid fa-gear"></i> Ajustes
-    </a>
 
     @if($isAdmin)
+    @php $pendingClaims = \Illuminate\Support\Facades\Cache::remember('admin.pending_claims_count', 60, fn() => \App\Models\PlayerClaim::where('status','pending')->count()); @endphp
     <div class="nav-label">Administración</div>
     <a href="{{ $to('admin.managers.index') }}" class="nav-item {{ $isActive('admin.managers.*') }}">
         <i class="fa-solid fa-user-shield"></i> Managers
@@ -109,6 +135,12 @@ $isAdmin = $user && method_exists($user, 'isAdmin') && $user->isAdmin();
     </a>
     <a href="{{ $to('admin.sponsors.index') }}" class="nav-item {{ $isActive('admin.sponsors.*') }}">
         <i class="fa-solid fa-handshake-angle"></i> Patrocinadores
+    </a>
+    <a href="{{ $to('admin.claims.index') }}" class="nav-item {{ $isActive('admin.claims.*') }}">
+        <i class="fa-solid fa-user-check"></i> Reclamos
+        @if($pendingClaims > 0)
+        <span class="sidebar-badge">{{ $pendingClaims }}</span>
+        @endif
     </a>
     @endif
     @endif

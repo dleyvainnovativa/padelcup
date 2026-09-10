@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 /**
  * Phase 1 — Ranking system CRUD + points editor.
  *
- * Manage named ranking systems (AVP, regional leagues, PadelCup's own) and the
+ * Manage named ranking systems (AVP, regional leagues, Voleo's own) and the
  * points awarded for each achievement. Scoped to the signed-in manager via
  * created_by, mirroring the rest of the app.
  *
@@ -128,7 +128,7 @@ class RankingSystemController extends Controller
 
     /**
      * Clone a system (name + points schedule), useful to spin up a regional
-     * variant from the PadelCup defaults or duplicate AVP's for a new season.
+     * variant from the Voleo defaults or duplicate AVP's for a new season.
      */
     public function duplicate(RankingSystem $rankingSystem)
     {

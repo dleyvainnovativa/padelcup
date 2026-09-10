@@ -14,7 +14,7 @@
     <p>Las inscripciones se pagan al organizador del torneo a través de la Plataforma. Las condiciones de reembolso (plazos, montos y excepciones) las define cada organizador y pueden variar por torneo.</p>
 
     <h2>2. Solicitudes</h2>
-    <p>Para solicitar un reembolso, contacta directamente al organizador del torneo en el que te inscribiste. PadelCup puede facilitar el proceso técnico del reembolso cuando el organizador lo autorice.</p>
+    <p>Para solicitar un reembolso, contacta directamente al organizador del torneo en el que te inscribiste. Voleo puede facilitar el proceso técnico del reembolso cuando el organizador lo autorice.</p>
 
     <h2>3. Comisiones</h2>
     <p>Las comisiones de procesamiento de pago y la comisión de la Plataforma pueden no ser reembolsables, según lo permita el proveedor de pagos y la ley aplicable.</p>
@@ -26,7 +26,7 @@
     <p>Las suscripciones de organizadores se rigen por las condiciones mostradas al momento de la contratación.</p>
 
     <h2>6. Contacto</h2>
-    <p>Dudas sobre reembolsos: <a href="mailto:contacto@padelcup.mx">contacto@padelcup.mx</a>.</p>
+    <p>Dudas sobre reembolsos: <a href="mailto:contacto@voleo.mx">contacto@voleo.mx</a>.</p>
 
     <p class="legal-footer-links">
         <a href="{{ route('legal.terminos') }}">Términos</a> ·

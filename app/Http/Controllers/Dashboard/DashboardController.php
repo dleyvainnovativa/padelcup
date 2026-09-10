@@ -15,6 +15,9 @@ class DashboardController extends Controller
     public function index()
     {
         $manager = auth()->user();
+        if ($manager && $manager->isPlayer()) {
+            return redirect()->route('player.dashboard');
+        }
         $tournamentIds = $manager->tournaments()->pluck('id');
 
         // --- Tournament tallies ---

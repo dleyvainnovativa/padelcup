@@ -21,7 +21,7 @@ class PlayerImportController extends Controller
         return view('dashboard.pairs.import', compact('tournament', 'category'));
     }
 
-    /** Parse the upload and show a pair preview with duplicate flags. */
+    /** Parse the upload and show a preview with duplicate flags. */
     public function preview(Request $request, Tournament $tournament, Category $category)
     {
         $this->authorize('update', $category);
@@ -31,15 +31,18 @@ class PlayerImportController extends Controller
             'file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'],
         ]);
 
-        $parsed = $this->import->parse($request->file('file')->getRealPath());
+        // Singles vs doubles is known from the category — pass it to the parser
+        // so a singles CSV isn't rejected for missing player 2.
+        $isSingles = $category->isSingles();
+
+        $parsed = $this->import->parse($request->file('file')->getRealPath(), $isSingles);
         $rows = $this->import->withDuplicateFlags($parsed['rows']);
 
         $remaining = $category->max_pairs
             ? max(0, $category->max_pairs - $category->occupiedSlots())
             : null;
 
-        // NEW — inputs for the group preview + format toggle (#1/#2).
-        $existingPairs = $category->occupiedSlots();                 // pairs already in the category
+        $existingPairs = $category->occupiedSlots();
         $preferredSize = $category->preferred_group_size ?: 4;
         $currentFormat = ($category->group_format === GroupFormat::Mexicano) ? 'mex' : 'rr';
 
@@ -49,47 +52,64 @@ class PlayerImportController extends Controller
             'rows'          => $rows,
             'errors'        => $parsed['errors'],
             'remaining'     => $remaining,
-            'existingPairs' => $existingPairs,   // NEW
-            'preferredSize' => $preferredSize,   // NEW
-            'currentFormat' => $currentFormat,   // NEW
+            'existingPairs' => $existingPairs,
+            'preferredSize' => $preferredSize,
+            'currentFormat' => $currentFormat,
+            'isSingles'     => $isSingles,   // for the preview view
         ]);
     }
 
-
-    /** Commit the previewed pair rows into the category. */
-
+    /** Commit the previewed rows into the category. */
     public function commit(Request $request, Tournament $tournament, Category $category)
     {
         $this->authorize('update', $category);
         abort_unless($category->tournament_id === $tournament->id, 404);
 
-        $data = $request->validate([
-            'group_format' => ['nullable', 'in:mex,rr'],            // NEW
+        $isSingles = $category->isSingles();
+
+        // Player 2 fields are required only for doubles categories.
+        $rules = [
+            'group_format' => ['nullable', 'in:mex,rr'],
             'rows' => ['required', 'array'],
             'rows.*.player1.name' => ['required', 'string', 'max:255'],
             'rows.*.player1.email' => ['nullable', 'email'],
             'rows.*.player1.phone' => ['nullable', 'string', 'max:30'],
             'rows.*.player1.link_player_id' => ['nullable', 'integer', 'exists:players,id'],
-            'rows.*.player2.name' => ['required', 'string', 'max:255'],
-            'rows.*.player2.email' => ['nullable', 'email'],
-            'rows.*.player2.phone' => ['nullable', 'string', 'max:30'],
-            'rows.*.player2.link_player_id' => ['nullable', 'integer', 'exists:players,id'],
-        ]);
+        ];
 
-        // NEW — persist the chosen group format (only meaningful for 4-pair groups,
-        // but harmless otherwise). Defaults to leaving the category as-is if absent.
+        if (! $isSingles) {
+            $rules += [
+                'rows.*.player2.name' => ['required', 'string', 'max:255'],
+                'rows.*.player2.email' => ['nullable', 'email'],
+                'rows.*.player2.phone' => ['nullable', 'string', 'max:30'],
+                'rows.*.player2.link_player_id' => ['nullable', 'integer', 'exists:players,id'],
+            ];
+        } else {
+            // Tolerate (and ignore) player2 fields if the form still posts them.
+            $rules += [
+                'rows.*.player2' => ['nullable', 'array'],
+                'rows.*.player2.name' => ['nullable', 'string', 'max:255'],
+                'rows.*.player2.email' => ['nullable', 'email'],
+                'rows.*.player2.phone' => ['nullable', 'string', 'max:30'],
+                'rows.*.player2.link_player_id' => ['nullable', 'integer', 'exists:players,id'],
+            ];
+        }
+
+        $data = $request->validate($rules);
+
         if (! empty($data['group_format'])) {
             $category->group_format = $data['group_format'] === 'rr'
-                ? GroupFormat::RoundRobin      // ← confirm this case name in App\Enums\GroupFormat
+                ? GroupFormat::RoundRobin
                 : GroupFormat::Mexicano;
             $category->save();
         }
 
         $result = $this->import->commit($data['rows'], $category, $request->user());
 
-        $msg = "{$result['imported']} parejas importadas.";
+        $unit = $isSingles ? 'jugadores' : 'parejas';
+        $msg = "{$result['imported']} {$unit} importados.";
         if ($result['skipped'] > 0) {
-            $msg .= " {$result['skipped']} omitidas (categoría llena o error).";
+            $msg .= " {$result['skipped']} omitidos (categoría llena o error).";
         }
 
         return redirect()

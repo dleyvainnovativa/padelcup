@@ -66,6 +66,16 @@ class Player extends Model
             ->orWhere('player2_id', $this->id);
     }
 
+    /** All pairs this player belongs to (either slot). */
+    public function allPairsQuery()
+    {
+        return Pair::query()
+            ->where(function ($query) {
+                $query->where('player1_id', $this->id)
+                    ->orWhere('player2_id', $this->id);
+            });
+    }
+
     public function isContactless(): bool
     {
         return blank($this->email) && blank($this->phone);

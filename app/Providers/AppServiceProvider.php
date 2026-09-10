@@ -24,8 +24,8 @@ class AppServiceProvider extends ServiceProvider
         // Laravel's default paginator view is Tailwind, which renders unstyled).
         Paginator::useBootstrapFive();
 
-        // Prefer the themed PadelCup paginator for every ->links() call. Comment
+        // Prefer the themed Voleo paginator for every ->links() call. Comment
         // this out if you want plain Bootstrap 5 styling instead.
-        Paginator::defaultView('vendor.pagination.padelcup');
+        Paginator::defaultView('vendor.pagination.voleo');
     }
 }

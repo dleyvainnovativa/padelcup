@@ -4,18 +4,34 @@
    ========================================================================== */
 
 .lp {
-  --lp-indigo: #635bff;
-  --lp-indigo2: #635bff;
-  --lp-indigo3: #921adc;
-  --lp-gold: #dcb51a;
-  --lp-ink: var(--text, #1a1a2e);
-  --lp-muted: var(--text-muted, #6b7280);
-  --lp-faint: var(--text-faint, #9ca3af);
+  /* Voleo brand palette */
+  --lp-forest: #213b0e;
+  --lp-forest2: #14503c;
+  --lp-lime: #d9f27a;
+  --lp-lime-deep: #c2e34d;
+  --lp-lavender: #c9a9f5;
+  --lp-lav-soft: #efe6fb;
+  --lp-navy: #1a1145;
+  --lp-cream: #f1dbaf;
+
+  /* Legacy token names kept, remapped to Voleo so all existing component
+     rules (bracket, stats, mockup, features) rebrand without edits:
+       --lp-indigo  -> forest (primary/accent)
+       --lp-indigo3 -> lavender (secondary)
+       --lp-gold    -> lime (final/highlight) */
+  --lp-indigo: #0e3b2e;
+  --lp-indigo2: #0e3b2e;
+  --lp-indigo3: #8a6fc0;
+  --lp-gold: #c2e34d;
+
+  --lp-ink: var(--text, #13211c);
+  --lp-muted: var(--text-muted, #5c6b62);
+  --lp-faint: var(--text-faint, #97a399);
   --lp-surface: var(--surface, #ffffff);
-  --lp-bg-subtle: var(--bg-subtle, #f7f7fb);
-  --lp-border: var(--border, #e8e8ef);
+  --lp-bg-subtle: var(--bg-subtle, #f1f4ee);
+  --lp-border: var(--border, #e4e9e0);
   --lp-radius: 14px;
-  --lp-shadow: 0 20px 50px -20px rgba(40, 40, 90, .28);
+  --lp-shadow: 0 20px 50px -20px rgba(14, 59, 46, .22);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
@@ -127,7 +143,8 @@
 .lp-stats {
   max-width: 1000px; margin: 8px auto 0; padding: 26px 16px;
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
-  border-top: 1px solid var(--lp-border); border-bottom: 1px solid var(--lp-border);
+  /* border-top: 1px solid var(--lp-border);  */
+  border-bottom: 1px solid var(--lp-border);
 }
 .lp-stat { text-align: center; }
 .lp-stat__num { display: block; font-size: 28px; font-weight: 800; letter-spacing: -1px;
@@ -201,17 +218,17 @@
    ========================================================================== */
 
 .pp {
-  --lp-indigo: #635bff;
-  --lp-indigo2: #635bff;
-  --lp-indigo3: #921adc;
-  --lp-gold: #dcb51a;
+  --lp-indigo: #0e3b2e;
+  --lp-indigo2: #0e3b2e;
+  --lp-indigo3: #8a6fc0;
+  --lp-gold: #c2e34d;
   --lp-ink: var(--text, #1a1a2e);
   --lp-muted: var(--text-muted, #6b7280);
   --lp-faint: var(--text-faint, #9ca3af);
   --lp-surface: var(--surface, #ffffff);
   --lp-bg-subtle: var(--bg-subtle, #f7f7fb);
   --lp-border: var(--border, #e8e8ef);
-  --lp-shadow: 0 20px 50px -20px rgba(40, 40, 90, .28);
+  --lp-shadow: 0 20px 50px -20px rgba(14, 59, 46, .22);
   --pp-radius: 14px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   margin: -16px 0 -32px; /* bleed like the landing */
@@ -254,7 +271,7 @@
 .pp-card__name { font-size: 16px; font-weight: 700; letter-spacing: -.3px; line-height: 1.25; }
 .pp-card__meta { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--lp-muted); margin-top: auto; }
 .pp-card__meta span { display: inline-flex; align-items: center; gap: 6px; }
-.pp-card__meta i { color: var(--lp-indigo); width: 13px; text-align: center; }
+.pp-card__meta i { color: var(--accent); width: 13px; text-align: center; }
 .pp-card__chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .pp-chip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--lp-bg-subtle); border: 1px solid var(--lp-border); color: var(--lp-muted); }
 .pp-chip--accent { background: color-mix(in srgb, var(--lp-indigo) 12%, var(--lp-surface)); border-color: color-mix(in srgb, var(--lp-indigo) 25%, transparent); color: var(--lp-indigo); }
@@ -285,7 +302,7 @@
    MODERN MULTI-COLUMN FOOTER
    ========================================================================== */
 .pf {
-  --pp-indigo: #635bff; --pp-indigo3: #921adc; --pp-gold: #dcb51a;
+  --pp-indigo: #0e3b2e; --pp-indigo3: #8a6fc0; --pp-gold: #c2e34d;
   margin-top: 0; border-top: 1px solid var(--border, #e8e8ef);
   background: var(--bg-subtle, #f7f7fb);
 }
@@ -315,10 +332,10 @@
    MODERN PUBLIC HEADER + MOBILE OFFCANVAS
    ========================================================================== */
 :root{
-  --ph-indigo: #635bff; --ph-indigo3: #921adc; --ph-gold: #dcb51a;
+  --ph-indigo: #0e3b2e; --ph-indigo3: #8a6fc0; --ph-gold: #c2e34d;
 }
 .ph {
-  --ph-indigo: #635bff; --ph-indigo3: #921adc; --ph-gold: #dcb51a;
+  --ph-indigo: #0e3b2e; --ph-indigo3: #8a6fc0; --ph-gold: #c2e34d;
   position: sticky; top: 0; z-index: 50;
   background: color-mix(in srgb, var(--surface, #fff) 80%, transparent);
   border-bottom: 1px solid transparent;
@@ -386,4 +403,232 @@
   outline: none !important;
   box-shadow: none !important;
   border-radius: none !important;
+}
+
+/* ==========================================================================
+   VOLEO landing — motif + bold bookends (appended by rebrand)
+   ========================================================================== */
+
+/* Retire the aurora blobs: if any stale .lp-aurora markup remains, hide it. */
+.lp-aurora { display: none !important; }
+
+/* ----- Hero: bold lime band (light) / forest gradient (dark) ----- */
+.lp-hero { background: var(--lp-lime); }
+[data-theme="dark"] .lp-hero { background: linear-gradient(160deg, var(--lp-forest), #0a1512); }
+.lp-hero .lp-badge {
+  color: var(--lp-forest);
+  background: rgba(255,255,255,.5);
+  border-color: rgba(14,59,46,.18);
+}
+[data-theme="dark"] .lp-hero .lp-badge {
+  color: var(--lp-lime);
+  background: rgba(217,242,122,.08);
+  border-color: rgba(217,242,122,.25);
+}
+.lp-hero__title { color: var(--lp-navy); }
+[data-theme="dark"] .lp-hero__title { color: var(--lp-ink); }
+/* Replace the gradient text with a flat brand fill. */
+.lp-grad-text {
+  -webkit-text-fill-color: currentColor;
+  background: none;
+  color: var(--lp-forest);
+}
+[data-theme="dark"] .lp-grad-text { color: var(--lp-lime); }
+.lp-hero__sub { color: rgba(26,17,69,.72); }
+[data-theme="dark"] .lp-hero__sub { color: var(--lp-muted); }
+.lp-hero__trust { color: rgba(26,17,69,.6); }
+.lp-hero__trust i { color: var(--lp-forest); }
+[data-theme="dark"] .lp-hero__trust { color: var(--lp-faint); }
+[data-theme="dark"] .lp-hero__trust i { color: var(--lp-lime); }
+
+/* ----- Buttons: flat brand fills (no gradients) ----- */
+.lp-btn--primary {
+  color: #fff;
+  background: var(--lp-forest);
+  box-shadow: 0 8px 20px -8px rgba(14,59,46,.5);
+}
+.lp-btn--primary:hover {
+  transform: translateY(-2px);
+  background: var(--lp-forest2);
+  box-shadow: 0 14px 28px -10px rgba(14,59,46,.55);
+}
+[data-theme="dark"] .lp-btn--primary { background: var(--lp-lime); color: #0a1512; }
+[data-theme="dark"] .lp-btn--primary:hover { background: var(--lp-lime-deep); }
+/* In the lime hero, the ghost button reads on lime; give it navy ink. */
+.lp-hero .lp-btn--ghost { color: var(--lp-navy); border-color: rgba(26,17,69,.28); background: transparent; }
+.lp-hero .lp-btn--ghost:hover { border-color: var(--lp-forest); color: var(--lp-forest); }
+[data-theme="dark"] .lp-hero .lp-btn--ghost { color: var(--lp-ink); border-color: var(--lp-border); }
+
+/* ----- Ball motif (crisp circles, replaces aurora) ----- */
+.lp-balls { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+.lp-ball { position: absolute; border-radius: 50%;
+  background: color-mix(in srgb, var(--lp-navy) 10%, var(--lp-lime)); }
+[data-theme="dark"] .lp-ball { background: color-mix(in srgb, var(--lp-lime) 18%, transparent); }
+.lp-ball--1 { width: 120px; height: 120px; top: -30px; right: 8%; animation: lp-float-1 14s ease-in-out infinite; }
+.lp-ball--2 { width: 54px; height: 54px; top: 40%; right: 4%; animation: lp-float-2 18s ease-in-out infinite; }
+.lp-ball--3 { width: 180px; height: 180px; bottom: -80px; left: -40px;
+  background: color-mix(in srgb, var(--lp-navy) 6%, var(--lp-lime)); animation: lp-float-3 16s ease-in-out infinite; }
+.lp-ball--4 { width: 34px; height: 34px; bottom: 20%; left: 44%; animation: lp-float-2 12s ease-in-out infinite; }
+[data-theme="dark"] .lp-ball--3 { background: color-mix(in srgb, var(--lp-lime) 12%, transparent); }
+@media (prefers-reduced-motion: reduce) { .lp-ball { animation: none; } }
+@media (max-width: 560px) { .lp-ball--3 { display: none; } }
+
+/* ----- Three-audience cards ----- */
+.lp-aud { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.lp-aud__card { border-radius: var(--lp-radius); padding: 26px 22px; }
+.lp-aud__card--org { background: var(--lp-forest); color: #fff; }
+.lp-aud__card--ply { background: var(--lp-lav-soft); color: var(--lp-navy); }
+.lp-aud__card--spo { background: var(--lp-lime); color: var(--lp-navy); }
+[data-theme="dark"] .lp-aud__card--ply { background: #221a30; color: #d8ccef; }
+.lp-aud__icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 19px; margin-bottom: 14px; }
+.lp-aud__card--org .lp-aud__icon { background: rgba(217,242,122,.2); color: var(--lp-lime); }
+.lp-aud__card--ply .lp-aud__icon { background: rgba(138,111,192,.18); color: #6b4ba3; }
+.lp-aud__card--spo .lp-aud__icon { background: rgba(26,17,69,.12); color: var(--lp-navy); }
+.lp-aud__card h3 { font-size: 18px; font-weight: 800; margin: 0 0 8px; }
+.lp-aud__card p { font-size: 13.5px; line-height: 1.55; margin: 0; opacity: .92; }
+@media (max-width: 860px) { .lp-aud { grid-template-columns: 1fr; } }
+
+/* ----- Feature icons: flat forest (light) / lime (dark), no gradient ----- */
+.lp-feature__icon { background: var(--lp-forest); }
+[data-theme="dark"] .lp-feature__icon { background: var(--lp-lime); color: #0a1512; }
+.lp-feature:hover { border-color: color-mix(in srgb, var(--lp-forest) 30%, transparent); }
+
+/* ----- Step numbers: flat, no gradient ----- */
+.lp-step__n { background: var(--lp-forest); }
+[data-theme="dark"] .lp-step__n { background: var(--lp-lime); color: #0a1512; }
+
+/* ----- CTA band: forest bookend with balls ----- */
+.lp-cta__inner {
+  position: relative; overflow: hidden;
+  background: var(--lp-forest);
+}
+.lp-cta__inner > * { position: relative; z-index: 2; }
+.lp-cta__inner .lime { color: var(--lp-lime); }
+.lp-cta .lp-btn--primary { background: var(--lp-lime); color: #0a1512; }
+.lp-cta .lp-btn--primary:hover { background: var(--lp-lime-deep); }
+.lp-cta .lp-btn--ghost { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.4); color: #fff; }
+.lp-cta .lp-btn--ghost:hover { background: rgba(255,255,255,.2); color: #fff; }
+.lp-cta .lp-balls .lp-ball { background: rgba(217,242,122,.14); }
+
+/* ----- Mockup: browser dots stay iconic; scores/final use brand via tokens ----- */
+/* (bracket score color = --lp-indigo -> forest; final tag = --lp-gold -> lime;
+    both already remapped, so the mockup rebrands automatically.) */
+
+    /* ============================================================
+   Voleo landing/public — targeted fixes (append to landing.css)
+   Fixes 4 issues reported from the live rebrand:
+     1. Topbar "Soy organizador" button — stray indigo in gradient
+     2. .lp-stat__num — muddy forest→lavender gradient text
+     3. .pp-chip--accent — invisible on dark (forest on dark surface)
+     4. .pp-card__cover — tournament card hero lost on dark
+   These come AFTER the originals so they win by source order.
+   ============================================================ */
+
+/* ---- 1. Topbar CTA: flat forest (light) / lime (dark), no gradient ---- */
+.ph__cta {
+  background: var(--ph-indigo, #0e3b2e) !important;   /* --ph-indigo remapped to forest */
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, #0e3b2e 55%, transparent);
+  color: #fff;
+}
+.ph__cta:hover { transform: translateY(-1px); background: #0a2c22 !important; }
+[data-theme="dark"] .ph__cta {
+  background: #d9f27a !important;
+  color: #0a1512;
+  box-shadow: 0 6px 16px -8px rgba(217,242,122,.35);
+}
+[data-theme="dark"] .ph__cta:hover { background: #e4f79a !important; }
+
+/* The little brand logo box + the off-canvas CTA had the same gradient. */
+.ph__logo { background: var(--ph-indigo, #0e3b2e) !important; }
+[data-theme="dark"] .ph__logo { background: #d9f27a !important; color: #0a1512; }
+.ph-oc__cta { background: var(--ph-indigo, #0e3b2e) !important; color: #fff; }
+[data-theme="dark"] .ph-oc__cta { background: #d9f27a !important; color: #0a1512; }
+
+/* ---- 2. Stats numbers: flat brand fill, drop the gradient-clip ---- */
+.lp-stat__num {
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  -webkit-text-fill-color: currentColor !important;
+  color: var(--lp-forest, #0e3b2e);
+}
+[data-theme="dark"] .lp-stat__num { color: var(--lp-lime, #d9f27a); }
+
+/* ---- 3. pp-chip--accent: visible in both themes ---- */
+/* Light: soft forest tint. Dark: lime tint + lime text so it stands out. */
+.pp-chip--accent {
+  background: color-mix(in srgb, #0e3b2e 12%, var(--lp-surface));
+  border-color: color-mix(in srgb, #0e3b2e 25%, transparent);
+  color: #0e3b2e;
+}
+[data-theme="dark"] .pp-chip--accent {
+  background: color-mix(in srgb, #d9f27a 16%, transparent);
+  border-color: color-mix(in srgb, #d9f27a 40%, transparent);
+  color: #d9f27a;
+}
+
+/* ---- 4. Tournament card cover: visible placeholder on dark ---- */
+.pp-card__cover {
+  background: linear-gradient(120deg,
+    color-mix(in srgb, var(--brand-lime-deep) 16%, var(--lp-surface)),
+    color-mix(in srgb, var(--brand-lime) 16%, var(--lp-surface)));
+}
+[data-theme="dark"] .pp-card__cover {
+  background: linear-gradient(120deg,
+    color-mix(in srgb, var(--brand-lime-deep) 14%, var(--lp-surface)),
+    color-mix(in srgb, var(--brand-lime) 12%, var(--lp-surface)));
+}
+.pp-card__cover-fallback { color: color-mix(in srgb, #0e3b2e 55%, transparent); }
+[data-theme="dark"] .pp-card__cover-fallback { color: color-mix(in srgb, #d9f27a 60%, transparent); }
+
+.pp-btn--primary {
+  background: var(--lp-indigo, #0e3b2e) !important;   /* remapped to forest */
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, #0e3b2e 55%, transparent);
+  color: #fff;
+}
+.pp-btn--primary:hover { transform: translateY(-2px); background: #0a2c22 !important; }
+[data-theme="dark"] .pp-btn--primary {
+  background: #d9f27a !important;
+  color: #0a1512;
+  box-shadow: 0 8px 20px -8px rgba(217,242,122,.30);
+}
+[data-theme="dark"] .pp-btn--primary:hover { background: #e4f79a !important; }
+
+
+/* On a hero page, the resting (top) header is fully transparent. */
+.has-hero .ph {
+  background: transparent;
+  border-bottom-color: transparent;
+  box-shadow: none;
+}
+
+/* Over the LIME hero, links/brand must be dark (navy) to stay legible.
+   (In dark theme the hero is a forest gradient, so keep light text.) */
+.has-hero .ph:not(.is-scrolled) .ph__brand { color: var(--lp-navy, #1a1145); }
+.has-hero .ph:not(.is-scrolled) .ph__link { color: color-mix(in srgb, var(--lp-navy, #1a1145) 78%, transparent); }
+.has-hero .ph:not(.is-scrolled) .ph__link:hover { color: var(--lp-navy, #1a1145); background: rgba(26,17,69,.08); }
+.has-hero .ph:not(.is-scrolled) .ph__theme,
+.has-hero .ph:not(.is-scrolled) .ph__burger span { color: var(--lp-navy, #1a1145); }
+.has-hero .ph:not(.is-scrolled) .ph__burger span { background: var(--lp-navy, #1a1145); }
+
+/* The logo wordmark (x-logo) uses currentColor -> set brand color to navy
+   at top so it reads on lime; the lime dot stays lime. */
+.has-hero .ph:not(.is-scrolled) .voleo-logo { color: var(--lp-navy, #1a1145); }
+
+/* Dark theme: hero is a dark forest gradient, so top-state text stays light. */
+[data-theme="dark"] .has-hero .ph:not(.is-scrolled) .ph__brand,
+[data-theme="dark"] .has-hero .ph:not(.is-scrolled) .ph__link,
+[data-theme="dark"] .has-hero .ph:not(.is-scrolled) .voleo-logo { color: var(--text); }
+[data-theme="dark"] .has-hero .ph:not(.is-scrolled) .ph__link { color: color-mix(in srgb, var(--text) 80%, transparent); }
+[data-theme="dark"] .has-hero .ph:not(.is-scrolled) .ph__burger span { background: var(--text); }
+
+/* Once scrolled, everything returns to the normal solid bar (existing
+   .ph.is-scrolled rule handles bg/shadow; text colors revert automatically). */
+
+/* The transparent bar sits OVER the hero: pull the hero up under it so there's
+   no gap. The header is ~62px; give hero pages a negative top pull. */
+.has-hero .public-main > .lp-hero:first-child,
+.has-hero .public-main > .pub-wrap:first-child .pub-hero {
+  margin-top: -62px;
+  padding-top: calc(62px + 30px);   /* restore internal spacing below the bar */
 }
