@@ -26,6 +26,7 @@
             <a href="{{ route('tournaments.summary', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-chart-simple me-1"></i> Resumen</a>
             <a href="{{ route('sponsors.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-handshake me-1"></i> Patrocinadores</a>
             <a href="{{ route('tournaments.import.form', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-file-import me-1"></i> Importar</a>
+            <a href="{{ route('tournaments.transfer.export', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-file-export me-1"></i> Exportar</a>
             @if($tournament->is_listed)
             <button type="button" class="btn btn-soft" @click="showShare = !showShare"><i class="fa-solid fa-share-nodes me-1"></i> Compartir / QR</button>
             <a href="{{ route('public.tournament', $tournament) }}" target="_blank" class="btn btn-soft"><i class="fa-solid fa-globe me-1"></i> Página pública</a>

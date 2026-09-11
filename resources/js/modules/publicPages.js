@@ -66,7 +66,7 @@ function initAutoRefresh() {
         // Save where the user is so the reload lands them back in place.
         saveScroll();
         // Preserve the current query string (e.g. buscar mi partido).
-        window.location.reload();
+        // window.location.reload();
       } else {
         schedule(); // tab hidden — wait and check again
       }

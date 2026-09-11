@@ -49,6 +49,10 @@ Route::middleware(['auth'])->group(function () {
     // Tournaments (manager CRUD)
     Route::resource('tournaments', TournamentController::class);
 
+    // Full tournament transfer (JSON export/import between servers).
+    Route::get('tournaments-transfer/importar', [\App\Http\Controllers\Dashboard\TournamentTransferController::class, 'importForm'])->name('tournaments.transfer.form');
+    Route::post('tournaments-transfer/importar', [\App\Http\Controllers\Dashboard\TournamentTransferController::class, 'import'])->name('tournaments.transfer.import');
+
     // Categories (nested under tournament)
     Route::prefix('tournaments/{tournament}')->group(function () {
         Route::get('categories/create', [CategoryController::class, 'create'])->name('categories.create');
@@ -62,6 +66,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('categories/{category}/rebuild-bracket', [CategoryStructureController::class, 'rebuildBracket'])->name('categories.rebuildBracket');
 
         Route::post('regenerate-safe', [TournamentStructureController::class, 'regenerateSafe'])->name('tournaments.regenerateSafe');
+
+        // Full tournament export (downloads a portable JSON).
+        Route::get('exportar', [\App\Http\Controllers\Dashboard\TournamentTransferController::class, 'export'])->name('tournaments.transfer.export');
 
         // Pairs (nested under category)
         Route::prefix('categories/{category}')->group(function () {
@@ -260,6 +267,10 @@ Route::get(
 Route::get('/buscar', [\App\Http\Controllers\PublicSearchController::class, 'index'])->name('public.search');
 
 // Legal
+// Public documentation / tutorials
+Route::get('/docs', [\App\Http\Controllers\DocsController::class, 'index'])->name('docs.index');
+Route::get('/docs/{slug}', [\App\Http\Controllers\DocsController::class, 'show'])->name('docs.show');
+
 Route::view('/terminos', 'legal.terminos')->name('legal.terminos');
 Route::view('/privacidad', 'legal.privacidad')->name('legal.privacidad');
 Route::view('/aviso-de-privacidad', 'legal.aviso')->name('legal.aviso');

@@ -2,10 +2,11 @@
 @extends('layouts.guest')
 
 @section('title', 'Crear cuenta')
+@section('brand-tagline', 'El ritmo del juego, en una sola app.')
 
 @section('content')
-<h1 style="font-size:18px;font-weight:700;margin-bottom:4px;">Crear cuenta</h1>
-<p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">
+<h1 style="font-size:22px;font-weight:700;letter-spacing:-0.02em;margin-bottom:4px;">Crear cuenta</h1>
+<p style="color:var(--text-muted);font-size:13px;margin-bottom:22px;">
     Regístrate para inscribirte a torneos.
 </p>
 
@@ -38,15 +39,19 @@
 
     <div class="mb-3">
         <label class="form-label" style="font-size:13px;font-weight:500;">Contraseña</label>
-        <input type="password" name="password" required
-            class="form-control @error('password') is-invalid @enderror" style="border-radius:var(--radius);">
-        @error('password')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        <div class="pw-field">
+            <input type="password" name="password" required
+                class="form-control @error('password') is-invalid @enderror" style="border-radius:var(--radius);">
+        </div>
+        @error('password')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
     </div>
 
     <div class="mb-3">
         <label class="form-label" style="font-size:13px;font-weight:500;">Confirmar contraseña</label>
-        <input type="password" name="password_confirmation" required
-            class="form-control" style="border-radius:var(--radius);">
+        <div class="pw-field">
+            <input type="password" name="password_confirmation" required
+                class="form-control" style="border-radius:var(--radius);">
+        </div>
     </div>
 
     {{-- Terms + privacy consent (covers data collection / minor consent per policy) --}}

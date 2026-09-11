@@ -22,15 +22,19 @@
 
     <div class="mb-3">
         <label class="form-label" style="font-size:13px;font-weight:500;">Contraseña nueva</label>
-        <input type="password" name="password" required
-            class="form-control @error('password') is-invalid @enderror" style="border-radius:var(--radius);">
-        @error('password')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        <div class="pw-field">
+            <input type="password" name="password" required
+                class="form-control @error('password') is-invalid @enderror" style="border-radius:var(--radius);">
+        </div>
+        @error('password')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
     </div>
 
     <div class="mb-3">
         <label class="form-label" style="font-size:13px;font-weight:500;">Confirmar contraseña</label>
-        <input type="password" name="password_confirmation" required
-            class="form-control" style="border-radius:var(--radius);">
+        <div class="pw-field">
+            <input type="password" name="password_confirmation" required
+                class="form-control" style="border-radius:var(--radius);">
+        </div>
     </div>
 
     <button type="submit" class="btn btn-accent w-100">Restablecer contraseña</button>

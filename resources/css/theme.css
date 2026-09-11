@@ -992,13 +992,110 @@ input:-webkit-autofill:focus {
 /* ---------------------------------------------------------------
    8. Auth / guest layout
    --------------------------------------------------------------- */
-.auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg); }
+/* Split-screen shell: brand panel + form column. */
+.auth-split { min-height: 100vh; display: grid; grid-template-columns: 1fr; background: var(--bg); }
+
+/* Left brand panel — desktop only. Forest green with scattered lime dots. */
+.auth-brand-panel { display: none; }
+
+@media (min-width: 992px) {
+  .auth-split { grid-template-columns: minmax(0, 48%) 1fr; }
+  .auth-brand-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 44px 48px;
+    background: var(--accent);
+    color: var(--on-accent);
+    overflow: hidden;
+    isolation: isolate;
+    /* Force the wordmark + dot to lime on the forest fill, both themes. */
+    --voleo-logo: var(--lp-lime, #d9f27a);
+    --voleo-dot:  var(--lp-lime, #d9f27a);
+  }
+  [data-theme="dark"] .auth-brand-panel {
+    /* Dark theme accent is already lime → flip panel to forest so it reads. */
+    background: #0e3b2e;
+    color: #eaf3ee;
+  }
+}
+
+.auth-brand-panel__top { position: relative; z-index: 2; }
+.auth-brand-panel__logo { display: inline-flex; text-decoration: none; }
+
+.auth-brand-panel__body { position: relative; z-index: 2; max-width: 440px; }
+.auth-brand-panel__headline {
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin: 0 0 14px;
+}
+.auth-brand-panel__sub {
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0;
+  color: color-mix(in srgb, var(--on-accent) 82%, transparent);
+}
+[data-theme="dark"] .auth-brand-panel__sub { color: color-mix(in srgb, #eaf3ee 82%, transparent); }
+
+.auth-brand-panel__foot {
+  position: relative; z-index: 2;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--on-accent) 60%, transparent);
+}
+[data-theme="dark"] .auth-brand-panel__foot { color: color-mix(in srgb, #eaf3ee 55%, transparent); }
+
+/* Lime tennis-ball dots (decorative). */
+.auth-dot {
+  position: absolute; z-index: 1; border-radius: 50%;
+  background: var(--lp-lime, #d9f27a);
+  opacity: 0.9;
+}
+[data-theme="dark"] .auth-dot { opacity: 0.5; }
+.auth-dot--1 { width: 190px; height: 190px; top: -46px; right: -40px; opacity: 0.35; }
+.auth-dot--2 { width: 64px;  height: 64px;  top: 30%;  right: 18%; }
+.auth-dot--3 { width: 38px;  height: 38px;  bottom: 26%; left: 12%; opacity: 0.6; }
+.auth-dot--4 { width: 120px; height: 120px; bottom: -34px; left: 30%; opacity: 0.28; }
+
+/* Right form column. */
+.auth-form-col { display: grid; place-items: center; padding: 32px 24px; }
 .auth-card {
-  width: 100%; max-width: 400px; background: var(--surface);
-  border: 1px solid var(--border); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md); padding: 28px;
+  width: 100%; max-width: 400px; background: transparent;
+}
+@media (max-width: 991.98px) {
+  .auth-form-col { padding: 28px 20px; }
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 28px;
+  }
 }
 .auth-card .sidebar-brand { padding: 0 0 18px; justify-content: center; }
+
+/* Mobile brand header inside the card; hidden on desktop (panel has the logo). */
+.auth-brand--mobile { justify-content: flex-start; padding: 0 0 20px; }
+@media (min-width: 992px) { .auth-brand--mobile { display: none; } }
+
+/* Password field with show/hide toggle. */
+.pw-field { position: relative; }
+.pw-field > input { padding-right: 42px; }
+.pw-toggle {
+  position: absolute; top: 0; right: 0; height: 100%;
+  width: 40px; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: transparent; cursor: pointer;
+  color: var(--text-faint); font-size: 14px; padding: 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.pw-toggle:hover { color: var(--text-muted); }
+.pw-toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* When Bootstrap marks the field invalid it adds its own right padding/icon;
+   nudge the toggle left so it doesn't overlap. */
+.pw-field > input.is-invalid { padding-right: 64px; }
+.pw-field > input.is-invalid ~ .pw-toggle { right: 22px; }
 
 /* Page header */
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }

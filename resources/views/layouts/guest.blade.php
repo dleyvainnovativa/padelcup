@@ -1,5 +1,9 @@
 {{-- resources/views/layouts/guest.blade.php
-     Minimal centered shell for auth screens and the quick-register link. --}}
+     Split-screen auth shell.
+       - Desktop: left brand panel (forest green + lime dots), right form column.
+       - Mobile: brand panel hides; a slim logo header + full-width form.
+     Pages provide @section('content') for the right column, and may set
+     @section('brand-tagline') to override the panel headline. --}}
 <!DOCTYPE html>
 <html lang="es-MX" data-theme="{{ request()->cookie('tc_theme', 'light') }}">
 
@@ -20,19 +24,50 @@
 </head>
 
 <body>
-    {{-- Theme toggle, top-right. app.js's initTheme() wires [data-theme-toggle]
-         automatically, so no inline script is needed here. --}}
+    {{-- Theme toggle, top-right. app.js's initTheme() wires [data-theme-toggle]. --}}
     <button class="icon-btn auth-theme" data-theme-toggle aria-label="Cambiar tema" title="Cambiar tema">
         <i class="fa-solid {{ request()->cookie('tc_theme', 'light') === 'dark' ? 'fa-sun' : 'fa-moon' }}"></i>
     </button>
 
-    <div class="auth-wrap">
-        <div class="auth-card">
-            <a href="/" class="auth-brand">
-                <x-logo :height="30" />
-            </a>
-            @yield('content')
-        </div>
+    <div class="auth-split">
+        {{-- Brand panel (desktop only) --}}
+        <aside class="auth-brand-panel" aria-hidden="true">
+            <span class="auth-dot auth-dot--1"></span>
+            <span class="auth-dot auth-dot--2"></span>
+            <span class="auth-dot auth-dot--3"></span>
+            <span class="auth-dot auth-dot--4"></span>
+
+            <div class="auth-brand-panel__top">
+                <a href="/" class="auth-brand-panel__logo">
+                    <x-logo :height="34" />
+                </a>
+            </div>
+
+            <div class="auth-brand-panel__body">
+                <h2 class="auth-brand-panel__headline">
+                    @yield('brand-tagline', 'Tu torneo, punto a punto.')
+                </h2>
+                <p class="auth-brand-panel__sub">
+                    Organiza, compite y disfruta. La plataforma para conectar
+                    jugadores, encuentros y resultados.
+                </p>
+            </div>
+
+            <div class="auth-brand-panel__foot">
+                voleo.app &copy; {{ date('Y') }}
+            </div>
+        </aside>
+
+        {{-- Form column --}}
+        <main class="auth-form-col">
+            <div class="auth-card">
+                {{-- Mobile logo header (hidden on desktop; panel carries it there) --}}
+                <a href="/" class="auth-brand auth-brand--mobile">
+                    <x-logo :height="30" />
+                </a>
+                @yield('content')
+            </div>
+        </main>
     </div>
 </body>
 

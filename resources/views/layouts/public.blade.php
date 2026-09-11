@@ -18,7 +18,7 @@
     <meta name="apple-mobile-web-app-title" content="Voleo" />
     <link rel="manifest" href="{{asset('img/icons/site.webmanifest')}}" />
     <script defer src="https://cloud.umami.is/script.js" data-website-id="0a011394-4f7c-4132-a067-040697576e3e"></script>
-    @vite(['resources/css/app.css','resources/css/landing.css', 'resources/css/share.css', 'resources/js/app.js'])
+    @vite(['resources/css/app.css','resources/css/public.css', 'resources/css/share.css', 'resources/js/app.js'])
     @stack('head')
 </head>
 
@@ -35,6 +35,7 @@
                     <a href="{{ route('public.directory') }}" class="ph__link">Torneos</a>
                     <a href="{{ route('public.circuits.index') }}" class="ph__link">Circuitos</a>
                     <a href="{{ route('public.search') }}" class="ph__link">Buscar</a>
+                    <a href="{{ route('docs.index') }}" class="ph__link">Guías</a>
                     <a href="{{ route('dashboard') }}" class="ph__cta">Soy organizador</a>
                 </nav>
 
@@ -64,8 +65,25 @@
                     <a href="{{ route('public.directory') }}" class="ph-oc__link"><i class="fa-solid fa-trophy"></i> Torneos</a>
                     <a href="{{ route('public.circuits.index') }}" class="ph-oc__link"><i class="fa-solid fa-ranking-star"></i> Circuitos</a>
                     <a href="{{ route('public.search') }}" class="ph-oc__link"><i class="fa-solid fa-magnifying-glass"></i> Buscar</a>
+                    <a href="{{ route('docs.index') }}" class="ph-oc__link"><i class="fa-solid fa-book"></i> Guías</a>
+                    <a href="{{ route('dashboard') }}" class="ph-oc__cta">Soy organizador</a>
                 </nav>
-                <a href="{{ route('dashboard') }}" class="ph-oc__cta">Soy organizador</a>
+
+                <div class="ph-oc__foot">
+                    <div class="ph-oc__social">
+                        <a href="https://instagram.com/voleo.mx" target="_blank" rel="noopener" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+                        <a href="https://facebook.com/voleo.mx" target="_blank" rel="noopener" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+                        <a href="https://tiktok.com/@voleo.mx" target="_blank" rel="noopener" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>
+                        <a href="mailto:contacto@voleo.mx" aria-label="Correo"><i class="fa-solid fa-envelope"></i></a>
+                    </div>
+                    <div class="ph-oc__legal">
+                        <a href="{{ route('legal.terminos') }}">Términos</a>
+                        <a href="{{ route('legal.privacidad') }}">Privacidad</a>
+                        <a href="{{ route('legal.aviso') }}">Aviso de Privacidad</a>
+                        <a href="{{ route('legal.reembolsos') }}">Reembolsos</a>
+                    </div>
+                    <p class="ph-oc__meta">© {{ date('Y') }} Voleo · Veracruz, México</p>
+                </div>
             </aside>
         </div>
 
@@ -86,6 +104,7 @@
                     <a href="{{ route('public.directory') }}">Torneos</a>
                     <a href="{{ route('public.circuits.index') }}">Circuitos</a>
                     <a href="{{ route('public.search') }}">Buscar</a>
+                    <a href="{{ route('docs.index') }}">Guías</a>
                     <a href="{{ route('dashboard') }}">Soy organizador</a>
                 </div>
                 <div class="pf__col">
@@ -132,7 +151,7 @@
                 el.addEventListener('click', close);
             });
             // Close when a nav link is tapped (but not the theme toggle).
-            oc.querySelectorAll('a.ph-oc__link, .ph-oc__cta').forEach(function(a) {
+            oc.querySelectorAll('.ph-oc__panel a[href]').forEach(function(a) {
                 a.addEventListener('click', close);
             });
             document.addEventListener('keydown', function(e) {

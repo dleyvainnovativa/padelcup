@@ -67,6 +67,11 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
   // Declarative themed confirmations (replaces native confirm()).
   import('./modules/confirms').then((m) => m.initConfirms());
 
+  // Show/hide password toggles on any .pw-field wrapper (auth screens).
+  if (document.querySelector('.pw-field')) {
+    import('./modules/passwordToggle').then((m) => m.initPasswordToggle());
+  }
+
   // Expose the themed confirm for inline page scripts that need it.
   window.tcConfirm = modal.confirm;
 

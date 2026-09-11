@@ -70,10 +70,84 @@ function inkColors(ink) {
     };
 }
 
+/* ----------------------------------------------------------------------------
+   Voleo wordmark, drawn onto the canvas as the footer brand (replaces the old
+   fillText('VOLEO')). The SVG is recolored per ink (black / white) and cached
+   as a decoded <img>; the trailing dot stays lime in both. Image decode is
+   async, so a module-level re-render hook lets the preview refresh once a logo
+   finishes loading. viewBox 1365x398 → aspect ≈ 3.429.
+---------------------------------------------------------------------------- */
+const VOLEO_LOGO_ASPECT = 1365 / 398;
+const VOLEO_DOT = '#d9f27a';
+
+// Optional callback the drawer sets so a late-decoded logo can refresh preview.
+let _voleoReRender = null;
+function setVoleoReRender(fn) { _voleoReRender = fn; }
+
+function voleoSvg(inkColor) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1365 398" style="fill-rule:evenodd;clip-rule:evenodd;">`
+        + `<g transform="matrix(1,0,0,1,-1478.153171,-1510.333408)"><g transform="matrix(1.40332,0,0,1.40332,1446,1481)">`
+        + `<path d="M932.92,263.522C937.839,225.414 978.945,229.053 990.232,248.648C1010.371,283.608 963.56,313.382 939.901,285.159C933.084,277.027 932.942,265.34 932.92,263.522Z" fill="${VOLEO_DOT}"/>`
+        + `<path d="M910.04,192.484C899.785,326.489 696.149,338.604 707.978,200.558C712.527,147.474 769.302,87.302 845.522,103.398C877.494,110.149 904.046,135.984 908.765,168.458C910.504,180.43 910.275,180.404 910.04,192.484ZM797.534,253.024C865.713,257.64 883.985,150.063 817.5,145.495C806.094,144.712 778.995,150.12 765.274,179.397C751.417,208.964 760.652,247.331 797.534,253.024Z" fill="${inkColor}"/>`
+        + `<g transform="matrix(0.712596,0,0,0.712596,0,0)"><path d="M980.872,244.861C980.905,249.393 981.128,279.392 973.16,300.994C972.004,304.129 970.671,303.703 890.413,304.361C781.686,305.252 781.178,305.368 780.706,306.477C777.977,312.887 791.695,379.628 865.017,359.533C869.433,358.322 909.695,332.206 948.351,357.95C954.96,362.351 950.743,364.047 945.414,370.02C941.506,374.402 895.039,434.643 806.321,419.599C696.104,400.909 676.911,249.791 774.966,175.604C846.303,121.631 969.075,133.446 980.872,244.861ZM907.243,256.855C913.86,256.714 913.819,256.742 914.389,256.702C920.658,256.264 915.879,208.77 881.845,200.567C815.877,184.668 784.85,253.457 786.989,257.352C788.43,259.977 876.845,256.62 907.243,256.855Z" fill="${inkColor}"/></g>`
+        + `<path d="M425.5,298.038C421.765,297.707 419.55,299.221 420.169,295.447C420.284,294.748 443.18,184.379 443.838,181.584C452.276,145.768 450.342,145.42 458.822,109.584C460.848,101.024 464.247,78.032 466.517,77.576C478.385,75.197 510.589,92.436 503.287,124.442C495.352,159.228 474.484,263.323 472.06,275.416C467.792,296.706 467.306,297.152 465.485,297.35C463.693,297.545 429.17,297.962 425.5,298.038Z" fill="${inkColor}"/>`
+        + `<g transform="matrix(0.712596,0,0,0.712596,0,0)"><path d="M466.614,148.831C634.657,156.179 620.7,392.869 452.467,423.964C360.266,441.005 282.072,374.237 304.48,273.081C319.307,206.144 381.669,146.556 466.614,148.831ZM446.99,211.834C362.313,221.031 342.156,351.596 431.505,362.886C470.982,367.874 528.392,318.774 509.868,251.963C504.262,231.743 484.327,211.526 453.966,211.609C451.639,211.616 449.316,211.828 446.99,211.834Z" fill="${inkColor}"/></g>`
+        + `<g transform="matrix(0.712596,0,0,0.712596,0,0)"><path d="M204.822,101.756C213.777,23.692 298.76,13.785 322.59,48.059C342.872,77.231 326.283,96.73 338.942,95.015C449.786,80.005 533.854,29.531 538.397,30.969C541.508,31.953 547.909,59.975 527.541,86.756C495.306,129.139 372.416,140.564 331.831,146.33C324.063,147.433 325.939,150.417 313.108,174.429C308.862,182.376 192.857,419.103 190.058,421.589C188.172,423.263 101.285,423.239 100.607,422.702C97.449,420.2 61.873,237.427 49.405,207.159C36.409,175.61 32.09,177.615 32.154,174.674C32.272,169.178 74.848,162.046 99.868,180.951C147.475,216.924 136.83,337.954 148.196,362.685C153.071,373.291 161.435,351.583 173.116,327.579C259.229,150.604 262.634,148.07 258.731,147.244C233.049,141.812 207.37,143.214 204.822,101.756ZM261.751,112.171C298.597,107.184 299.702,69.953 282.82,65.111C252.667,56.464 221.138,110.547 261.751,112.171Z" fill="${inkColor}"/></g>`
+        + `</g></g></svg>`;
+}
+
+const _voleoCache = {}; // ink -> { img, ready }
+function getVoleoLogo(ink) {
+    if (_voleoCache[ink]) return _voleoCache[ink].ready ? _voleoCache[ink].img : null;
+    const inkColor = ink === 'black' ? '#14140f' : '#ffffff';
+    const img = new Image();
+    const entry = { img, ready: false };
+    _voleoCache[ink] = entry;
+    img.onload = () => { entry.ready = true; if (_voleoReRender) _voleoReRender(); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(voleoSvg(inkColor));
+    return null;
+}
+// Warm both variants up front so they're ready by export time.
+function preloadVoleoLogos() { getVoleoLogo('black'); getVoleoLogo('white'); }
+
+// Resolves once the given ink's logo has decoded (or immediately if ready).
+function whenVoleoReady(ink) {
+    return new Promise((resolve) => {
+        if (getVoleoLogo(ink)) return resolve();     // already decoded
+        const entry = _voleoCache[ink];
+        const prev = entry.img.onload;
+        entry.img.onload = () => { if (prev) prev(); resolve(); };
+        // Safety timeout so export never hangs if decode fails.
+        setTimeout(resolve, 1500);
+    });
+}
+
+/* Draw the Voleo wordmark where the old fillText('VOLEO') sat.
+   align: 'left' | 'right'. (x, yBaseline) = old text anchor. sizePx ≈ old font
+   size. Falls back to the plain text (in fallbackColor / fMono) until decoded. */
+function drawVoleoBrand(ctx, ink, x, yBaseline, sizePx, align, fallbackColor, fMono) {
+    const img = getVoleoLogo(ink);
+    if (img) {
+        const h = sizePx * 1.25;                 // logo height ≈ text size, slight bump
+        const w = h * VOLEO_LOGO_ASPECT;
+        const top = yBaseline - h * 0.82;        // baseline → top of glyph box
+        const left = align === 'right' ? x - w : x;
+        ctx.drawImage(img, left, top, w, h);
+    } else {
+        ctx.save();
+        ctx.textAlign = align;
+        ctx.fillStyle = fallbackColor;
+        ctx.font = `500 ${sizePx}px ${fMono}`;
+        ctx.fillText('VOLEO', x, yBaseline);
+        ctx.restore();
+    }
+}
+
 /* ============================================================================
    DRAWER
    ========================================================================== */
 function createDrawer() {
+    preloadVoleoLogos(); // warm both ink variants of the Voleo wordmark
     // State for the current session.
     const state = {
         data: null,
@@ -330,6 +404,8 @@ function createDrawer() {
     // --- Render (preview) ---
     function render() {
         if (!state.img || !state.data) return;
+        // Let a late-decoded Voleo logo refresh this preview.
+        setVoleoReRender(render);
         drawComposite(canvas, state.img, state.data, {
             theme: state.theme,
             ink: state.ink,
@@ -343,15 +419,19 @@ function createDrawer() {
     function makeBlob() {
         return new Promise((resolve) => {
             if (!state.img || !state.data) return resolve(null);
-            const out = document.createElement('canvas');
-            drawComposite(out, state.img, state.data, {
-                theme: state.theme,
-                ink: state.ink,
-                panelColor: state.panelColor,
-                panelOpacity: state.panelOpacity,
-                preview: false,
+            // Ensure the Voleo logo for the current ink is decoded first, so the
+            // exported PNG shows the wordmark (not the text fallback).
+            whenVoleoReady(state.ink).then(() => {
+                const out = document.createElement('canvas');
+                drawComposite(out, state.img, state.data, {
+                    theme: state.theme,
+                    ink: state.ink,
+                    panelColor: state.panelColor,
+                    panelOpacity: state.panelOpacity,
+                    preview: false,
+                });
+                out.toBlob((blob) => resolve(blob), 'image/png');
             });
-            out.toBlob((blob) => resolve(blob), 'image/png');
         });
     }
 
@@ -459,7 +539,8 @@ function drawComposite(canvas, img, d, opts) {
         accent,
         fUI,
         fMono,
-        d
+        d,
+        ink: opts.ink,
     };
     if (opts.theme === 'paper') drawPaper(layout);
     else if (opts.theme === 'hero') drawHero(layout);
@@ -503,7 +584,8 @@ function drawLedger({
     c,
     fUI,
     fMono,
-    d
+    d,
+    ink
 }) {
     const winA = d.winner === 'a',
         winB = d.winner === 'b';
@@ -557,10 +639,7 @@ function drawLedger({
     stat(ctx, pad + colW, stripY + 62 * u, u, 'GAMES', `${aGames} – ${bGames}`, c, fMono, fUI);
 
     // Footer brand.
-    ctx.textAlign = 'left';
-    ctx.fillStyle = c.muted;
-    ctx.font = `500 ${19 * u}px ${fMono}`;
-    ctx.fillText('VOLEO', pad, H - 56 * u);
+    drawVoleoBrand(ctx, ink, pad, H - 56 * u, 19 * u, 'left', c.muted, fMono);
 }
 
 // One Ledger row: name stacked on up to 2 lines (left), score digits big (right),
@@ -619,7 +698,8 @@ function drawPaper({
     accent,
     fUI,
     fMono,
-    d
+    d,
+    ink
 }) {
     const {
         aSets,
@@ -688,10 +768,7 @@ function drawPaper({
     ctx.fillText(`${aSets} – ${bSets}`, pad, H - 78 * u);
     ctx.fillText(`${aGames} – ${bGames}`, pad + 240 * u, H - 78 * u);
 
-    ctx.textAlign = 'right';
-    ctx.fillStyle = c.muted;
-    ctx.font = `500 ${19 * u}px ${fMono}`;
-    ctx.fillText('VOLEO', W - pad, H - 78 * u);
+    drawVoleoBrand(ctx, ink, W - pad, H - 78 * u, 19 * u, 'right', c.muted, fMono);
     ctx.textAlign = 'left';
 }
 
@@ -733,7 +810,8 @@ function drawHero({
     c,
     fUI,
     fMono,
-    d
+    d,
+    ink
 }) {
     const winA = d.winner === 'a';
 
@@ -769,10 +847,7 @@ function drawHero({
     ctx.fillText(truncate(pairName(d, winA ? 'b' : 'a'), 34), pad + 36 * u, rowY + 60 * u);
 
     // Footer.
-    ctx.textAlign = 'left';
-    ctx.fillStyle = c.muted;
-    ctx.font = `500 ${19 * u}px ${fMono}`;
-    ctx.fillText('VOLEO', pad, H - 70 * u);
+    drawVoleoBrand(ctx, ink, pad, H - 70 * u, 19 * u, 'left', c.muted, fMono);
 }
 
 /* ---- primitive helpers ---- */

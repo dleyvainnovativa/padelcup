@@ -2,10 +2,11 @@
 @extends('layouts.guest')
 
 @section('title', 'Iniciar sesión')
+@section('brand-tagline', 'Tu torneo, punto a punto.')
 
 @section('content')
-<h1 style="font-size:18px;font-weight:700;margin-bottom:4px;">Iniciar sesión</h1>
-<p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">
+<h1 style="font-size:22px;font-weight:700;letter-spacing:-0.02em;margin-bottom:4px;">Iniciar sesión</h1>
+<p style="color:var(--text-muted);font-size:13px;margin-bottom:22px;">
     Accede para administrar tus torneos.
 </p>
 
@@ -21,7 +22,6 @@
     <a href="{{ route('oauth.redirect', 'google') }}" class="btn btn-soft d-flex align-items-center justify-content-center gap-2">
         <i class="fa-brands fa-google"></i> Continuar con Google
     </a>
-
 </div>
 
 <div class="d-flex align-items-center gap-2 my-3" style="color:var(--text-faint);font-size:12px;">
@@ -46,10 +46,12 @@
             <a href="{{ route('password.request') }}" style="font-size:12px;">¿Olvidaste tu contraseña?</a>
             @endif
         </div>
-        <input type="password" name="password" required
-            class="form-control @error('password') is-invalid @enderror"
-            style="border-radius:var(--radius);">
-        @error('password')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        <div class="pw-field">
+            <input type="password" name="password" required
+                class="form-control @error('password') is-invalid @enderror"
+                style="border-radius:var(--radius);">
+        </div>
+        @error('password')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
     </div>
 
     <div class="form-check mb-3">

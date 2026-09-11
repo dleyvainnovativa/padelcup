@@ -1,0 +1,401 @@
+/* ==========================================================================
+   Voleo — PUBLIC PAGES styles (public.css)
+   Header (.ph), footer (.pf), offcanvas (.ph-oc), topbar, and the public
+   page system (.pp / .pp-*): directory, search, circuits, tournament cards.
+   Split out from the former landing.css so the landing rebuild is isolated.
+   ========================================================================== */
+
+@keyframes lp-pulse { 0% { box-shadow: 0 0 0 0 rgba(229,72,77,.5); } 70% { box-shadow: 0 0 0 7px rgba(229,72,77,0); } 100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); } }
+
+/* ==========================================================================
+   PUBLIC PAGES (directory, search) — shares the landing design language.
+   Load this file on those pages too (via @push('head')).
+   ========================================================================== */
+
+.pp {
+  --lp-indigo: #0e3b2e;
+  --lp-indigo2: #0e3b2e;
+  --lp-indigo3: #8a6fc0;
+  --lp-gold: #c2e34d;
+  --lp-ink: var(--text, #1a1a2e);
+  --lp-muted: var(--text-muted, #6b7280);
+  --lp-faint: var(--text-faint, #9ca3af);
+  --lp-surface: var(--surface, #ffffff);
+  --lp-bg-subtle: var(--bg-subtle, #f7f7fb);
+  --lp-border: var(--border, #e8e8ef);
+  --lp-shadow: 0 20px 50px -20px rgba(14, 59, 46, .22);
+  --pp-radius: 14px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin: -16px 0 -32px; /* bleed like the landing */
+}
+[data-theme="dark"] .pp { --lp-shadow: 0 20px 50px -20px rgba(0,0,0,.6); }
+
+/* Page hero header */
+.pp-head { position: relative; overflow: hidden; padding: 48px 20px 32px; text-align: center; }
+.pp-head__inner { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; }
+.pp-head h1 { font-size: clamp(26px, 4vw, 40px); font-weight: 800; letter-spacing: -1px; margin: 0 0 8px; color: var(--lp-ink); }
+.pp-head p { font-size: 15px; color: var(--lp-muted); margin: 0; }
+
+/* Modern centered search */
+.pp-search { max-width: 600px; margin: 22px auto 0; display: flex; gap: 10px; }
+.pp-search__field { flex: 1; display: flex; align-items: center; gap: 10px; padding: 0 16px;
+  background: var(--lp-surface); border: 1px solid var(--lp-border); border-radius: 12px;
+  box-shadow: 0 4px 14px -6px rgba(40,40,90,.12); transition: border-color .15s, box-shadow .15s; }
+.pp-search__field:focus-within { border-color: var(--lp-indigo); box-shadow: 0 6px 20px -8px color-mix(in srgb, var(--lp-indigo) 50%, transparent); }
+.pp-search__field i { color: var(--lp-faint); font-size: 15px; }
+.pp-search__field input { flex: 1; border: 0; outline: 0; background: transparent; padding: 13px 0; font-size: 15px; color: var(--lp-ink); font-family: inherit; }
+
+/* Body wrap */
+.pp-body { max-width: 960px; margin: 0 auto; padding: 8px 20px 56px; }
+.pp-section-title { font-size: 14px; font-weight: 700; color: var(--lp-muted); text-transform: uppercase; letter-spacing: .05em; margin: 32px 0 16px; display: flex; align-items: center; gap: 8px; }
+.pp-empty { text-align: center; color: var(--lp-muted); padding: 48px 20px; background: var(--lp-bg-subtle); border: 1px solid var(--lp-border); border-radius: var(--pp-radius); margin-top: 20px; }
+
+/* Tournament grid + cards (image-forward) */
+.pp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+.pp-card { display: flex; flex-direction: column; background: var(--lp-surface); border: 1px solid var(--lp-border);
+  border-radius: var(--pp-radius); overflow: hidden; text-decoration: none; color: var(--lp-ink);
+  transition: transform .15s, box-shadow .15s, border-color .15s; }
+.pp-card:hover { transform: translateY(-4px); box-shadow: var(--lp-shadow); border-color: color-mix(in srgb, var(--lp-indigo) 30%, transparent); }
+.pp-card__cover { position: relative; aspect-ratio: 16 / 9; background: linear-gradient(120deg, color-mix(in srgb, var(--lp-indigo) 18%, var(--lp-surface)), color-mix(in srgb, var(--lp-indigo3) 18%, var(--lp-surface))); overflow: hidden; }
+.pp-card__cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pp-card__cover-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 34px; color: color-mix(in srgb, var(--lp-indigo) 55%, transparent); }
+.pp-card__live { position: absolute; top: 10px; left: 10px; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; color: #fff; background: rgba(229,72,77,.92); padding: 4px 10px; border-radius: 999px; backdrop-filter: blur(4px); }
+.pp-card__live-dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: lp-pulse 1.8s infinite; }
+.pp-card__body { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.pp-card__name { font-size: 16px; font-weight: 700; letter-spacing: -.3px; line-height: 1.25; }
+.pp-card__meta { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--lp-muted); margin-top: auto; }
+.pp-card__meta span { display: inline-flex; align-items: center; gap: 6px; }
+.pp-card__meta i { color: var(--accent); width: 13px; text-align: center; }
+.pp-card__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pp-chip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--lp-bg-subtle); border: 1px solid var(--lp-border); color: var(--lp-muted); }
+.pp-chip--accent { background: color-mix(in srgb, var(--lp-indigo) 12%, var(--lp-surface)); border-color: color-mix(in srgb, var(--lp-indigo) 25%, transparent); color: var(--lp-indigo); }
+
+/* Player search results */
+.pp-player-list { display: flex; flex-direction: column; gap: 8px; }
+.pp-player-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 16px;
+  background: var(--lp-surface); border: 1px solid var(--lp-border); border-radius: 12px; transition: border-color .15s; }
+.pp-player-row:hover { border-color: color-mix(in srgb, var(--lp-indigo) 30%, transparent); }
+.pp-player-row__name { font-weight: 700; font-size: 14.5px; display: flex; align-items: center; gap: 9px; }
+.pp-player-row__avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff; background: linear-gradient(120deg, var(--lp-indigo), var(--lp-indigo3)); }
+.pp-player-row__links { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.pp-tlink { font-size: 12px; padding: 4px 11px; border-radius: 999px; background: var(--lp-bg-subtle); border: 1px solid var(--lp-border); color: var(--lp-muted); text-decoration: none; transition: all .12s; }
+.pp-tlink:hover { border-color: var(--lp-indigo); color: var(--lp-indigo); }
+
+.pp-btn { display: inline-flex; align-items: center; gap: 7px; padding: 13px 22px; border-radius: 12px; font-size: 14.5px; font-weight: 600; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform .12s, box-shadow .12s; }
+.pp-btn--primary { color: #fff; background: linear-gradient(120deg, var(--lp-indigo), #4f47e0); box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--lp-indigo) 70%, transparent); }
+.pp-btn--primary:hover { transform: translateY(-2px); }
+.pp-btn--ghost { color: var(--lp-ink); background: var(--lp-surface); border-color: var(--lp-border); }
+
+@media (max-width: 560px) {
+  .pp-search { flex-direction: column; }
+  .pp-player-row__links { margin-left: 0; width: 100%; }
+}
+
+/* ==========================================================================
+   MODERN MULTI-COLUMN FOOTER
+   ========================================================================== */
+.pf {
+  --pp-indigo: #0e3b2e; --pp-indigo3: #8a6fc0; --pp-gold: #c2e34d;
+  margin-top: 0; border-top: 1px solid var(--border, #e8e8ef);
+  background: var(--bg-subtle, #f7f7fb);
+}
+.pf__inner { max-width: 960px; margin: 0 auto; padding: 48px 20px 28px;
+  display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 32px; }
+.pf__brand-col { max-width: 280px; }
+.pf__brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; color: var(--text, #1a1a2e); text-decoration: none; margin-bottom: 12px; }
+.pf__brand .pf__logo { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(120deg, var(--pp-indigo), var(--pp-indigo3)); font-size: 14px; }
+.pf__tagline { font-size: 13px; color: var(--text-muted, #6b7280); line-height: 1.55; margin: 0; }
+.pf__col h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint, #9ca3af); margin: 0 0 14px; }
+.pf__col a { display: block; font-size: 13.5px; color: var(--text-muted, #6b7280); text-decoration: none; padding: 5px 0; transition: color .12s; }
+.pf__col a:hover { color: var(--pp-indigo); }
+.pf__bottom { max-width: 960px; margin: 0 auto; padding: 18px 20px; border-top: 1px solid var(--border, #e8e8ef);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.pf__copy { font-size: 12px; color: var(--text-faint, #9ca3af); }
+.pf__made { font-size: 12px; color: var(--text-faint, #9ca3af); display: inline-flex; align-items: center; gap: 5px; }
+.pf__made i { color: var(--pp-gold); }
+@media (max-width: 720px) {
+  .pf__inner { grid-template-columns: 1fr 1fr; gap: 28px; }
+  .pf__brand-col { grid-column: 1 / -1; }
+}
+@media (max-width: 420px) {
+  .pf__inner { grid-template-columns: 1fr; }
+}
+.ph {
+  --ph-indigo: #0e3b2e; --ph-indigo3: #8a6fc0; --ph-gold: #c2e34d;
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--surface, #fff) 80%, transparent);
+  border-bottom: 1px solid transparent;
+  transition: background .2s, border-color .2s, box-shadow .2s;
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .ph { -webkit-backdrop-filter: saturate(180%) blur(12px); backdrop-filter: saturate(180%) blur(12px); }
+}
+.ph.is-scrolled {
+  background: color-mix(in srgb, var(--surface, #fff) 88%, transparent);
+  border-bottom-color: var(--border, #e8e8ef);
+  box-shadow: 0 6px 24px -16px rgba(40,40,90,.35);
+}
+.ph__inner {
+  max-width: 960px; margin: 0 auto; padding: 0 16px;
+  height: 62px; display: flex; align-items: center; justify-content: space-between;
+}
+.ph__brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 800; font-size: 18px; letter-spacing: -.3px; color: var(--text, #1a1a2e); text-decoration: none; }
+.ph__logo { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; background: linear-gradient(120deg, var(--ph-indigo), var(--ph-indigo3)); }
+
+.ph__nav { display: flex; align-items: center; gap: 8px; }
+.ph__link { font-size: 14px; font-weight: 500; color: var(--text-muted, #6b7280); text-decoration: none; padding: 8px 12px; border-radius: 8px; transition: color .12s, background .12s; }
+.ph__link:hover { color: var(--ph-indigo); background: color-mix(in srgb, var(--ph-indigo) 8%, transparent); }
+.ph__theme { margin: 0 2px; }
+.ph__actions { display: flex; align-items: center; gap: 8px; }
+.ph__cta { font-size: 14px; font-weight: 600; color: #fff; text-decoration: none; padding: 9px 16px; border-radius: 9px;
+  background: linear-gradient(120deg, var(--ph-indigo), #4f47e0); box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--ph-indigo) 70%, transparent); transition: transform .12s, box-shadow .12s; }
+.ph__cta:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -10px color-mix(in srgb, var(--ph-indigo) 75%, transparent); }
+
+/* Hamburger (hidden on desktop) */
+.ph__burger { display: none; flex-direction: column; gap: 5px; width: 40px; height: 40px; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border, #e8e8ef); border-radius: 9px; cursor: pointer; }
+.ph__burger span { display: block; width: 18px; height: 2px; background: var(--text, #1a1a2e); border-radius: 2px; transition: transform .25s, opacity .2s; }
+
+/* Offcanvas */
+.ph-oc { position: fixed; inset: 0; z-index: 60; visibility: hidden; pointer-events: none; overflow: hidden; }
+.ph-oc.is-open { visibility: visible; pointer-events: auto; }
+.ph-oc__backdrop { position: absolute; inset: 0; background: rgba(10,10,25,.45); opacity: 0; transition: opacity .25s; }
+.ph-oc.is-open .ph-oc__backdrop { opacity: 1; }
+/* Fullscreen menu — slides in from the right, covers the whole viewport. */
+.ph-oc__panel {
+  position: absolute; top: 0; right: 0; height: 100%; width: 100%;
+  background: var(--surface, #fff);
+  /* padding: clamp(0px, 4vw, 8px) clamp(0px, 6vw, 16px) clamp(20px, 4vh, 44px); */
+  display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .42s cubic-bezier(.16,.84,.28,1);
+  overflow: hidden;   /* fullscreen, never scrolls */
+}
+.ph-oc__head{
+  padding: clamp(0px, 4vw, 8px) clamp(0px, 6vw, 16px) clamp(20px, 4vh, 44px);
+
+}
+.ph-oc__nav{
+    padding: clamp(18px, 4vw, 40px) clamp(20px, 6vw, 64px) clamp(20px, 4vh, 44px);
+
+}
+.ph-oc__foot{
+    padding: clamp(18px, 4vw, 40px) clamp(20px, 6vw, 64px) clamp(20px, 4vh, 44px);
+
+}
+.ph-oc.is-open .ph-oc__panel { transform: translateX(0); }
+/* Subtle brand wash + a giant faded wordmark echo behind the content.
+   Clipped by the panel's overflow:hidden so it can't cause horizontal scroll. */
+.ph-oc__panel::after {
+  /* content: "voleo."; position: absolute; right: -4%; bottom: -6%;
+  font-size: clamp(120px, 26vw, 340px); font-weight: 800; letter-spacing: -.05em;
+  color: color-mix(in srgb, var(--ph-indigo) 6%, transparent);
+  pointer-events: none; line-height: 1; z-index: 0; max-width: 100%; */
+    content: url("data:image/svg+xml,%3Csvg height='260' viewBox='0 0 1365 398' xmlns='http://www.w3.org/2000/svg' style='fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;width:auto;'%3E%3Cg transform='matrix(1,0,0,1,-1478.153171,-1510.333408)'%3E%3Cg id='Background' transform='matrix(1.40332,0,0,1.40332,1446,1481)'%3E%3Cg transform='matrix(0.712596,0,0,0.712596,0,0)'%3E%3Cpath d='M204.822,101.756C213.777,23.692 298.76,13.785 322.59,48.059C342.872,77.231 326.283,96.73 338.942,95.015C449.786,80.005 533.854,29.531 538.397,30.969C541.508,31.953 547.909,59.975 527.541,86.756C495.306,129.139 372.416,140.564 331.831,146.33C324.063,147.433 325.939,150.417 313.108,174.429C308.862,182.376 192.857,419.103 190.058,421.589C188.172,423.263 101.285,423.239 100.607,422.702C97.449,420.2 61.873,237.427 49.405,207.159C36.409,175.61 32.09,177.615 32.154,174.674C32.272,169.178 74.848,162.046 99.868,180.951C147.475,216.924 136.83,337.954 148.196,362.685C153.071,373.291 161.435,351.583 173.116,327.579C259.229,150.604 262.634,148.07 258.731,147.244C233.049,141.812 207.37,143.214 204.822,101.756ZM261.751,112.171C298.597,107.184 299.702,69.953 282.82,65.111C252.667,56.464 221.138,110.547 261.751,112.171Z' style='fill:var(--voleo-logo, %23d5d5d53b);'%3E%3C/path%3E%3C/g%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    position: absolute;
+    right: 4%;
+    float: right;
+    bottom: -6%;
+    font-size: clamp(120px, 26vw, 340px);
+    font-weight: 800;
+    letter-spacing: -.05em;
+    color: color-mix(in srgb, var(--ph-indigo) 6%, transparent);
+    pointer-events: none;
+    line-height: 1;
+    z-index: 0;
+    max-width: 50%;
+}
+[data-theme="dark"] .ph-oc__panel::after { color: color-mix(in srgb, #d9f27a 7%, transparent); }
+.ph-oc__panel > * { position: relative; z-index: 1; }
+
+.ph-oc__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: clamp(12px, 3vh, 48px); flex: 0 0 auto; }
+.ph-oc__close { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--border, #e8e8ef); background: var(--bg-subtle, #f7f7fb); color: var(--text, #1a1a2e); font-size: 18px; cursor: pointer; transition: background .15s, transform .15s; }
+.ph-oc__close:hover { background: color-mix(in srgb, var(--ph-indigo) 10%, var(--bg-subtle)); transform: rotate(90deg); }
+
+/* Big tappable nav links with a staggered entrance. Fills the space between
+   head and footer and centers, so it adapts to any viewport height. */
+.ph-oc__nav { display: flex; flex-direction: column; justify-content: center; gap: clamp(0px, 0.5vh, 6px); flex: 1 1 auto; min-height: 0; }
+.ph-oc__link {
+  display: flex; align-items: center; gap: 18px;
+  /* vh term keeps the type from overflowing on short screens */
+  font-size: clamp(24px, 4vh + 2vw, 52px); font-weight: 700; letter-spacing: -.02em;
+  color: var(--text, #1a1a2e); text-decoration: none;
+  padding: clamp(4px, 1vh, 14px) 0; background: transparent; border: 0;
+  width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+  transition: color .15s, transform .2s;
+  opacity: 0; transform: translateX(24px);
+}
+.ph-oc.is-open .ph-oc__link { opacity: 1; transform: translateX(0); transition: opacity .5s ease, transform .5s cubic-bezier(.16,.84,.28,1); }
+.ph-oc.is-open .ph-oc__link:nth-child(1) { transition-delay: .12s; }
+.ph-oc.is-open .ph-oc__link:nth-child(2) { transition-delay: .18s; }
+.ph-oc.is-open .ph-oc__link:nth-child(3) { transition-delay: .24s; }
+.ph-oc.is-open .ph-oc__link:nth-child(4) { transition-delay: .30s; }
+.ph-oc__link:hover { color: var(--ph-indigo); transform: translateX(8px); }
+[data-theme="dark"] .ph-oc__link:hover { color: #d9f27a; }
+.ph-oc__link i { width: clamp(28px, 6vw, 44px); text-align: center; font-size: .62em; color: var(--ph-indigo); }
+[data-theme="dark"] .ph-oc__link i { color: #d9f27a; }
+
+.ph-oc__cta {
+  align-self: flex-start; margin-top: clamp(12px, 2.5vh, 32px);
+  font-size: 16px; font-weight: 600; color: #fff; text-decoration: none;
+  padding: 15px 30px; border-radius: 100px;
+  background: var(--ph-indigo, #0e3b2e);
+  opacity: 0; transform: translateX(24px);
+  transition: background .15s, transform .2s;
+}
+.ph-oc.is-open .ph-oc__cta { opacity: 1; transform: translateX(0); transition: opacity .5s ease, transform .5s cubic-bezier(.16,.84,.28,1); transition-delay: .36s; }
+.ph-oc__cta:hover { transform: translateY(-2px); }
+
+/* Footer zone: social + legal, pinned to the bottom. */
+.ph-oc__foot { flex: 0 0 auto; padding-top: clamp(16px, 3vh, 40px); }
+.ph-oc__social { display: flex; gap: 12px; margin-bottom: clamp(12px, 2vh, 22px); }
+.ph-oc__social a {
+  width: 46px; height: 46px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border, #e8e8ef); color: var(--text, #1a1a2e);
+  font-size: 18px; text-decoration: none; transition: background .15s, color .15s, border-color .15s, transform .15s;
+}
+.ph-oc__social a:hover { background: var(--ph-indigo); color: #fff; border-color: var(--ph-indigo); transform: translateY(-2px); }
+[data-theme="dark"] .ph-oc__social a:hover { background: #d9f27a; color: #0a1512; border-color: #d9f27a; }
+.ph-oc__legal { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.ph-oc__legal a { font-size: 13.5px; color: var(--text-muted, #6b7280); text-decoration: none; transition: color .15s; }
+.ph-oc__legal a:hover { color: var(--ph-indigo); }
+[data-theme="dark"] .ph-oc__legal a:hover { color: #d9f27a; }
+.ph-oc__meta { margin-top: 16px; font-size: 12.5px; color: var(--text-faint, #9ca3af); }
+
+/* Switch to hamburger on mobile */
+@media (max-width: 720px) {
+  .ph__nav { display: none; }
+  .ph__burger { display: flex; }
+}
+
+/* Old classes no longer used (kept harmless if referenced elsewhere) */
+.public-topbar { display: none; }
+
+/* ----- Mockup: browser dots stay iconic; scores/final use brand via tokens ----- */
+/* (bracket score color = --lp-indigo -> forest; final tag = --lp-gold -> lime;
+    both already remapped, so the mockup rebrands automatically.) */
+
+    /* ============================================================
+   Voleo landing/public — targeted fixes (append to landing.css)
+   Fixes 4 issues reported from the live rebrand:
+     1. Topbar "Soy organizador" button — stray indigo in gradient
+     2. .lp-stat__num — muddy forest→lavender gradient text
+     3. .pp-chip--accent — invisible on dark (forest on dark surface)
+     4. .pp-card__cover — tournament card hero lost on dark
+   These come AFTER the originals so they win by source order.
+   ============================================================ */
+
+/* ---- 1. Topbar CTA: flat forest (light) / lime (dark), no gradient ---- */
+.ph__cta {
+  background: var(--ph-indigo, #0e3b2e) !important;   /* --ph-indigo remapped to forest */
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, #0e3b2e 55%, transparent);
+  color: #fff;
+}
+.ph__cta:hover { transform: translateY(-1px); background: #0a2c22 !important; }
+[data-theme="dark"] .ph__cta {
+  background: #d9f27a !important;
+  color: #0a1512;
+  box-shadow: 0 6px 16px -8px rgba(217,242,122,.35);
+}
+[data-theme="dark"] .ph__cta:hover { background: #e4f79a !important; }
+
+/* The little brand logo box + the off-canvas CTA had the same gradient. */
+.ph__logo { background: var(--ph-indigo, #0e3b2e) !important; }
+[data-theme="dark"] .ph__logo { background: #d9f27a !important; color: #0a1512; }
+.ph-oc__cta { background: var(--ph-indigo, #0e3b2e) !important; color: #fff; }
+[data-theme="dark"] .ph-oc__cta { background: #d9f27a !important; color: #0a1512; }
+
+/* ---- 3. pp-chip--accent: visible in both themes ---- */
+/* Light: soft forest tint. Dark: lime tint + lime text so it stands out. */
+.pp-chip--accent {
+  background: color-mix(in srgb, #0e3b2e 12%, var(--lp-surface));
+  border-color: color-mix(in srgb, #0e3b2e 25%, transparent);
+  color: #0e3b2e;
+}
+[data-theme="dark"] .pp-chip--accent {
+  background: color-mix(in srgb, #d9f27a 16%, transparent);
+  border-color: color-mix(in srgb, #d9f27a 40%, transparent);
+  color: #d9f27a;
+}
+
+/* ---- 4. Tournament card cover: visible placeholder on dark ---- */
+.pp-card__cover {
+  background: linear-gradient(120deg,
+    color-mix(in srgb, var(--brand-lime-deep) 16%, var(--lp-surface)),
+    color-mix(in srgb, var(--brand-lime) 16%, var(--lp-surface)));
+}
+[data-theme="dark"] .pp-card__cover {
+  background: linear-gradient(120deg,
+    color-mix(in srgb, var(--brand-lime-deep) 14%, var(--lp-surface)),
+    color-mix(in srgb, var(--brand-lime) 12%, var(--lp-surface)));
+}
+.pp-card__cover-fallback { color: color-mix(in srgb, #0e3b2e 55%, transparent); }
+[data-theme="dark"] .pp-card__cover-fallback { color: color-mix(in srgb, #d9f27a 60%, transparent); }
+
+.pp-btn--primary {
+  background: var(--lp-indigo, #0e3b2e) !important;   /* remapped to forest */
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, #0e3b2e 55%, transparent);
+  color: #fff;
+}
+.pp-btn--primary:hover { transform: translateY(-2px); background: #0a2c22 !important; }
+[data-theme="dark"] .pp-btn--primary {
+  background: #d9f27a !important;
+  color: #0a1512;
+  box-shadow: 0 8px 20px -8px rgba(217,242,122,.30);
+}
+[data-theme="dark"] .pp-btn--primary:hover { background: #e4f79a !important; }
+
+/* On a hero page, the resting (top) header is fully transparent. */
+.has-hero .ph {
+  background: transparent;
+  border-bottom-color: transparent;
+  box-shadow: none;
+}
+
+/* Over the LIME hero, links/brand must be dark (navy) to stay legible.
+   (In dark theme the hero is a forest gradient, so keep light text.) */
+.has-hero .ph:not(.is-scrolled) .ph__brand { color: var(--lp-navy, #1a1145); }
+.has-hero .ph:not(.is-scrolled) .ph__link { color: color-mix(in srgb, var(--lp-navy, #1a1145) 78%, transparent); }
+.has-hero .ph:not(.is-scrolled) .ph__link:hover { color: var(--lp-navy, #1a1145); background: rgba(26,17,69,.08); }
+.has-hero .ph:not(.is-scrolled) .ph__theme,
+.has-hero .ph:not(.is-scrolled) .ph__burger span { color: var(--lp-navy, #1a1145); }
+.has-hero .ph:not(.is-scrolled) .ph__burger span { background: var(--lp-navy, #1a1145); }
+
+/* The logo wordmark (x-logo) uses currentColor -> set brand color to navy
+   at top so it reads on lime; the lime dot stays lime. */
+.has-hero .ph:not(.is-scrolled) .voleo-logo { color: var(--lp-navy, #1a1145); }
+
+/* Dark theme: hero is a dark forest gradient, so top-state text stays light. */
+[data-theme="dark"] .has-hero .ph:not(.is-scrolled) .ph__brand,
+[data-theme="dark"] .has-hero .ph:not(.is-scrolled) .ph__link,
+[data-theme="dark"] .has-hero .ph:not(.is-scrolled) .voleo-logo { color: var(--text); }
+[data-theme="dark"] .has-hero .ph:not(.is-scrolled) .ph__link { color: color-mix(in srgb, var(--text) 80%, transparent); }
+[data-theme="dark"] .has-hero .ph:not(.is-scrolled) .ph__burger span { background: var(--text); }
+
+/* Once scrolled, everything returns to the normal solid bar (existing
+   .ph.is-scrolled rule handles bg/shadow; text colors revert automatically). */
+
+/* The transparent bar sits OVER the hero: pull the hero up under it so there's
+   no gap. The header is ~62px; give hero pages a negative top pull. */
+.has-hero .public-main > .lp-hero:first-child,
+.has-hero .public-main > .pub-wrap:first-child .pub-hero {
+  margin-top: -62px;
+  padding-top: calc(62px + 30px);   /* restore internal spacing below the bar */
+}
+
+/* ==========================================================================
+   Aurora background — decorative blurred blobs used inside .pp-head on the
+   directory and search pages. Kept here (not in landing.css) because these
+   public pages depend on it.
+   ========================================================================== */
+.lp-aurora { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.lp-aurora__blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; will-change: transform; }
+.lp-aurora__blob--1 { width: 460px; height: 460px; top: -120px; left: -80px; background: radial-gradient(circle, var(--lp-indigo), transparent 48%); animation: lp-float-1 14s ease-in-out infinite; }
+.lp-aurora__blob--2 { width: 400px; height: 400px; top: -60px; right: -60px; background: radial-gradient(circle, var(--lp-indigo3), transparent 70%); opacity: .4; animation: lp-float-2 18s ease-in-out infinite; }
+.lp-aurora__blob--3 { width: 380px; height: 380px; bottom: 10px; left: 40%; background: radial-gradient(circle, var(--lp-indigo3), transparent 70%); opacity: .35; animation: lp-float-3 16s ease-in-out infinite; }
+@keyframes lp-float-1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(40px, 30px); } }
+@keyframes lp-float-2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-30px, 40px); } }
+@keyframes lp-float-3 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(20px, -30px); } }
+[data-theme="dark"] .lp-aurora__blob { opacity: .4; }
+@media (prefers-reduced-motion: reduce) { .lp-aurora__blob { animation: none; } }

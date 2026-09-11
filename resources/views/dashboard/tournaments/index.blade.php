@@ -8,9 +8,14 @@
         <h1>Torneos</h1>
         <div class="page-sub">Tus torneos como organizador.</div>
     </div>
-    <a href="{{ route('tournaments.create') }}" class="btn btn-accent">
-        <i class="fa-solid fa-plus me-1"></i> Nuevo torneo
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('tournaments.transfer.form') }}" class="btn btn-soft">
+            <i class="fa-solid fa-file-import me-1"></i> Importar
+        </a>
+        <a href="{{ route('tournaments.create') }}" class="btn btn-accent">
+            <i class="fa-solid fa-plus me-1"></i> Nuevo torneo
+        </a>
+    </div>
 </div>
 
 @includeWhen(session('status'), 'dashboard.partials.flash')
