@@ -201,6 +201,7 @@
                 </div>
             </details>
 
+            @include("dashboard.tournaments.partials.ranking-systems-select")
 
             <div class="form-check mt-3">
                 <input type="checkbox" name="is_listed" id="is_listed" value="1" class="form-check-input" @checked(old('is_listed', $tournament->is_listed))>

@@ -20,7 +20,6 @@ use App\Models\User;
 use App\Models\Venue;
 use App\Enums\TournamentPhase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Full-fidelity tournament export/import as portable JSON.
@@ -69,7 +68,7 @@ class TournamentTransferService
             }
         }
 
-        $playerRef = fn ($id) => $id ? 'player_' . $id : null;
+        $playerRef = fn($id) => $id ? 'player_' . $id : null;
         $userRef = function ($userId) use (&$userEmails) {
             if (! $userId) return null;
             $u = User::find($userId);
@@ -102,7 +101,7 @@ class TournamentTransferService
                         'name' => $c->name,
                         'sort_order' => $c->sort_order,
                         'is_active' => $c->is_active,
-                        'availabilities' => $c->availabilities->map(fn (CourtAvailability $a) => [
+                        'availabilities' => $c->availabilities->map(fn(CourtAvailability $a) => [
                             'starts_at' => $this->dt($a->starts_at),
                             'ends_at' => $this->dt($a->ends_at),
                         ])->all(),
@@ -134,15 +133,15 @@ class TournamentTransferService
                 'whatsapp_group_url' => $cat->whatsapp_group_url,
                 'category_key' => $cat->category_key,
 
-                'groups' => $cat->groups->map(fn (Group $g) => [
+                'groups' => $cat->groups->map(fn(Group $g) => [
                     'ref' => 'grp_' . $g->id,
                     'name' => $g->name,
                     'position' => $g->position,
                     // pairs are linked via the group_pair pivot, not a column
-                    'pairs' => $g->pairs->pluck('id')->map(fn ($id) => 'pair_' . $id)->all(),
+                    'pairs' => $g->pairs->pluck('id')->map(fn($id) => 'pair_' . $id)->all(),
                 ])->all(),
 
-                'pairs' => $cat->pairs->map(fn (Pair $p) => [
+                'pairs' => $cat->pairs->map(fn(Pair $p) => [
                     'ref' => 'pair_' . $p->id,
                     'is_singles' => $p->is_singles,
                     'player1' => $playerRef($p->player1_id),
@@ -162,7 +161,7 @@ class TournamentTransferService
                         'terms_accepted_at' => $this->dt($r->terms_accepted_at),
                         'terms_version' => $r->terms_version,
                         // Payments: financial history only, Stripe ids stripped.
-                        'payments' => $r->payments->map(fn (Payment $pay) => [
+                        'payments' => $r->payments->map(fn(Payment $pay) => [
                             'player' => $playerRef($pay->player_id),
                             'payer_user' => $userRef($pay->payer_user_id),
                             'amount_centavos' => $pay->amount_centavos,
@@ -238,7 +237,7 @@ class TournamentTransferService
                 // phase/locked_at intentionally omitted — import comes in as Setup.
             ],
 
-            'users' => $userEmails->values()->map(fn ($email) => [
+            'users' => $userEmails->values()->map(fn($email) => [
                 'ref' => 'user_' . md5($email),
                 'email' => $email,
             ])->all(),
@@ -246,14 +245,14 @@ class TournamentTransferService
             'players' => $playersOut,
             'venues' => $venuesOut,
 
-            'phase_windows' => $t->phaseWindows->map(fn (PhaseWindow $w) => [
+            'phase_windows' => $t->phaseWindows->map(fn(PhaseWindow $w) => [
                 'phase' => $this->enum($w->phase),
                 'starts_at' => $this->dt($w->starts_at),
                 'ends_at' => $this->dt($w->ends_at),
             ])->all(),
 
             'player_availability' => PlayerAvailability::where('tournament_id', $t->id)->get()
-                ->map(fn (PlayerAvailability $a) => [
+                ->map(fn(PlayerAvailability $a) => [
                     'normalized_name' => $a->normalized_name,
                     'day' => $this->d($a->day),
                     'unavailable' => $a->unavailable,
@@ -263,7 +262,7 @@ class TournamentTransferService
 
             'categories' => $categoriesOut,
 
-            'sponsors' => $t->sponsors->map(fn (Sponsor $s) => [
+            'sponsors' => $t->sponsors->map(fn(Sponsor $s) => [
                 'name' => $s->name,
                 'image_path' => $s->image_path,
                 'link_url' => $s->link_url,
@@ -273,7 +272,7 @@ class TournamentTransferService
                 'scope' => $s->scope,
             ])->all(),
 
-            'ads' => $t->ads->map(fn (Ad $a) => [
+            'ads' => $t->ads->map(fn(Ad $a) => [
                 'title' => $a->title,
                 'image_path' => $a->image_path,
                 'link_url' => $a->link_url,
@@ -333,7 +332,8 @@ class TournamentTransferService
             $tournament = Tournament::create([
                 'manager_id' => $managerId,
                 'name' => $tt['name'],
-                'slug' => $this->uniqueSlug($tt['name']),
+                // slug intentionally omitted: the model's creating hook generates a
+                // unique one (soft-delete aware), keeping that logic in one place.
                 'description' => $tt['description'] ?? null,
                 'rules' => $tt['rules'] ?? null,
                 'logo_path' => $tt['logo_path'] ?? null,
@@ -413,7 +413,7 @@ class TournamentTransferService
                 $category = Category::create([
                     'tournament_id' => $tournament->id,
                     'name' => $cat['name'],
-                    'slug' => $cat['slug'] ?? Str::slug($cat['name']),
+                    // slug omitted: model's creating hook makes it per-tournament unique.
                     'format' => $cat['format'] ?? null,
                     'play_format' => $cat['play_format'] ?? null,
                     'group_format' => $cat['group_format'] ?? null,
@@ -459,7 +459,7 @@ class TournamentTransferService
                 // Attach the group_pair pivot now that both sides exist.
                 foreach ($groupRefsThisCat as $grpRef => $pairRefs) {
                     $ids = collect($pairRefs)
-                        ->map(fn ($ref) => $pairMap[$ref] ?? null)
+                        ->map(fn($ref) => $pairMap[$ref] ?? null)
                         ->filter()
                         ->all();
                     if ($ids) {
@@ -588,17 +588,6 @@ class TournamentTransferService
         if (! isset($data['tournament']['name'])) {
             throw new \InvalidArgumentException('El archivo no contiene un torneo válido.');
         }
-    }
-
-    private function uniqueSlug(string $name): string
-    {
-        $base = Str::slug($name) ?: 'torneo';
-        $slug = $base;
-        $i = 2;
-        while (Tournament::where('slug', $slug)->exists()) {
-            $slug = $base . '-' . $i++;
-        }
-        return $slug;
     }
 
     /** Enum → its backing value (string|int) or null. */
