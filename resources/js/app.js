@@ -72,6 +72,11 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
     import('./modules/passwordToggle').then((m) => m.initPasswordToggle());
   }
 
+  // Player-facing "propose result" drawer on public match cards.
+  if (document.querySelector('[data-propose-match]')) {
+    import('./modules/matchPropose').then((m) => m.initMatchPropose());
+  }
+
   // Expose the themed confirm for inline page scripts that need it.
   window.tcConfirm = modal.confirm;
 

@@ -46,6 +46,10 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/dashboard', [\App\Http\Controllers\Dashboard\DashboardController::class, 'index'])->name('dashboard');
 
+    // Player-facing: propose a match score from the public page (auth, any user;
+    // eligibility is enforced in the controller via canBeProposedBy()).
+    Route::post('/partidos/{match}/proponer', [\App\Http\Controllers\Public\MatchProposalController::class, 'store'])->name('public.match.propose');
+
     // Tournaments (manager CRUD)
     Route::resource('tournaments', TournamentController::class);
 

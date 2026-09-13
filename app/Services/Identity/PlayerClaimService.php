@@ -19,6 +19,27 @@ class PlayerClaimService
     public function __construct(private PlayerMergeService $merge) {}
 
     /**
+     * Auto-link unclaimed player rows to a user by exact email match.
+     *
+     * Email is a strong identity signal (unlike name, which is why the claim
+     * flow is manual), so when a manager-entered player email matches a user's
+     * email we link directly — no admin review needed. Only touches rows that
+     * are still unlinked (user_id null); never steals a player from another user.
+     *
+     * Safe to call repeatedly (idempotent). Returns the number of rows linked.
+     * Call it both when a user is created and when a player gets an email.
+     */
+    public function autoLinkByEmail(User $user): int
+    {
+        $email = trim((string) $user->email);
+        if ($email === '') return 0;
+
+        return Player::whereNull('user_id')
+            ->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])
+            ->update(['user_id' => $user->id]);
+    }
+
+    /**
      * Search claimable Player records by name, grouped by "human".
      *
      * The same person has a separate Player row per category (dedupe only

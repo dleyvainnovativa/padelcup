@@ -41,6 +41,9 @@ class CreateNewUser implements CreatesNewUsers
 
         $user->notify(new WelcomeNotification(viaSocial: false));
 
+        // Auto-link any unclaimed player rows a manager entered with this email.
+        app(\App\Services\Identity\PlayerClaimService::class)->autoLinkByEmail($user);
+
         return $user;
     }
 }

@@ -76,6 +76,9 @@ class OAuthController extends Controller
             if ($user->email) {
                 $user->notify(new WelcomeNotification(viaSocial: true));
             }
+
+            // Auto-link any unclaimed player rows entered with this email.
+            app(\App\Services\Identity\PlayerClaimService::class)->autoLinkByEmail($user);
         }
 
         Auth::login($user, remember: true);

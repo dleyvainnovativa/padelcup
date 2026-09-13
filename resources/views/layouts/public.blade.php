@@ -88,6 +88,14 @@
         </div>
 
         <main class="public-main">
+            @if(session('status'))
+                <div class="pub-flash pub-flash--ok">{{ session('status') }}</div>
+            @endif
+            @if($errors->any())
+                <div class="pub-flash pub-flash--err">
+                    @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
+                </div>
+            @endif
             @yield('content')
         </main>
 

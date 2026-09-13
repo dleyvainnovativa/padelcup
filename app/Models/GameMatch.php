@@ -359,6 +359,33 @@ class GameMatch extends Model
         return $this->pair_a_id !== null && $this->pair_b_id !== null;
     }
 
+    /**
+     * Player-facing: can this user propose a score for this match?
+     * True when the match has both pairs, isn't confirmed yet, and one of the
+     * user's linked player records is in either pair.
+     */
+    public function playerIdsForUser(\App\Models\User $user): array
+    {
+        return $user->players()->pluck('id')->all();
+    }
+
+    public function canBeProposedBy(?\App\Models\User $user): bool
+    {
+        if (! $user) return false;
+        if (! $this->isReady()) return false;
+        if ($this->isConfirmed()) return false;
+
+        $mine = $this->playerIdsForUser($user);
+        if (! $mine) return false;
+
+        $inMatch = array_merge(
+            $this->pairA ? array_filter([$this->pairA->player1_id, $this->pairA->player2_id]) : [],
+            $this->pairB ? array_filter([$this->pairB->player1_id, $this->pairB->player2_id]) : [],
+        );
+
+        return (bool) array_intersect($mine, $inMatch);
+    }
+
     /** All player ids involved (for player-level scheduling conflicts, Phase 7). */
     public function playerIds(): array
     {

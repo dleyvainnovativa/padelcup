@@ -27,6 +27,18 @@ class Player extends Model
         static::saving(function (Player $player) {
             $player->normalized_name = static::normalize($player->name);
         });
+
+        // Auto-link to an existing user account when a player is created with an
+        // email that matches a registered user. Email is a strong signal, so no
+        // manual claim is needed (name-based claims stay manual — see
+        // PlayerClaimService). Only fills an empty user_id; never reassigns.
+        static::created(function (Player $player) {
+            if ($player->user_id || blank($player->email)) return;
+            $userId = User::whereRaw('LOWER(email) = ?', [mb_strtolower(trim($player->email))])->value('id');
+            if ($userId) {
+                $player->forceFill(['user_id' => $userId])->saveQuietly();
+            }
+        });
     }
 
     /** Lowercased, accent-stripped, single-spaced name for matching. */

@@ -77,4 +77,22 @@
         <i class="fa-solid fa-image"></i>
     </button>
     @endif
+
+    @php $canPropose = auth()->check() && $m->canBeProposedBy(auth()->user()); @endphp
+    @if($m->state->value === 'proposed')
+        <span class="pub-match__proposed" title="Resultado propuesto, esperando confirmación del organizador">
+            <i class="fa-solid fa-hourglass-half"></i>
+        </span>
+    @endif
+    @if($canPropose)
+    <button type="button" class="pub-share-btn pub-match__propose"
+            title="Proponer resultado"
+            data-propose-match="{{ $m->id }}"
+            data-propose-url="{{ route('public.match.propose', $m) }}"
+            data-propose-a="{{ $m->pairA?->name() ?? 'A' }}"
+            data-propose-b="{{ $m->pairB?->name() ?? 'B' }}"
+            data-propose-ctx="{{ $m->contextLabel() }}">
+        <i class="fa-solid fa-pen-to-square"></i>
+    </button>
+    @endif
 </div>
