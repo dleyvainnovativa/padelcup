@@ -72,6 +72,12 @@
             </span>
         </div>
     </div>
+    <div class="pub-match__actions">
+        @if($played)
+        <span class="pub-match__played" title="Resultado confirmado">
+            <i class="fa-solid fa-check"></i>
+        </span>
+        @endif
     @if($played)
     <button type="button" class="pub-share-btn pub-match__share" data-share-match='@json($shareData)' title="Compartir imagen">
         <i class="fa-solid fa-image"></i>
@@ -95,4 +101,28 @@
         <i class="fa-solid fa-pen-to-square"></i>
     </button>
     @endif
+
+    {{-- Prediction game: any logged-in user can guess the exact score until lock --}}
+    @auth
+    @php
+        $predOpen = app(\App\Services\Tournament\PredictionService::class)->isOpen($m);
+        $myPred = $m->relationLoaded('myPrediction') ? $m->myPrediction : \App\Models\MatchPrediction::where('game_match_id', $m->id)->where('user_id', auth()->id())->first();
+    @endphp
+    @if($predOpen || $myPred)
+    <button type="button"
+            class="pub-share-btn pub-match__predict {{ $myPred ? 'has-pred' : '' }}"
+            title="{{ $predOpen ? 'Predecir el marcador' : 'Predicciones cerradas' }}"
+            @if($predOpen)
+            data-predict-match="{{ $m->id }}"
+            data-predict-url="{{ route('public.match.predict', $m) }}"
+            data-predict-a="{{ $m->pairA?->name() ?? 'A' }}"
+            data-predict-b="{{ $m->pairB?->name() ?? 'B' }}"
+            data-predict-ctx="{{ $m->contextLabel() }}"
+            data-predict-current="{{ $myPred ? json_encode($myPred->sets) : '' }}"
+            @else disabled @endif>
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+    </button>
+    @endif
+    @endauth
+</div>
 </div>

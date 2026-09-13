@@ -151,6 +151,9 @@ class ResultService
 
             $this->audit($match, $by, 'confirmed', $before);
 
+            // Score any pending score-predictions for this now-confirmed match.
+            app(\App\Services\Tournament\PredictionService::class)->scoreMatch($match->fresh());
+
             // Lock the tournament on the first confirmed result.
             $match->category->tournament->lock();
 
@@ -198,6 +201,9 @@ class ResultService
             ]);
 
             $this->audit($match, $by, 'confirmed', $before, $note);
+
+            // Score predictions for this confirmed (special) match too.
+            app(\App\Services\Tournament\PredictionService::class)->scoreMatch($match->fresh());
 
             $match->category->tournament->lock();
 

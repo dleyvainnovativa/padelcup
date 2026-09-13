@@ -33,7 +33,9 @@ class PlayerDashboardController extends Controller
             'results' => $this->dashboard->results($user),
             'tournaments' => $this->dashboard->tournaments($user),
             'standings' => $this->dashboard->standings($user),
-
+            'predictions' => \App\Models\MatchPrediction::where('user_id', $user->id)
+                ->with(['match.pairA', 'match.pairB', 'tournament:id,name,slug'])
+                ->latest()->limit(10)->get(),
         ]);
     }
 }

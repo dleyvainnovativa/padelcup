@@ -1382,8 +1382,9 @@ input:-webkit-autofill:focus {
 /* Category calendar tab: share button at the right of each match, muted
    "Sin programar" header. Append to your public/landing CSS or theme.css. */
 .pub-match { position: relative; }
+.pub-match__actions { position: absolute; top: 8px; right: 8px; display: flex; align-items: center; gap: 6px; }
 .pub-match__share {
-    position: absolute; top: 8px; right: 8px;
+    /* position: absolute; top: 8px; right: 8px; */
     display: inline-flex; align-items: center; justify-content: center;
     width: 30px; height: 30px; border-radius: 8px;
     /* border: 1px solid var(--pub-border, #e8e8ef); */

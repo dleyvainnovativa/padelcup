@@ -72,8 +72,8 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
     import('./modules/passwordToggle').then((m) => m.initPasswordToggle());
   }
 
-  // Player-facing "propose result" drawer on public match cards.
-  if (document.querySelector('[data-propose-match]')) {
+  // Player-facing "propose result" + "predict score" drawers on match cards.
+  if (document.querySelector('[data-propose-match], [data-predict-match]')) {
     import('./modules/matchPropose').then((m) => m.initMatchPropose());
   }
 

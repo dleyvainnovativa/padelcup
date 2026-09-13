@@ -514,3 +514,24 @@
 .pub-sheet__submit:disabled { opacity: .6; cursor: default; }
 [data-theme="dark"] .pub-sheet__submit { background: #d9f27a; color: #0a1512; }
 .pub-sheet__hint { font-size: 12px; color: var(--text-faint); text-align: center; margin: 12px 0 0; }
+
+/* ==========================================================================
+   Prediction game (predict button + leaderboard)
+   ========================================================================== */
+.pub-match__predict.has-pred { color: var(--lp-indigo); }
+[data-theme="dark"] .pub-match__predict.has-pred { color: #d9f27a; }
+.pub-match__predict:disabled { opacity: .4; cursor: default; }
+
+.pred-board { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.pred-board__head, .pred-board__row { display: grid; grid-template-columns: 44px 1fr 90px 80px; align-items: center; gap: 8px; padding: 12px 16px; }
+.pred-board__head { background: var(--bg-subtle); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint); }
+.pred-board__row { border-top: 1px solid var(--border); font-size: 15px; }
+.pred-board__row.is-top { background: color-mix(in srgb, #d9f27a 8%, transparent); }
+.pred-board__rank { font-size: 16px; font-weight: 700; text-align: center; }
+.pred-board__name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pred-board__num { text-align: right; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.pred-board__pts { font-weight: 800; color: var(--lp-indigo); }
+[data-theme="dark"] .pred-board__pts { color: #d9f27a; }
+@media (max-width: 480px) {
+  .pred-board__head, .pred-board__row { grid-template-columns: 34px 1fr 70px 56px; padding: 10px 12px; font-size: 14px; }
+}

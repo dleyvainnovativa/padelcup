@@ -145,5 +145,47 @@
 </div>
 @endif
 
+@php $preds = $predictions ?? collect(); @endphp
+@if($preds->isNotEmpty())
+<h2 style="font-size:15px;font-weight:700;margin:26px 0 12px;">
+    <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent);"></i> Mis predicciones
+</h2>
+<div style="display:flex;flex-direction:column;gap:8px;">
+    @foreach($preds as $p)
+    @php
+        $scored = $p->scored_at !== null;
+        $predStr = collect($p->sets)->map(fn($s) => ($s[0] ?? 0).'-'.($s[1] ?? 0))->implode(', ');
+    @endphp
+    <div class="tc-card" style="border-left:3px solid {{ $scored ? ($p->correct ? 'var(--success)' : 'var(--border-strong)') : 'var(--accent)' }};">
+        <div class="tc-card__body" style="display:flex;gap:14px;align-items:center;">
+            <div style="min-width:60px;text-align:center;">
+                @if(!$scored)
+                <span class="pub-chip" style="font-size:10px;">Pendiente</span>
+                @elseif($p->correct)
+                <span class="pub-chip pp-chip--accent" style="font-size:10px;">¡Acierto! +1</span>
+                @else
+                <span style="font-size:11px;color:var(--text-faint);font-weight:600;">Fallo</span>
+                @endif
+            </div>
+            <div style="flex:1;">
+                <div style="font-size:10px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px;">
+                    {{ $p->tournament?->name }}
+                </div>
+                <div style="font-size:13.5px;">
+                    {{ $p->match?->pairA?->name() ?? '—' }} <span style="color:var(--text-faint);">vs</span> {{ $p->match?->pairB?->name() ?? '—' }}
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                    Tu predicción: <span class="pub-mono">{{ $predStr }}</span>
+                    @if($scored && $p->match?->sets)
+                    · Real: <span class="pub-mono">{{ collect($p->match->sets)->map(fn($s) => ($s[0]??0).'-'.($s[1]??0))->implode(', ') }}</span>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+    @endforeach
+</div>
+@endif
+
 @endunless
 @endsection

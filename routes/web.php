@@ -50,6 +50,9 @@ Route::middleware(['auth'])->group(function () {
     // eligibility is enforced in the controller via canBeProposedBy()).
     Route::post('/partidos/{match}/proponer', [\App\Http\Controllers\Public\MatchProposalController::class, 'store'])->name('public.match.propose');
 
+    // Prediction game: any logged-in user guesses a match's exact score.
+    Route::post('/partidos/{match}/prediccion', [\App\Http\Controllers\Public\PredictionController::class, 'store'])->name('public.match.predict');
+
     // Tournaments (manager CRUD)
     Route::resource('tournaments', TournamentController::class);
 
@@ -253,6 +256,7 @@ Route::get('/', [\App\Http\Controllers\PublicTournamentController::class, 'landi
 Route::get('/torneos', [\App\Http\Controllers\PublicTournamentController::class, 'directory'])->name('public.directory');
 Route::get('/anuncio/{ad}/clic', [\App\Http\Controllers\Admin\AdController::class, 'click'])->name('ads.click');
 Route::get('/t/{tournament}', [\App\Http\Controllers\PublicTournamentController::class, 'show'])->name('public.tournament');
+Route::get('/t/{tournament}/quiniela', [\App\Http\Controllers\Public\PredictionController::class, 'leaderboard'])->name('public.predictions.leaderboard');
 Route::get('/t/{tournament}/calendario', [\App\Http\Controllers\PublicTournamentController::class, 'schedule'])->name('public.schedule');
 Route::get('/t/{tournament}/jugador/{player}', [\App\Http\Controllers\PublicTournamentController::class, 'player'])->name('public.player');
 Route::get('/t/{tournament}/campeones', [\App\Http\Controllers\PublicTournamentController::class, 'winners'])->name('public.winners');

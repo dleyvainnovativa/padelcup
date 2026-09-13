@@ -21,7 +21,7 @@ function buildSheet() {
       <div class="pub-sheet__ctx" data-ctx></div>
       <h3 class="pub-sheet__title" data-title></h3>
       <div class="pub-sheet__card">
-        <div class="pub-sheet__head"><i class="fa-solid fa-pen"></i> Proponer resultado</div>
+        <div class="pub-sheet__head"><i class="fa-solid fa-pen"></i> <span data-heading>Proponer resultado</span></div>
         <div class="pub-sheet__cols">
           <span class="pub-sheet__col" data-col-a></span>
           <span class="pub-sheet__col" data-col-b></span>
@@ -30,7 +30,7 @@ function buildSheet() {
         <div class="pub-sheet__err" data-err hidden></div>
         <button type="button" class="pub-sheet__submit" data-submit>Enviar propuesta</button>
       </div>
-      <p class="pub-sheet__hint">El organizador revisará y confirmará tu propuesta.</p>
+      <p class="pub-sheet__hint" data-hint>El organizador revisará y confirmará tu propuesta.</p>
     </div>`;
   document.body.appendChild(overlay);
 
@@ -57,7 +57,19 @@ function buildSheet() {
       overlay.querySelector('[data-title]').textContent = `${cfg.a} · ${cfg.b}`;
       overlay.querySelector('[data-col-a]').textContent = cfg.a;
       overlay.querySelector('[data-col-b]').textContent = cfg.b;
+      if (cfg.heading) overlay.querySelector('[data-heading]').textContent = cfg.heading;
+      if (cfg.hint) overlay.querySelector('[data-hint]').textContent = cfg.hint;
+      if (cfg.cta) overlay.querySelector('[data-submit]').textContent = cfg.cta;
+      // Reset then optionally prefill from an existing prediction.
       overlay.querySelectorAll('.pub-sheet__in').forEach((i) => (i.value = ''));
+      if (Array.isArray(cfg.prefill)) {
+        cfg.prefill.forEach((set, i) => {
+          const a = overlay.querySelector(`[data-a="${i}"]`);
+          const b = overlay.querySelector(`[data-b="${i}"]`);
+          if (a) a.value = set[0] ?? '';
+          if (b) b.value = set[1] ?? '';
+        });
+      }
       const err = overlay.querySelector('[data-err]'); err.hidden = true; err.textContent = '';
       overlay.dataset.url = cfg.url;
       overlay.classList.add('is-open');
@@ -83,18 +95,42 @@ function buildSheet() {
 }
 
 export function initMatchPropose() {
-  const triggers = document.querySelectorAll('[data-propose-match]');
-  if (!triggers.length) return;
+  const proposeTriggers = document.querySelectorAll('[data-propose-match]');
+  const predictTriggers = document.querySelectorAll('[data-predict-match]');
+  if (!proposeTriggers.length && !predictTriggers.length) return;
 
   const sheet = buildSheet();
+  let mode = 'propose'; // or 'predict'
 
-  triggers.forEach((btn) => {
+  proposeTriggers.forEach((btn) => {
     btn.addEventListener('click', () => {
+      mode = 'propose';
       sheet.show({
         url: btn.dataset.proposeUrl,
         a: btn.dataset.proposeA,
         b: btn.dataset.proposeB,
         ctx: btn.dataset.proposeCtx,
+        heading: 'Proponer resultado',
+        cta: 'Enviar propuesta',
+        hint: 'El organizador revisará y confirmará tu propuesta.',
+      });
+    });
+  });
+
+  predictTriggers.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      mode = 'predict';
+      let current = null;
+      try { current = btn.dataset.predictCurrent ? JSON.parse(btn.dataset.predictCurrent) : null; } catch { /* ignore */ }
+      sheet.show({
+        url: btn.dataset.predictUrl,
+        a: btn.dataset.predictA,
+        b: btn.dataset.predictB,
+        ctx: btn.dataset.predictCtx,
+        heading: 'Predice el marcador',
+        cta: current ? 'Actualizar predicción' : 'Guardar predicción',
+        hint: 'Adivina el marcador exacto. 1 punto si aciertas todos los sets.',
+        prefill: current,
       });
     });
   });
@@ -106,6 +142,7 @@ export function initMatchPropose() {
       return;
     }
     sheet.submitBtn.disabled = true;
+    const label = sheet.submitBtn.textContent;
     sheet.submitBtn.textContent = 'Enviando…';
     try {
       const res = await fetch(sheet.el.dataset.url, {
@@ -123,13 +160,13 @@ export function initMatchPropose() {
         return;
       }
       const data = await res.json().catch(() => ({}));
-      const first = data?.errors ? Object.values(data.errors)[0]?.[0] : (data?.message || 'No se pudo enviar la propuesta.');
+      const first = data?.errors ? Object.values(data.errors)[0]?.[0] : (data?.message || 'No se pudo enviar.');
       sheet.showError(first);
     } catch {
       sheet.showError('Error de red. Intenta de nuevo.');
     } finally {
       sheet.submitBtn.disabled = false;
-      sheet.submitBtn.textContent = 'Enviar propuesta';
+      sheet.submitBtn.textContent = label;
     }
   });
 }

@@ -35,6 +35,9 @@
         <a href="{{ route('public.schedule', $tournament) }}" class="pub-btn pub-btn--primary">
             <i class="fa-solid fa-calendar-days"></i> Ver calendario
         </a>
+        <a href="{{ route('public.predictions.leaderboard', $tournament) }}" class="pub-btn">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Quiniela
+        </a>
         <button type="button" class="pub-btn" data-share="{{ route('public.tournament', $tournament) }}" data-share-title="{{ $tournament->name }}">
             <i class="fa-solid fa-share-nodes"></i> Compartir
         </button>
