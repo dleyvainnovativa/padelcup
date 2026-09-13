@@ -62,25 +62,64 @@ class ResultService
      * match to "proposed" — awaiting manager confirmation. Manager proposals
      * can be confirmed in the same step (see confirm()).
      */
-    public function propose(GameMatch $match, array $sets, User $by): GameMatch
+    /**
+     * Player-submitted score PROPOSAL. Does NOT touch the official match result
+     * — it only records a pending proposal for the manager to review. Enforces
+     * one pending proposal per match (a new one supersedes any prior pending).
+     */
+    public function propose(GameMatch $match, array $sets, User $by): \App\Models\MatchProposal
     {
         $winnerId = $this->resolveWinner($match, $sets);
 
         return DB::transaction(function () use ($match, $sets, $winnerId, $by) {
-            $before = $match->only(['state', 'sets', 'winner_pair_id']);
+            // One pending at a time: supersede any existing pending proposal.
+            \App\Models\MatchProposal::where('game_match_id', $match->id)
+                ->where('status', \App\Models\MatchProposal::PENDING)
+                ->update(['status' => \App\Models\MatchProposal::REJECTED, 'reviewed_at' => now()]);
 
-            $match->update([
+            $proposal = \App\Models\MatchProposal::create([
+                'game_match_id' => $match->id,
+                'proposed_by' => $by->id,
                 'sets' => $this->normalizeSets($sets),
                 'winner_pair_id' => $winnerId,
-                'result_type' => MatchResultType::Normal,
-                'state' => MatchState::Proposed,
-                'proposed_by' => $by->id,
+                'status' => \App\Models\MatchProposal::PENDING,
             ]);
 
-            $this->audit($match, $by, 'proposed', $before);
+            $this->audit($match, $by, 'proposed', $match->only(['state', 'sets', 'winner_pair_id']));
 
-            return $match->fresh();
+            return $proposal;
         });
+    }
+
+    /**
+     * Manager accepts a pending proposal: copies its sets onto the match and
+     * confirms it through the normal confirm() path (which advances brackets,
+     * locks the tournament, etc.). Marks the proposal accepted.
+     */
+    public function acceptProposal(\App\Models\MatchProposal $proposal, User $by): GameMatch
+    {
+        return DB::transaction(function () use ($proposal, $by) {
+            $match = $proposal->match;
+            $confirmed = $this->confirm($match, $by, $proposal->sets);
+
+            $proposal->update([
+                'status' => \App\Models\MatchProposal::ACCEPTED,
+                'reviewed_by' => $by->id,
+                'reviewed_at' => now(),
+            ]);
+
+            return $confirmed;
+        });
+    }
+
+    /** Manager rejects a pending proposal without confirming any result. */
+    public function rejectProposal(\App\Models\MatchProposal $proposal, User $by): void
+    {
+        $proposal->update([
+            'status' => \App\Models\MatchProposal::REJECTED,
+            'reviewed_by' => $by->id,
+            'reviewed_at' => now(),
+        ]);
     }
 
     /**

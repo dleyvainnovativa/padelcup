@@ -2,6 +2,7 @@
 $confirmed = $match->state->value === 'confirmed';
 $ready = $match->pair_a_id && $match->pair_b_id;
 [$aSets, $bSets] = $match->setsWon();
+$proposal = (!$confirmed && $ready) ? $match->pendingProposal()->with('proposer')->first() : null;
 @endphp
 
 <div class="match-row" x-data="{ open: false, special: false }">
@@ -72,6 +73,31 @@ $ready = $match->pair_a_id && $match->pair_b_id;
 
     {{-- Expandable entry form --}}
     @can('update', $category)
+    @if($proposal)
+    <div class="match-row__proposal" @can('update', $category) x-data @endcan>
+        <div class="match-row__proposal-info">
+            <i class="fa-solid fa-hourglass-half"></i>
+            <span>
+                <strong>{{ $proposal->proposer?->name ?? 'Un jugador' }}</strong> propuso:
+                <span class="font-mono">@foreach($proposal->sets as $s){{ $s[0] }}-{{ $s[1] }}@if(!$loop->last), @endif @endforeach</span>
+            </span>
+        </div>
+        @can('update', $category)
+        <div class="match-row__proposal-actions">
+            <form method="POST" action="{{ route('results.proposal.accept', [$tournament, $category, $match]) }}">
+                @csrf
+                <button type="submit" class="btn btn-accent btn-sm">Aceptar</button>
+            </form>
+            <button type="button" class="btn btn-soft btn-sm" @click="open = true">Editar</button>
+            <form method="POST" action="{{ route('results.proposal.reject', [$tournament, $category, $match]) }}">
+                @csrf
+                <button type="submit" class="btn btn-soft btn-sm" title="Descartar propuesta"><i class="fa-solid fa-xmark"></i></button>
+            </form>
+        </div>
+        @endcan
+    </div>
+    @endif
+
     @if($ready)
     <div x-show="open" x-cloak class="match-row__form">
         <form method="POST" action="{{ $confirmed ? route('results.edit', [$tournament, $category, $match]) : route('results.confirm', [$tournament, $category, $match]) }}">
@@ -83,12 +109,12 @@ $ready = $match->pair_a_id && $match->pair_b_id;
                     <span class="match-row__set-label">Set {{ $i + 1 }}</span>
                     <input type="number" name="sets[{{ $i }}][0]" min="0" max="7"
                         inputmode="numeric" data-score-input
-                        value="{{ $match->sets[$i][0] ?? '' }}"
+                        value="{{ $match->sets[$i][0] ?? ($proposal->sets[$i][0] ?? '') }}"
                         class="form-control form-control-sm" style="width:52px;border-radius:var(--radius);text-align:center;">
                     <span style="color:var(--text-faint);">-</span>
                     <input type="number" name="sets[{{ $i }}][1]" min="0" max="7"
                         inputmode="numeric" data-score-input
-                        value="{{ $match->sets[$i][1] ?? '' }}"
+                        value="{{ $match->sets[$i][1] ?? ($proposal->sets[$i][1] ?? '') }}"
                         class="form-control form-control-sm" style="width:52px;border-radius:var(--radius);text-align:center;">
                     @if($i === 2)<span style="font-size:10px;color:var(--text-faint);">(3er set)</span>@endif
             </div>

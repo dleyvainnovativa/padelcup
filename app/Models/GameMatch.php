@@ -361,12 +361,24 @@ class GameMatch extends Model
 
     /**
      * Player-facing: can this user propose a score for this match?
-     * True when the match has both pairs, isn't confirmed yet, and one of the
-     * user's linked player records is in either pair.
+     * True when the match has both pairs, isn't confirmed, has NO pending
+     * proposal already, and one of the user's linked players is in either pair.
      */
     public function playerIdsForUser(\App\Models\User $user): array
     {
         return $user->players()->pluck('id')->all();
+    }
+
+    public function proposals()
+    {
+        return $this->hasMany(\App\Models\MatchProposal::class, 'game_match_id');
+    }
+
+    public function pendingProposal()
+    {
+        return $this->hasOne(\App\Models\MatchProposal::class, 'game_match_id')
+            ->where('status', \App\Models\MatchProposal::PENDING)
+            ->latest();
     }
 
     public function canBeProposedBy(?\App\Models\User $user): bool
@@ -374,6 +386,8 @@ class GameMatch extends Model
         if (! $user) return false;
         if (! $this->isReady()) return false;
         if ($this->isConfirmed()) return false;
+        // One pending proposal at a time — hide the button while one is open.
+        if ($this->pendingProposal()->exists()) return false;
 
         $mine = $this->playerIdsForUser($user);
         if (! $mine) return false;

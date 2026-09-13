@@ -79,7 +79,7 @@
     @endif
 
     @php $canPropose = auth()->check() && $m->canBeProposedBy(auth()->user()); @endphp
-    @if($m->state->value === 'proposed')
+    @if($m->pendingProposal()->exists())
         <span class="pub-match__proposed" title="Resultado propuesto, esperando confirmación del organizador">
             <i class="fa-solid fa-hourglass-half"></i>
         </span>

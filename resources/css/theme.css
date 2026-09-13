@@ -2884,3 +2884,12 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
     padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* Pending player score proposal banner in the manager result sheet */
+.match-row__proposal { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 10px; padding: 10px 12px; border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border)); }
+.match-row__proposal-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+.match-row__proposal-info i { color: var(--accent); }
+[data-theme="dark"] .match-row__proposal-info i { color: var(--accent); }
+.match-row__proposal-info .font-mono { font-weight: 700; }
+.match-row__proposal-actions { display: flex; align-items: center; gap: 6px; }
+.match-row__proposal-actions form { display: inline; margin: 0; }

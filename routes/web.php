@@ -104,6 +104,8 @@ Route::middleware(['auth'])->group(function () {
             Route::post('partidos/{match}/confirmar', [\App\Http\Controllers\Dashboard\ResultController::class, 'confirm'])->name('results.confirm');
             Route::post('partidos/{match}/editar', [\App\Http\Controllers\Dashboard\ResultController::class, 'edit'])->name('results.edit');
             Route::post('partidos/{match}/especial', [\App\Http\Controllers\Dashboard\ResultController::class, 'special'])->name('results.special');
+            Route::post('partidos/{match}/propuesta/aceptar', [\App\Http\Controllers\Dashboard\ResultController::class, 'acceptProposal'])->name('results.proposal.accept');
+            Route::post('partidos/{match}/propuesta/rechazar', [\App\Http\Controllers\Dashboard\ResultController::class, 'rejectProposal'])->name('results.proposal.reject');
         });
 
         // Venues / courts / availability (Phase 7) — tournament-level

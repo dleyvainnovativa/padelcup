@@ -88,6 +88,42 @@ class ResultController extends Controller
         return back()->with('status', 'Resultado confirmado.');
     }
 
+    /** Manager accepts the pending player proposal → confirms it as official. */
+    public function acceptProposal(Request $request, Tournament $tournament, Category $category, GameMatch $match)
+    {
+        $this->authorize('update', $category);
+        $this->assertMatchInCategory($match, $category);
+
+        $proposal = $match->pendingProposal()->first();
+        if (! $proposal) {
+            return back()->withErrors(['result' => 'Ya no hay una propuesta pendiente para este partido.']);
+        }
+
+        try {
+            $this->results->acceptProposal($proposal, $request->user());
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
+
+        $this->maybeBindBracket($tournament, $category, $match);
+
+        return back()->with('status', 'Propuesta aceptada y resultado confirmado.');
+    }
+
+    /** Manager rejects the pending player proposal (no result confirmed). */
+    public function rejectProposal(Request $request, Tournament $tournament, Category $category, GameMatch $match)
+    {
+        $this->authorize('update', $category);
+        $this->assertMatchInCategory($match, $category);
+
+        $proposal = $match->pendingProposal()->first();
+        if ($proposal) {
+            $this->results->rejectProposal($proposal, $request->user());
+        }
+
+        return back()->with('status', 'Propuesta descartada.');
+    }
+
     /** Edit an already-confirmed result. */
     public function edit(Request $request, Tournament $tournament, Category $category, GameMatch $match)
     {
