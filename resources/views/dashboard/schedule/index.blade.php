@@ -47,7 +47,7 @@
                 <button class="btn btn-soft"><i class="fa-solid fa-user-clock me-1"></i><span class="btn-label">Revisar conflictos</span></button>
             </form>
             <button type="button" class="btn btn-soft"
-                    data-validate-schedule="{{ route('schedule.validation', $tournament) }}">
+                data-validate-schedule="{{ route('schedule.validation', $tournament) }}">
                 <i class="fa-solid fa-clipboard-check me-1"></i><span class="btn-label">Validar horarios</span>
             </button>
             <form method="POST" action="{{ route('schedule.clear', $tournament) }}"
@@ -60,10 +60,10 @@
         </div>
     </div>
     @php
-        $mcCount = $multiCategoryPlayers->count();
-        $prefCount = (!empty($preferredSchedulePlayers)) ? $preferredSchedulePlayers->count() : 0;
-        $busyCount = (!empty($busyDayPlayers)) ? $busyDayPlayers->count() : 0;
-        $playersTotal = $mcCount + $prefCount + $busyCount;
+    $mcCount = $multiCategoryPlayers->count();
+    $prefCount = (!empty($preferredSchedulePlayers)) ? $preferredSchedulePlayers->count() : 0;
+    $busyCount = (!empty($busyDayPlayers)) ? $busyDayPlayers->count() : 0;
+    $playersTotal = $mcCount + $prefCount + $busyCount;
     @endphp
     @if($playersTotal > 0)
     <div x-data="{ playersSheet: false }" @close-players-sheet.window="playersSheet = false">
@@ -76,10 +76,10 @@
 
         {{-- Bottom sheet (reuses sched-sheet chrome) --}}
         <div class="sched-sheet-overlay" :class="{ 'is-open': playersSheet }"
-             x-show="playersSheet" x-cloak
-             @click.self="playersSheet = false">
+            x-show="playersSheet" x-cloak
+            @click.self="playersSheet = false">
             <div class="sched-sheet" role="dialog" aria-modal="true" style="max-height:82vh;overflow-y:auto;"
-                 x-data="playersSheet()">
+                x-data="playersSheet()">
                 <div class="sched-sheet__handle"></div>
                 <div class="sched-sheet__head">
                     <div>
@@ -456,6 +456,13 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
     'confirmUrl' => route('results.confirm', [$tournament, $m->category_id, $m->id]),
     'editUrl' => route('results.edit', [$tournament, $m->category_id, $m->id]),
     'courtName' => $courts->firstWhere('id', $m->court_id)?->name,
+    'proposal' => ($p = $m->pendingProposal) ? [
+    'by' => $p->proposer?->name ?? 'Un jugador',
+    'score' => collect($p->sets)->map(fn ($s) => ($s[0] ?? 0).'-'.($s[1] ?? 0))->implode(', '),
+    'sets' => $p->sets,
+    'acceptUrl' => route('results.proposal.accept', [$tournament, $m->category_id, $m->id]),
+    'rejectUrl' => route('results.proposal.reject', [$tournament, $m->category_id, $m->id]),
+    ] : null,
     ]])->all(),
     'unscheduled' => $unscheduled->map(fn ($m) => [
     'id' => $m->id,
@@ -493,7 +500,7 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
             <div class="col-12 col-lg-3">
                 <div class="tc-card" x-data="{ trayOpen: false }">
                     <div class="tc-card__head" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"
-                         @click="trayOpen = !trayOpen">
+                        @click="trayOpen = !trayOpen">
                         <h3 style="margin:0;">
                             Sin programar
                             <span class="sched-tray__count">{{ $unscheduled->count() }}</span>
@@ -501,7 +508,7 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
                         <i class="fa-solid" :class="trayOpen ? 'fa-chevron-up' : 'fa-chevron-down'" style="color:var(--text-faint);font-size:12px;"></i>
                     </div>
                     <div class="tc-card__body" id="sched-tray" x-show="trayOpen" x-cloak
-                         style="display:flex;flex-direction:column;gap:6px;min-height:60px;">
+                        style="display:flex;flex-direction:column;gap:6px;min-height:60px;">
                         @forelse($unscheduled as $m)
                         <div class="sched-chip" draggable="true"
                             data-match-id="{{ $m->id }}"

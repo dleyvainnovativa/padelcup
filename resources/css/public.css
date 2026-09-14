@@ -509,7 +509,7 @@
 .pub-sheet__in:focus { outline: none; border-color: var(--lp-indigo); }
 .pub-sheet__dash { text-align: center; color: var(--text-faint); }
 .pub-sheet__err { font-size: 13px; color: #e5484d; margin: 4px 0 0; }
-.pub-sheet__submit { width: 100%; margin-top: 14px; font-size: 15px; font-weight: 700; color: #fff; background: var(--lp-indigo); border: 0; padding: 14px; border-radius: 12px; cursor: pointer; transition: background .15s; }
+.pub-sheet__submit { width: 100%; margin-top: 14px; font-size: 15px; font-weight: 700; color: #fff; background: var(--accent); border: 0; padding: 14px; border-radius: 12px; cursor: pointer; transition: background .15s; }
 .pub-sheet__submit:hover { background: color-mix(in srgb, var(--lp-indigo) 88%, #000); }
 .pub-sheet__submit:disabled { opacity: .6; cursor: default; }
 [data-theme="dark"] .pub-sheet__submit { background: #d9f27a; color: #0a1512; }

@@ -486,6 +486,7 @@ function buildControlSheet({ onUnplace, onSaveResult }) {
         </div>
         <button class="sched-sheet__close" aria-label="Cerrar">&times;</button>
       </div>
+      <div class="sched-ctrl-proposal" data-ctrl-proposal hidden></div>
       <div class="sched-ctrl-status" data-ctrl-status></div>
       <div class="sched-ctrl-scoring" data-ctrl-scoring></div>
       <button class="sched-ctrl-action" data-ctrl-unplace>
@@ -501,6 +502,7 @@ function buildControlSheet({ onUnplace, onSaveResult }) {
 
   const ctxEl = overlay.querySelector('[data-ctrl-ctx]');
   const pairsEl = overlay.querySelector('[data-ctrl-pairs]');
+  const proposalEl = overlay.querySelector('[data-ctrl-proposal]');
   const statusEl = overlay.querySelector('[data-ctrl-status]');
   const scoringEl = overlay.querySelector('[data-ctrl-scoring]');
   const unplaceBtn = overlay.querySelector('[data-ctrl-unplace]');
@@ -571,12 +573,51 @@ function buildControlSheet({ onUnplace, onSaveResult }) {
     });
   }
 
+  function renderProposal(data) {
+    const p = data.proposal;
+    if (!p || data.status === 'played') { proposalEl.hidden = true; proposalEl.innerHTML = ''; return; }
+    proposalEl.hidden = false;
+    proposalEl.innerHTML = `
+      <div class="sched-proposal__info">
+        <i class="fa-solid fa-hourglass-half"></i>
+        <span><strong>${p.by}</strong> propuso: <span class="sched-proposal__score">${p.score}</span></span>
+      </div>
+      <div class="sched-proposal__actions">
+        <button type="button" class="sched-proposal__accept" data-accept>Aceptar</button>
+        <button type="button" class="sched-proposal__use" data-use>Editar</button>
+        <button type="button" class="sched-proposal__reject" data-reject title="Descartar"><i class="fa-solid fa-xmark"></i></button>
+      </div>`;
+
+    // Accept / reject → POST form (reloads to refresh the whole board).
+    const postForm = (url) => {
+      const f = document.createElement('form');
+      f.method = 'POST'; f.action = url;
+      const t = document.createElement('input');
+      t.type = 'hidden'; t.name = '_token';
+      t.value = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+      f.appendChild(t); document.body.appendChild(f); f.submit();
+    };
+    proposalEl.querySelector('[data-accept]').addEventListener('click', () => postForm(p.acceptUrl));
+    proposalEl.querySelector('[data-reject]').addEventListener('click', () => postForm(p.rejectUrl));
+    // "Editar" pre-fills the capture inputs with the proposed sets.
+    proposalEl.querySelector('[data-use]').addEventListener('click', () => {
+      (p.sets || []).forEach((s, i) => {
+        const a = scoringEl.querySelector(`[data-set="${i}"][data-side="0"]`);
+        const b = scoringEl.querySelector(`[data-set="${i}"][data-side="1"]`);
+        if (a) a.value = s[0] ?? '';
+        if (b) b.value = s[1] ?? '';
+      });
+      scoringEl.querySelector('[data-set="0"][data-side="0"]')?.focus();
+    });
+  }
+
   function show(data) {
     current = data;
     ctxEl.textContent = data.context || '';
     pairsEl.textContent = `${data.a} · ${data.b}`;
     statusEl.innerHTML = statusBadge(data.status);
     renderScoring(data);
+    renderProposal(data);
     overlay.classList.add('is-open');
   }
 

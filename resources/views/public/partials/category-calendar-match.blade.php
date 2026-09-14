@@ -1,42 +1,42 @@
 {{-- One match card in the category calendar. $m = GameMatch, $showTime = bool.
      Player names link to their public page; played matches get a share button. --}}
 @php
-    $status = $m->scheduleStatus();
-    $played = $m->state->value === 'confirmed';
+$status = $m->scheduleStatus();
+$played = $m->state->value === 'confirmed';
 
-    // Build linked side labels: each real player links to their public page.
-    $sideLink = function ($pair) use ($tournament) {
-        if (! $pair) return null;
-        $parts = [];
-        foreach ([$pair->player1, $pair->player2] as $p) {
-            if ($p) {
-                $url = route('public.player', [$tournament, $p]);
-                $parts[] = '<a href="'.$url.'" class="pub-match__player">'.e($p->name).'</a>';
-            }
-        }
-        return $parts ? implode(' / ', $parts) : e($pair->name());
-    };
-    $aLink = $sideLink($m->pairA);
-    $bLink = $sideLink($m->pairB);
+// Build linked side labels: each real player links to their public page.
+$sideLink = function ($pair) use ($tournament) {
+if (! $pair) return null;
+$parts = [];
+foreach ([$pair->player1, $pair->player2] as $p) {
+if ($p) {
+$url = route('public.player', [$tournament, $p]);
+$parts[] = '<a href="'.$url.'" class="pub-match__player">'.e($p->name).'</a>';
+}
+}
+return $parts ? implode(' / ', $parts) : e($pair->name());
+};
+$aLink = $sideLink($m->pairA);
+$bLink = $sideLink($m->pairB);
 
-    if ($played) {
-        $shareData = [
-            'tournament' => $tournament->name,
-            'category' => $category->name,
-            'context' => $m->contextLabel(),
-            'pairA' => $m->pairA?->name() ?? '—',
-            'pairB' => $m->pairB?->name() ?? '—',
-            'sets' => $m->sets ?? [],
-            'winner' => $m->winner_pair_id === $m->pair_a_id ? 'a' : ($m->winner_pair_id === $m->pair_b_id ? 'b' : null),
-        ];
-    }
+if ($played) {
+$shareData = [
+'tournament' => $tournament->name,
+'category' => $category->name,
+'context' => $m->contextLabel(),
+'pairA' => $m->pairA?->name() ?? '—',
+'pairB' => $m->pairB?->name() ?? '—',
+'sets' => $m->sets ?? [],
+'winner' => $m->winner_pair_id === $m->pair_a_id ? 'a' : ($m->winner_pair_id === $m->pair_b_id ? 'b' : null),
+];
+}
 @endphp
 <div class="pub-match pub-match--{{ $status }}">
     <div class="pub-match__time">
         @if($showTime && $m->starts_at)
-            {{ $m->starts_at->timezone('America/Mexico_City')->format('H:i') }}
+        {{ $m->starts_at->timezone('America/Mexico_City')->format('H:i') }}
         @else
-            <span class="pub-muted">—</span>
+        <span class="pub-muted">—</span>
         @endif
         @if($m->court)<span class="pub-match__court"><i class="fa-solid fa-location-dot"></i> {{ $m->court->name }}</span>@endif
     </div>
@@ -44,12 +44,12 @@
         <div class="pub-match__ctx">
             {{ $m->contextLabel() }}
             @php
-                // This partial passes a FLAT [label => name] map as $ghostQualifiers
-                // (used by ghostFor). isProjected expects [category_id => map], so wrap it.
-                $projected = !$played && $m->isProjected([$m->category_id => ($ghostQualifiers ?? [])]);
+            // This partial passes a FLAT [label => name] map as $ghostQualifiers
+            // (used by ghostFor). isProjected expects [category_id => map], so wrap it.
+            $projected = !$played && $m->isProjected([$m->category_id => ($ghostQualifiers ?? [])]);
             @endphp
             @if($projected)
-                <span class="pub-match__projected" title="Participantes por confirmar según resultados previos">Por confirmar</span>
+            <span class="pub-match__projected" title="Participantes por confirmar según resultados previos">Por confirmar</span>
             @endif
         </div>
         <div class="pub-match__pairs">
@@ -73,43 +73,42 @@
         </div>
     </div>
     <div class="pub-match__actions">
-        @if($played)
-        <span class="pub-match__played" title="Resultado confirmado">
-            <i class="fa-solid fa-check"></i>
-        </span>
-        @endif
-    @if($played)
-    <button type="button" class="pub-share-btn pub-match__share" data-share-match='@json($shareData)' title="Compartir imagen">
-        <i class="fa-solid fa-image"></i>
-    </button>
-    @endif
 
-    @php $canPropose = auth()->check() && $m->canBeProposedBy(auth()->user()); @endphp
-    @if($m->pendingProposal()->exists())
+        @if($played)
+        <button type="button" class="pub-share-btn pub-match__share" data-share-match='@json($shareData)' title="Compartir imagen">
+            <i class="fa-solid fa-image"></i>
+        </button>
+        @endif
+
+        {{-- Gamification (propose/predict) only while the match has NO official
+         result. Once confirmed, only share + the confirmed check remain. --}}
+        @unless($played)
+        @php $canPropose = auth()->check() && $m->canBeProposedBy(auth()->user()); @endphp
+        @if($m->pendingProposal()->exists())
         <span class="pub-match__proposed" title="Resultado propuesto, esperando confirmación del organizador">
             <i class="fa-solid fa-hourglass-half"></i>
         </span>
-    @endif
-    @if($canPropose)
-    <button type="button" class="pub-share-btn pub-match__propose"
+        @endif
+        @if($canPropose)
+        <button type="button" class="pub-share-btn pub-match__propose"
             title="Proponer resultado"
             data-propose-match="{{ $m->id }}"
             data-propose-url="{{ route('public.match.propose', $m) }}"
             data-propose-a="{{ $m->pairA?->name() ?? 'A' }}"
             data-propose-b="{{ $m->pairB?->name() ?? 'B' }}"
             data-propose-ctx="{{ $m->contextLabel() }}">
-        <i class="fa-solid fa-pen-to-square"></i>
-    </button>
-    @endif
+            <i class="fa-solid fa-pen-to-square"></i>
+        </button>
+        @endif
 
-    {{-- Prediction game: any logged-in user can guess the exact score until lock --}}
-    @auth
-    @php
+        {{-- Prediction game: any logged-in user can guess the exact score until lock --}}
+        @auth
+        @php
         $predOpen = app(\App\Services\Tournament\PredictionService::class)->isOpen($m);
         $myPred = $m->relationLoaded('myPrediction') ? $m->myPrediction : \App\Models\MatchPrediction::where('game_match_id', $m->id)->where('user_id', auth()->id())->first();
-    @endphp
-    @if($predOpen || $myPred)
-    <button type="button"
+        @endphp
+        @if($predOpen || $myPred)
+        <button type="button"
             class="pub-share-btn pub-match__predict {{ $myPred ? 'has-pred' : '' }}"
             title="{{ $predOpen ? 'Predecir el marcador' : 'Predicciones cerradas' }}"
             @if($predOpen)
@@ -120,9 +119,10 @@
             data-predict-ctx="{{ $m->contextLabel() }}"
             data-predict-current="{{ $myPred ? json_encode($myPred->sets) : '' }}"
             @else disabled @endif>
-        <i class="fa-solid fa-wand-magic-sparkles"></i>
-    </button>
-    @endif
-    @endauth
-</div>
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </button>
+        @endif
+        @endauth
+        @endunless
+    </div>
 </div>

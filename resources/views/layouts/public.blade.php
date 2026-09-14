@@ -10,6 +10,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Voleo') · Voleo</title>
+
+    {{-- Open Graph / Twitter cards. Pages override og-title/og-description/
+         og-image via @section; defaults keep every public page shareable. --}}
+    @php $ogDesc = 'Gestión de torneos de pádel: inscripciones, grupos, llaves, calendario y resultados en vivo.'; @endphp
+    <meta property="og:site_name" content="Voleo">
+    <meta property="og:type" content="@yield('og-type', 'website')">
+    <meta property="og:title" content="@yield('og-title', 'Voleo')">
+    <meta property="og:description" content="@yield('og-description', $ogDesc)">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:image" content="@yield('og-image', asset('img/og-default.png'))">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="@yield('og-title', 'Voleo')">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="@yield('og-title', 'Voleo')">
+    <meta name="twitter:description" content="@yield('og-description', $ogDesc)">
+    <meta name="twitter:image" content="@yield('og-image', asset('img/og-default.png'))">
+    <meta name="description" content="@yield('og-description', $ogDesc)">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="icon" type="image/png" href="{{asset('img/icons/favicon-96x96.png')}}" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="{{asset('img/icons/favicon.svg')}}" />
@@ -17,7 +35,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="{{asset('img/icons/apple-touch-icon.png')}}" />
     <meta name="apple-mobile-web-app-title" content="Voleo" />
     <link rel="manifest" href="{{asset('img/icons/site.webmanifest')}}" />
-    <script defer src="https://cloud.umami.is/script.js" data-website-id="{{ env('UMAMI_ID') }}"></script>
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="0a011394-4f7c-4132-a067-040697576e3e"></script>
     @vite(['resources/css/app.css','resources/css/public.css', 'resources/css/share.css', 'resources/js/app.js'])
     @stack('head')
 </head>
@@ -89,12 +107,12 @@
 
         <main class="public-main">
             @if(session('status'))
-                <div class="pub-flash pub-flash--ok">{{ session('status') }}</div>
+            <div class="pub-flash pub-flash--ok">{{ session('status') }}</div>
             @endif
             @if($errors->any())
-                <div class="pub-flash pub-flash--err">
-                    @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
-                </div>
+            <div class="pub-flash pub-flash--err">
+                @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
+            </div>
             @endif
             @yield('content')
         </main>

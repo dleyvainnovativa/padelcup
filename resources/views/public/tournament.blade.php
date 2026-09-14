@@ -1,6 +1,14 @@
 @extends('layouts.public')
 
 @section('title', $tournament->name)
+@section('og-type', 'article')
+@section('og-title', $tournament->name)
+@if($tournament->description)
+@section('og-description', Str::limit(strip_tags($tournament->description), 180))
+@endif
+@if($tournament->coverImageUrl())
+@section('og-image', $tournament->coverImageUrl())
+@endif
 
 @section('content')
 <div class="pub-wrap">
@@ -31,16 +39,25 @@
 
     @include('public._ads')
 
-    <div class="pub-actions">
-        <a href="{{ route('public.schedule', $tournament) }}" class="pub-btn pub-btn--primary">
-            <i class="fa-solid fa-calendar-days"></i> Ver calendario
-        </a>
-        <a href="{{ route('public.predictions.leaderboard', $tournament) }}" class="pub-btn">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> Quiniela
-        </a>
-        <button type="button" class="pub-btn" data-share="{{ route('public.tournament', $tournament) }}" data-share-title="{{ $tournament->name }}">
-            <i class="fa-solid fa-share-nodes"></i> Compartir
-        </button>
+    <div class="pub-actions row g-2">
+        <div class="col-auto">
+
+            <a href="{{ route('public.schedule', $tournament) }}" class="pub-btn pub-btn--primary">
+                <i class="fa-solid fa-calendar-days"></i> Calendario
+            </a>
+        </div>
+        <div class="col-auto">
+
+            <a href="{{ route('public.predictions.leaderboard', $tournament) }}" class="pub-btn">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Quiniela
+            </a>
+        </div>
+        <div class="col-auto">
+
+            <button type="button" class="pub-btn" data-share="{{ route('public.tournament', $tournament) }}" data-share-title="{{ $tournament->name }}">
+                ‎ <i class="fa-solid fa-share-nodes"></i>‎
+            </button>
+        </div>
     </div>
 
     <h2 class="pub-section-title">Categorías</h2>

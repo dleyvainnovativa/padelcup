@@ -32,6 +32,7 @@ class ScheduleController extends Controller
                 'pairB.player2',
                 'feederA.group',
                 'feederB.group',
+                'pendingProposal.proposer:id,name',
             ])
             ->get();
 
@@ -479,8 +480,10 @@ class ScheduleController extends Controller
                 'category:id,name',
                 'group:id,name,category_id',
                 'court:id,name',
-                'pairA.player1:id,name', 'pairA.player2:id,name',
-                'pairB.player1:id,name', 'pairB.player2:id,name',
+                'pairA.player1:id,name',
+                'pairA.player2:id,name',
+                'pairB.player1:id,name',
+                'pairB.player2:id,name',
             ])
             ->get();
 
@@ -526,7 +529,10 @@ class ScheduleController extends Controller
                     $pills[$ib][] = ($ib + 1) . '-' . ($ia + 1);
 
                     $slot = $this->crucesSlot($m);
-                    if ($slot) { $horario[$ia][] = $slot; $horario[$ib][] = $slot; }
+                    if ($slot) {
+                        $horario[$ia][] = $slot;
+                        $horario[$ib][] = $slot;
+                    }
                 }
 
                 $blocks[] = [
@@ -594,12 +600,14 @@ class ScheduleController extends Controller
             ->with([
                 'category:id,name',
                 'court:id,name',
-                'pairA.player1:id,name', 'pairA.player2:id,name',
-                'pairB.player1:id,name', 'pairB.player2:id,name',
+                'pairA.player1:id,name',
+                'pairA.player2:id,name',
+                'pairB.player1:id,name',
+                'pairB.player2:id,name',
             ])
             ->get();
 
-        $dayLabel = fn (string $ymd) => \Illuminate\Support\Str::ucfirst(
+        $dayLabel = fn(string $ymd) => \Illuminate\Support\Str::ucfirst(
             \Carbon\Carbon::parse($ymd, $tz)->locale('es')->isoFormat('ddd DD MMM')
         );
 
@@ -631,9 +639,12 @@ class ScheduleController extends Controller
                 if (! $m->starts_at) {
                     $pendingCount++;
                     $matchRows[] = [
-                        'status' => 'pending', 'reason' => 'Sin programar',
-                        'context' => $ctx, 'label' => $opponent,
-                        'when' => null, 'court' => $m->court?->name,
+                        'status' => 'pending',
+                        'reason' => 'Sin programar',
+                        'context' => $ctx,
+                        'label' => $opponent,
+                        'when' => null,
+                        'court' => $m->court?->name,
                     ];
                     continue;
                 }
@@ -643,7 +654,8 @@ class ScheduleController extends Controller
                 $rule = $rulesByDay[$ymd] ?? null;
                 [$status, $reason] = $this->validateAgainstRule($local, $duration, $rule);
 
-                if ($status === 'ok') $okCount++; else $errCount++;
+                if ($status === 'ok') $okCount++;
+                else $errCount++;
 
                 $matchRows[] = [
                     'status'  => $status,
@@ -659,7 +671,10 @@ class ScheduleController extends Controller
             ksort($rulesByDay);
             $ruleStrings = [];
             foreach ($rulesByDay as $ymd => $win) {
-                if (is_array($win) && ! empty($win['off'])) { $ruleStrings[] = $dayLabel($ymd) . ': no disponible'; continue; }
+                if (is_array($win) && ! empty($win['off'])) {
+                    $ruleStrings[] = $dayLabel($ymd) . ': no disponible';
+                    continue;
+                }
                 $from = is_array($win) ? ($win['from'] ?? null) : $win;
                 $until = is_array($win) ? ($win['until'] ?? null) : null;
                 if (! $from) continue;
