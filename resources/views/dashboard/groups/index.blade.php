@@ -73,7 +73,8 @@
         </div>
 
         <div class="group-board" data-group-board
-            data-move-url="{{ route('draw.groups.move', [$tournament, $category]) }}">
+            data-move-url="{{ route('draw.groups.move', [$tournament, $category]) }}"
+            data-reorder-url="{{ route('draw.groups.reorder', [$tournament, $category]) }}">
 
             {{-- Unassigned pool (always a drop target; id 0 = pool) --}}
             <div class="group-col group-col--pool mb-3" data-group data-group-id="0">
@@ -98,9 +99,21 @@
                         <div class="group-col__head">{{ $group->name }}</div>
                         <div class="group-col__list" data-group-list>
                             @foreach($group->pairs as $pair)
-                            <div class="pair-chip" data-pair data-pair-id="{{ $pair->id }}">
-                                <i class="fa-solid fa-grip-vertical pair-chip__grip"></i>
-                                {{ $pair->name() }}
+                            <div class="pair-row" data-pair-row>
+                                <div class="pair-chip" data-pair data-pair-id="{{ $pair->id }}">
+                                    <i class="fa-solid fa-grip-vertical pair-chip__grip"></i>
+                                    <span class="pair-chip__name">{{ $pair->name() }}</span>
+                                </div>
+                                <div class="pair-row__reorder">
+                                    <button type="button" class="pair-row__nudge" data-reorder-up
+                                        aria-label="Subir" title="Subir">
+                                        <i class="fa-solid fa-chevron-up"></i>
+                                    </button>
+                                    <button type="button" class="pair-row__nudge" data-reorder-down
+                                        aria-label="Bajar" title="Bajar">
+                                        <i class="fa-solid fa-chevron-down"></i>
+                                    </button>
+                                </div>
                             </div>
                             @endforeach
                         </div>

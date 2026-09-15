@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\GameMatch;
 use App\Models\Group;
 use App\Models\Pair;
+use App\Enums\MatchState;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -137,6 +138,14 @@ class GroupGenerationService
         }
 
         // --- Normal greedy placement for the rest --------------------------
+        // Shuffle first so regenerate/import genuinely varies between-group
+        // placement (previously deterministic for a given registration order).
+        // orderByConstraint below is a STABLE sort, so equal-weight pairs — the
+        // common case, most pairs share no player — keep this shuffled order,
+        // landing in different groups each run. Leader seeding (done above) and
+        // shared-player separation are both preserved.
+        $rest = $rest->shuffle()->values();
+
         // Order remaining pairs so the most "constrained" (sharing players) are
         // placed first — those with shared players are harder to fit.
         $ordered = $this->orderByConstraint($rest);
@@ -238,7 +247,14 @@ class GroupGenerationService
 
             // Attach to destination group (if going to a real group).
             if ($to) {
-                $to->pairs()->syncWithoutDetaching([$pair->id]);
+                $nextPos = (int) DB::table('group_pair')
+                    ->where('group_id', $to->id)->max('position');
+                $nextPos = $to->pairs()->where('pairs.id', $pair->id)->exists()
+                    ? $nextPos                 // already there — leave position
+                    : $nextPos + 1;            // new arrival goes to the end
+                $to->pairs()->syncWithoutDetaching([
+                    $pair->id => ['position' => $nextPos],
+                ]);
                 $this->rebuildGroupMatches($to->fresh('pairs'));
             }
 
@@ -248,6 +264,57 @@ class GroupGenerationService
 
             return ['warning' => $warning];
         });
+    }
+
+    public function reorderPairs(Group $group, array $pairIds, bool $confirm = false): array
+    {
+        $group->loadMissing('pairs');
+        $current = $group->pairs->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $desired = array_map('intval', $pairIds);
+
+        // Set-equality guard: same members, no adds/drops. Reordering only.
+        sort($current);
+        $sortedDesired = $desired;
+        sort($sortedDesired);
+        if ($current !== $sortedDesired) {
+            return ['ok' => false, 'warning' => 'La lista de parejas no coincide con el grupo.'];
+        }
+
+        $isMexicano = $group->category->group_format === \App\Enums\GroupFormat::Mexicano
+            && count($desired) === 4;
+
+        // Mexicano with existing results → order change is destructive.
+        if ($isMexicano && ! $confirm && $this->groupHasPlayedMatches($group)) {
+            return ['ok' => false, 'needs_confirm' => true];
+        }
+
+        return DB::transaction(function () use ($group, $desired, $isMexicano) {
+            // Re-stamp pivot positions 0..n in the desired order.
+            foreach ($desired as $pos => $pairId) {
+                DB::table('group_pair')
+                    ->where('group_id', $group->id)
+                    ->where('pair_id', $pairId)
+                    ->update(['position' => $pos]);
+            }
+
+            // Mexicano: pairings depend on order → rebuild (discards scores).
+            // Round-robin: pairings unchanged → leave matches, they'll list in
+            // the new order via the position-aware relation.
+            if ($isMexicano) {
+                $this->rebuildGroupMatches($group->fresh('pairs'));
+                return ['ok' => true, 'rebuilt' => true, 'warning' => null];
+            }
+
+            return ['ok' => true, 'rebuilt' => false, 'warning' => null];
+        });
+    }
+
+    /** Any match in this group that carries a score (proposed or confirmed). */
+    private function groupHasPlayedMatches(Group $group): bool
+    {
+        return GameMatch::where('group_id', $group->id)
+            ->whereIn('state', [MatchState::Proposed->value, MatchState::Confirmed->value])
+            ->exists();
     }
 
     /**
@@ -412,8 +479,11 @@ class GroupGenerationService
                     'position' => $index,
                 ]);
 
-                $pairIds = collect($groupPairs)->pluck('id')->all();
-                $group->pairs()->sync($pairIds);
+                $syncData = [];
+                foreach (collect($groupPairs)->pluck('id')->all() as $pos => $pid) {
+                    $syncData[$pid] = ['position' => $pos];
+                }
+                $group->pairs()->sync($syncData);
 
                 // Build matches via the shared builder so the Mexicano vs
                 // round-robin branch is applied consistently (don't duplicate

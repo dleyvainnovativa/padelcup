@@ -58,6 +58,51 @@ class DrawController extends Controller
         return response()->json(['ok' => true, 'warning' => $result['warning']]);
     }
 
+    public function reorderGroup(Request $request, Tournament $tournament, Category $category)
+    {
+        $this->authorize('update', $category);
+        abort_unless($category->tournament_id === $tournament->id, 404);
+        abort_if($tournament->isLocked(), 403, 'El torneo ya inició; no se pueden reordenar las parejas.');
+
+        $data = $request->validate([
+            'group_id' => ['required', 'integer'],
+            'pair_ids' => ['required', 'array', 'min:1'],
+            'pair_ids.*' => ['integer'],
+            'confirm' => ['sometimes', 'boolean'],
+        ]);
+
+        $group = \App\Models\Group::where('category_id', $category->id)
+            ->findOrFail($data['group_id']);
+
+        $result = $this->groups->reorderPairs(
+            $group,
+            $data['pair_ids'],
+            (bool) ($data['confirm'] ?? false),
+        );
+
+        // Mexicano group with existing scores, no confirm yet → ask the UI to warn.
+        if (! empty($result['needs_confirm'])) {
+            return response()->json([
+                'ok' => false,
+                'needs_confirm' => true,
+                'message' => 'Este grupo ya tiene resultados. Reordenar cambiará los enfrentamientos y se perderán los marcadores de este grupo. ¿Continuar?',
+            ], 409);
+        }
+
+        if (empty($result['ok'])) {
+            return response()->json([
+                'ok' => false,
+                'warning' => $result['warning'] ?? 'No se pudo reordenar.',
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'rebuilt' => $result['rebuilt'] ?? false,
+            'warning' => $result['warning'] ?? null,
+        ]);
+    }
+
     /** Group generation preview (no writes). */
     public function previewGroups(Tournament $tournament, Category $category)
     {

@@ -2906,3 +2906,71 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 [data-theme="dark"] .sched-proposal__accept { background: var(--accent); color: #0a1512; }
 .sched-proposal__reject { padding: 6px 10px; color: var(--text-muted); }
 .sched-proposal__accept:hover, .sched-proposal__use:hover, .sched-proposal__reject:hover { filter: brightness(0.96); }
+
+
+/* Group reorder ---------------------------------------------------------- */
+/* A row holds the pair chip plus its reorder buttons as SIBLINGS, so tapping
+   a button never lands inside the chip's tap-to-pick area. */
+.pair-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.pair-row .pair-chip {
+  flex: 1 1 auto;
+  min-width: 0; /* let long names ellipsize instead of pushing buttons off */
+}
+.pair-chip__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pair-row__reorder {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.pair-row__nudge {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 6px);
+  /* Compact on desktop where the pointer is precise. */
+  width: 26px;
+  height: 18px;
+  font-size: 0.7rem;
+  padding: 0;
+  transition: color .12s, background .12s, border-color .12s;
+}
+.pair-row__nudge:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.pair-row__nudge:active { transform: scale(0.94); }
+
+.pair-chip__grip { cursor: grab; touch-action: none; } /* let pointer drag work on touch */
+.pair-row.reordering { opacity: .6; box-shadow: 0 4px 14px rgba(0,0,0,.18); border-radius: var(--radius); }
+
+/* Mobile / coarse pointers: give the buttons a proper touch target beside the
+   card. Each button becomes tall enough to hit reliably; together they span
+   the chip height so the whole right edge is a comfortable up/down control. */
+@media (hover: none), (pointer: coarse) {
+  .pair-row { gap: 8px; }
+  .pair-row__reorder { gap: 6px; }
+  .pair-row__nudge {
+    width: 44px;
+    height: 100%;
+    min-height: 40px;
+    font-size: 0.95rem;
+  }
+}

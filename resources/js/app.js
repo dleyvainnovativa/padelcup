@@ -83,6 +83,7 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
   // Feature module: group builder (only on the groups page).
   if (document.querySelector('[data-group-board]')) {
     import('./modules/groupBuilder').then((m) => m.initGroupBuilder());
+    import('./modules/groupReorder').then((m) => m.initGroupReorder());
   }
 
   // Feature module: scheduling board (only on the calendar page).

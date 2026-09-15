@@ -463,7 +463,12 @@ class TournamentTransferService
                         ->filter()
                         ->all();
                     if ($ids) {
-                        Group::find($groupMap[$grpRef])->pairs()->syncWithoutDetaching($ids);
+                        // Preserve source order as pivot position (0..n).
+                        $syncData = [];
+                        foreach (array_values($ids) as $pos => $pid) {
+                            $syncData[$pid] = ['position' => $pos];
+                        }
+                        Group::find($groupMap[$grpRef])->pairs()->syncWithoutDetaching($syncData);
                     }
                 }
 
