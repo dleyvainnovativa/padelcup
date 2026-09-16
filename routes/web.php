@@ -117,6 +117,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('sedes', [\App\Http\Controllers\Dashboard\VenueController::class, 'storeVenue'])->name('venues.store');
         Route::post('sedes/{venue}/canchas', [\App\Http\Controllers\Dashboard\VenueController::class, 'storeCourt'])->name('courts.store');
         Route::post('sedes/{venue}/canchas/generar', [\App\Http\Controllers\Dashboard\VenueController::class, 'generateCourts'])->name('courts.generate');
+        Route::delete('sedes/{venue}', [\App\Http\Controllers\Dashboard\VenueController::class, 'destroyVenue'])->name('venues.destroy');
         Route::delete('canchas/{court}', [\App\Http\Controllers\Dashboard\VenueController::class, 'destroyCourt'])->name('courts.destroy');
         Route::patch('canchas/{court}', [\App\Http\Controllers\Dashboard\VenueController::class, 'updateCourt'])->name('courts.update');
         Route::post('canchas/{court}/duplicar', [\App\Http\Controllers\Dashboard\VenueController::class, 'duplicateCourt'])->name('courts.duplicate');

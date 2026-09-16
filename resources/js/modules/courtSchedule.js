@@ -12,10 +12,14 @@ import { post } from '../core/http';
 import toast from '../core/toast';
 
 export function initCourtSchedule() {
-  const root = document.querySelector('[data-venues-root]');
-  if (!root) return;
-
-  root.querySelectorAll('[data-court-block]').forEach(wireCourt);
+  // Wire every court block on the page, regardless of how venues are nested.
+  // (Scoping to a single wrapper broke when a second venue's courts fell
+  // outside it.) Guard against double-wiring if this ever runs twice.
+  document.querySelectorAll('[data-court-block]').forEach((block) => {
+    if (block.dataset.reorderWired === '1') return;
+    block.dataset.reorderWired = '1';
+    wireCourt(block);
+  });
 }
 
 function wireCourt(block) {

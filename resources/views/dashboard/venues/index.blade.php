@@ -59,9 +59,30 @@
 @forelse($tournament->venues as $venue)
 <div data-venues-root>
     <div class="tc-card mb-3">
-        <div class="tc-card__head">
-            <h3>{{ $venue->name }}</h3>
-            <span style="font-size:12px;color:var(--text-faint);">{{ $venue->address }}</span>
+        <div class="tc-card__head" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div style="min-width:0;">
+                <h3 style="margin:0;">{{ $venue->name }}</h3>
+                <span style="font-size:12px;color:var(--text-faint);">{{ $venue->address }}</span>
+            </div>
+            @php
+            $vCourts = $venue->courts->count();
+            $vSched = (int) (($scheduledByVenue[$venue->id] ?? 0));
+            $warn = "¿Eliminar la sede «{$venue->name}»?";
+            if ($vCourts > 0) $warn .= " Se eliminarán sus {$vCourts} " . ($vCourts === 1 ? 'cancha' : 'canchas') . " y sus horarios.";
+            if ($vSched > 0) $warn .= " {$vSched} " . ($vSched === 1 ? 'partido programado quedará' : 'partidos programados quedarán') . " sin cancha asignada.";
+            $warn .= " Esta acción no se puede deshacer.";
+            @endphp
+            <form method="POST" action="{{ route('venues.destroy', [$tournament, $venue]) }}"
+                data-confirm="{{ $warn }}"
+                data-confirm-title="Eliminar sede"
+                data-confirm-variant="danger"
+                data-confirm-ok="Eliminar sede">
+                @csrf @method('DELETE')
+                <button class="btn btn-soft btn-sm court-icon-btn court-icon-btn--danger"
+                    title="Eliminar sede" aria-label="Eliminar sede">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </form>
         </div>
         <div class="tc-card__body">
             @php

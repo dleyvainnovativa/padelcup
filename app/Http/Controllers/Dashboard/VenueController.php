@@ -270,4 +270,22 @@ class VenueController extends Controller
 
         return back()->with('status', "{$deleted} " . ($deleted === 1 ? 'horario eliminado.' : 'horarios eliminados.'));
     }
+    public function destroyVenue(Tournament $tournament, Venue $venue)
+    {
+        $this->authorize('update', $tournament);
+        abort_unless($venue->tournament_id === $tournament->id, 404);
+
+        $courtCount = $venue->courts()->count();
+        $name = $venue->name;
+
+        $venue->delete(); // cascades to courts + court_availabilities
+
+        $msg = "Sede «{$name}» eliminada";
+        if ($courtCount > 0) {
+            $msg .= " con {$courtCount} " . ($courtCount === 1 ? 'cancha' : 'canchas');
+        }
+        $msg .= '.';
+
+        return back()->with('status', $msg);
+    }
 }
