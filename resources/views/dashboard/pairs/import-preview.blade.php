@@ -126,6 +126,7 @@ $currentFormat = $currentFormat ?? 'mex';
                         <th>Jugador 1</th>
                         <th>Jugador 2</th>
                         @endif
+                        <th>Horario</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -149,6 +150,25 @@ $currentFormat = $currentFormat ?? 'mex';
                                 <option value="">Crear nuevo</option>
                             </select>
                             @endif
+                        </td>
+                        <td style="font-size:11px;">
+                            @php $sched = $row['schedule'] ?? []; @endphp
+                            @if(!empty($row['schedule_error']))
+                            <span class="badge" style="background:var(--danger-soft);color:var(--danger-text);">
+                                <i class="fa-solid fa-triangle-exclamation me-1"></i>{{ $row['schedule_error'] }}
+                            </span>
+                            @elseif(count($sched))
+                            <span style="color:var(--text-muted);">
+                                {{ count($sched) }} {{ count($sched) === 1 ? 'día' : 'días' }} de horario
+                            </span>
+                            @else
+                            <span style="color:var(--text-faint);">—</span>
+                            @endif
+
+                            {{-- Post the cleaned schedule map so commit() can apply it. --}}
+                            @foreach($sched as $day => $from)
+                            <input type="hidden" name="rows[{{ $i }}][schedule][{{ $day }}]" value="{{ $from }}">
+                            @endforeach
                         </td>
                         @endforeach
                     </tr>

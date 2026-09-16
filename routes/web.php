@@ -119,9 +119,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('sedes/{venue}/canchas/generar', [\App\Http\Controllers\Dashboard\VenueController::class, 'generateCourts'])->name('courts.generate');
         Route::delete('canchas/{court}', [\App\Http\Controllers\Dashboard\VenueController::class, 'destroyCourt'])->name('courts.destroy');
         Route::patch('canchas/{court}', [\App\Http\Controllers\Dashboard\VenueController::class, 'updateCourt'])->name('courts.update');
+        Route::post('canchas/{court}/duplicar', [\App\Http\Controllers\Dashboard\VenueController::class, 'duplicateCourt'])->name('courts.duplicate');
+        Route::post('canchas/{court}/horarios/eliminar-varios', [\App\Http\Controllers\Dashboard\VenueController::class, 'bulkDestroyAvailability'])->name('availability.bulkDestroy');
 
 
-
+        Route::post('horarios/{availability}/editar', [\App\Http\Controllers\Dashboard\VenueController::class, 'updateAvailability'])->name('availability.update');
         Route::post('horarios/resync', [\App\Http\Controllers\Dashboard\VenueController::class, 'resyncAvailability'])->name('availability.resync');
         Route::post('canchas/{court}/horarios', [\App\Http\Controllers\Dashboard\VenueController::class, 'storeAvailability'])->name('availability.store');
         Route::delete('horarios/{availability}', [\App\Http\Controllers\Dashboard\VenueController::class, 'destroyAvailability'])->name('availability.destroy');

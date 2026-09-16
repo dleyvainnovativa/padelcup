@@ -57,104 +57,143 @@
 </div>
 
 @forelse($tournament->venues as $venue)
-<div class="tc-card mb-3">
-    <div class="tc-card__head">
-        <h3>{{ $venue->name }}</h3>
-        <span style="font-size:12px;color:var(--text-faint);">{{ $venue->address }}</span>
-    </div>
-    <div class="tc-card__body">
-        @php
-        $playDays = collect($tournament->playDays());
-        $dayFmt = fn($d) => \Illuminate\Support\Str::ucfirst($d->locale('es')->isoFormat('ddd D MMM'));
-        @endphp
-
-        @forelse($venue->courts as $court)
-        <div class="court-block">
-            <div class="court-block__head">
-                <form method="POST" action="{{ route('courts.update', [$tournament, $court]) }}"
-                    class="court-rename" data-court-rename>
-                    @csrf @method('PATCH')
-                    <input type="text" name="name" value="{{ $court->name }}" maxlength="255"
-                        class="court-rename__input" aria-label="Nombre de la cancha">
-                    <button type="submit" class="court-rename__save" title="Guardar nombre"><i class="fa-solid fa-check"></i></button>
-                </form>
-                <form method="POST" action="{{ route('courts.destroy', [$tournament, $court]) }}"
-                    data-confirm="¿Eliminar «{{ $court->name }}»? Se quitará del calendario."
-                    data-confirm-title="Eliminar cancha" data-confirm-variant="danger" data-confirm-ok="Eliminar">
-                    @csrf @method('DELETE')
-                    <button class="btn btn-soft btn-sm" style="color:var(--danger-text);padding:0 8px;">× Cancha</button>
-                </form>
-            </div>
-
-            {{-- Current windows grouped by day --}}
+<div data-venues-root>
+    <div class="tc-card mb-3">
+        <div class="tc-card__head">
+            <h3>{{ $venue->name }}</h3>
+            <span style="font-size:12px;color:var(--text-faint);">{{ $venue->address }}</span>
+        </div>
+        <div class="tc-card__body">
             @php
-            $byDay = $court->availabilities
-            ->sortBy('starts_at')
-            ->groupBy(fn($w) => $w->starts_at->timezone('America/Mexico_City')->format('Y-m-d'));
+            $playDays = collect($tournament->playDays());
+            $dayFmt = fn($d) => \Illuminate\Support\Str::ucfirst($d->locale('es')->isoFormat('ddd D MMM'));
             @endphp
-            @if($byDay->isEmpty())
-            <div style="font-size:12px;color:var(--text-faint);margin:6px 0;">Sin horarios. Usa la ventana del torneo o agrega ventanas personalizadas abajo.</div>
-            @else
-            <div class="court-wins">
-                @foreach($byDay as $ymd => $wins)
-                @php $d = \Carbon\Carbon::parse($ymd, 'America/Mexico_City'); @endphp
-                <div class="court-win-day">
-                    <span class="court-win-day__label">{{ \Illuminate\Support\Str::ucfirst($d->locale('es')->isoFormat('ddd D MMM')) }}</span>
-                    <div class="court-win-tags">
-                        @foreach($wins as $w)
-                        <span class="court-win-tag">
-                            {{ $w->starts_at->timezone('America/Mexico_City')->format('H:i') }}–{{ $w->ends_at->timezone('America/Mexico_City')->format('H:i') }}
-                            <form method="POST" action="{{ route('availability.destroy', [$tournament, $w]) }}" class="d-inline">
-                                @csrf @method('DELETE')
-                                <button class="court-win-tag__x" title="Quitar">×</button>
-                            </form>
-                        </span>
-                        @endforeach
+
+            @forelse($venue->courts as $court)
+            <div class="court-block" data-court-block
+                data-bulk-delete-url="{{ route('availability.bulkDestroy', [$tournament, $court]) }}"
+                data-update-tpl="{{ route('availability.update', [$tournament, '__ID__']) }}">
+                <div class="court-block__head">
+                    <form method="POST" action="{{ route('courts.update', [$tournament, $court]) }}"
+                        class="court-rename" data-court-rename>
+                        @csrf @method('PATCH')
+                        <input type="text" name="name" value="{{ $court->name }}" maxlength="255"
+                            class="court-rename__input" aria-label="Nombre de la cancha">
+                        <button type="submit" class="court-rename__save" title="Guardar nombre"><i class="fa-solid fa-check"></i></button>
+                    </form>
+
+                    <div class="court-block__actions">
+                        {{-- Select mode toggle (multi-delete). --}}
+                        <button type="button" class="btn btn-soft btn-sm court-icon-btn"
+                            data-select-toggle aria-pressed="false"
+                            title="Seleccionar horarios" aria-label="Seleccionar horarios">
+                            <i class="fa-solid fa-square-check"></i>
+                        </button>
+
+                        <form method="POST" action="{{ route('courts.duplicate', [$tournament, $court]) }}" class="d-inline">
+                            @csrf
+                            <button class="btn btn-soft btn-sm court-icon-btn" title="Duplicar cancha con sus horarios" aria-label="Duplicar cancha">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                        </form>
+
+                        <form method="POST" action="{{ route('courts.destroy', [$tournament, $court]) }}"
+                            data-confirm="¿Eliminar «{{ $court->name }}»? Se quitará del calendario."
+                            data-confirm-title="Eliminar cancha" data-confirm-variant="danger" data-confirm-ok="Eliminar">
+                            @csrf @method('DELETE')
+                            <button class="btn btn-soft btn-sm court-icon-btn court-icon-btn--danger" title="Eliminar cancha" aria-label="Eliminar cancha">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </form>
                     </div>
                 </div>
-                @endforeach
-            </div>
-            @endif
 
-            {{-- Add custom window --}}
-            <form method="POST" action="{{ route('availability.store', [$tournament, $court]) }}" class="court-win-add">
-                @csrf
-                <select name="day" required class="form-select form-select-sm" style="width:auto;border-radius:var(--radius);">
-                    <option value="">Día…</option>
-                    @foreach($playDays as $d)
-                    <option value="{{ $d->format('Y-m-d') }}">{{ $dayFmt($d) }}</option>
+                {{-- Bulk action bar (shown only in select mode) --}}
+                <div class="court-bulk-bar" data-bulk-bar hidden>
+                    <span class="court-bulk-bar__info"><span data-bulk-count>0</span> seleccionados</span>
+                    <button type="button" class="btn btn-sm court-bulk-bar__delete" data-bulk-delete disabled>
+                        <i class="fa-solid fa-trash me-1"></i> Eliminar
+                    </button>
+                </div>
+
+                {{-- Current windows grouped by day --}}
+                @php
+                $byDay = $court->availabilities
+                ->sortBy('starts_at')
+                ->groupBy(fn($w) => $w->starts_at->timezone('America/Mexico_City')->format('Y-m-d'));
+                @endphp
+                @if($byDay->isEmpty())
+                <div style="font-size:12px;color:var(--text-faint);margin:6px 0;">Sin horarios. Usa la ventana del torneo o agrega ventanas personalizadas abajo.</div>
+                @else
+                <div class="court-wins">
+                    @foreach($byDay as $ymd => $wins)
+                    @php $d = \Carbon\Carbon::parse($ymd, 'America/Mexico_City'); @endphp
+                    <div class="court-win-day">
+                        <span class="court-win-day__label">{{ \Illuminate\Support\Str::ucfirst($d->locale('es')->isoFormat('ddd D MMM')) }}</span>
+                        <div class="court-win-tags">
+                            @foreach($wins as $w)
+                            @php
+                            $st = $w->starts_at->timezone('America/Mexico_City');
+                            $en = $w->ends_at->timezone('America/Mexico_City');
+                            @endphp
+                            <span class="court-win-tag" data-win-tag
+                                data-win-id="{{ $w->id }}"
+                                data-win-start="{{ $st->format('H:i') }}"
+                                data-win-end="{{ $en->format('H:i') }}"
+                                title="Editar horario">
+                                <span class="court-win-tag__label">{{ $st->format('H:i') }}–{{ $en->format('H:i') }}</span>
+                                <form method="POST" action="{{ route('availability.destroy', [$tournament, $w]) }}" class="d-inline" data-win-x>
+                                    @csrf @method('DELETE')
+                                    <button class="court-win-tag__x" title="Quitar" aria-label="Quitar horario">×</button>
+                                </form>
+                            </span>
+                            @endforeach
+                        </div>
+                    </div>
                     @endforeach
-                </select>
-                <input type="time" name="start_time" required class="form-control form-control-sm" style="width:auto;border-radius:var(--radius);">
-                <span style="color:var(--text-faint);">→</span>
-                <input type="time" name="end_time" required class="form-control form-control-sm" style="width:auto;border-radius:var(--radius);">
-                <button class="btn btn-soft btn-sm"><i class="fa-solid fa-plus me-1"></i> Agregar ventana</button>
-            </form>
-        </div>
-        @empty
-        <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">Esta sede no tiene canchas todavía.</div>
-        @endforelse
-
-        <div class="court-add-row">
-            <form method="POST" action="{{ route('courts.store', [$tournament, $venue]) }}" class="d-flex gap-2 align-items-end">
-                @csrf
-                <div>
-                    <label class="form-label" style="font-size:12px;">Nueva cancha</label>
-                    <input type="text" name="name" placeholder="Cancha 1" required class="form-control form-control-sm" style="border-radius:var(--radius);">
                 </div>
-                <button class="btn btn-soft btn-sm">Agregar cancha</button>
-            </form>
+                @endif
 
-            <span class="court-add-sep">o</span>
+                {{-- Add custom window --}}
+                <form method="POST" action="{{ route('availability.store', [$tournament, $court]) }}" class="court-win-add">
+                    @csrf
+                    <select name="day" required class="form-select form-select-sm" style="width:auto;border-radius:var(--radius);">
+                        <option value="">Día…</option>
+                        @foreach($playDays as $d)
+                        <option value="{{ $d->format('Y-m-d') }}">{{ $dayFmt($d) }}</option>
+                        @endforeach
+                    </select>
+                    <input type="time" name="start_time" required class="form-control form-control-sm" style="width:auto;border-radius:var(--radius);">
+                    <span style="color:var(--text-faint);">→</span>
+                    <input type="time" name="end_time" required class="form-control form-control-sm" style="width:auto;border-radius:var(--radius);">
+                    <button class="btn btn-soft btn-sm"><i class="fa-solid fa-plus me-1"></i> Agregar ventana</button>
+                </form>
+            </div>
+            @empty
+            <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">Esta sede no tiene canchas todavía.</div>
+            @endforelse
 
-            <form method="POST" action="{{ route('courts.generate', [$tournament, $venue]) }}" class="d-flex gap-2 align-items-end">
-                @csrf
-                <div>
-                    <label class="form-label" style="font-size:12px;">Generar varias</label>
-                    <input type="number" name="count" min="1" max="20" value="4" required class="form-control form-control-sm" style="width:80px;border-radius:var(--radius);">
-                </div>
-                <button class="btn btn-soft btn-sm"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generar canchas</button>
-            </form>
+            <div class="court-add-row">
+                <form method="POST" action="{{ route('courts.store', [$tournament, $venue]) }}" class="d-flex gap-2 align-items-end">
+                    @csrf
+                    <div>
+                        <label class="form-label" style="font-size:12px;">Nueva cancha</label>
+                        <input type="text" name="name" placeholder="Cancha 1" required class="form-control form-control-sm" style="border-radius:var(--radius);">
+                    </div>
+                    <button class="btn btn-soft btn-sm">Agregar cancha</button>
+                </form>
+
+                <span class="court-add-sep">o</span>
+
+                <form method="POST" action="{{ route('courts.generate', [$tournament, $venue]) }}" class="d-flex gap-2 align-items-end">
+                    @csrf
+                    <div>
+                        <label class="form-label" style="font-size:12px;">Generar varias</label>
+                        <input type="number" name="count" min="1" max="20" value="4" required class="form-control form-control-sm" style="width:80px;border-radius:var(--radius);">
+                    </div>
+                    <button class="btn btn-soft btn-sm"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generar canchas</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>

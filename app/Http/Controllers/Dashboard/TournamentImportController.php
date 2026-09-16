@@ -34,7 +34,8 @@ class TournamentImportController extends Controller
             return back()->withErrors(['file' => 'Sube un archivo CSV/XLSX o pega los datos.'])->withInput();
         }
 
-        $parsed = $this->import->parse($csvText);
+        $playDays = $tournament->playDays()->map->format('Y-m-d')->all();
+        $parsed = $this->import->parse($csvText, $playDays);
 
         if (! empty($parsed['errors']) && empty($parsed['groups'])) {
             return back()->withErrors(['file' => implode(' ', $parsed['errors'])])->withInput();

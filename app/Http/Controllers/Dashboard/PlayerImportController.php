@@ -35,7 +35,11 @@ class PlayerImportController extends Controller
         // so a singles CSV isn't rejected for missing player 2.
         $isSingles = $category->isSingles();
 
-        $parsed = $this->import->parse($request->file('file')->getRealPath(), $isSingles);
+        // Allowed play days let the parser reject schedule entries for dates
+        // outside the tournament window.
+        $playDays = $tournament->playDays()->map->format('Y-m-d')->all();
+
+        $parsed = $this->import->parse($request->file('file')->getRealPath(), $isSingles, $playDays);
         $rows = $this->import->withDuplicateFlags($parsed['rows']);
 
         $remaining = $category->max_pairs
@@ -75,6 +79,10 @@ class PlayerImportController extends Controller
             'rows.*.player1.email' => ['nullable', 'email'],
             'rows.*.player1.phone' => ['nullable', 'string', 'max:30'],
             'rows.*.player1.link_player_id' => ['nullable', 'integer', 'exists:players,id'],
+            // Optional per-row schedule map (day => 'HH:MM'), already validated at
+            // parse time; re-validated loosely here so it survives the round-trip.
+            'rows.*.schedule' => ['nullable', 'array'],
+            'rows.*.schedule.*' => ['nullable', 'string', 'max:5'],
         ];
 
         if (! $isSingles) {
@@ -108,6 +116,9 @@ class PlayerImportController extends Controller
 
         $unit = $isSingles ? 'jugadores' : 'parejas';
         $msg = "{$result['imported']} {$unit} importados.";
+        if (($result['schedule_days'] ?? 0) > 0) {
+            $msg .= " {$result['schedule_days']} días de horario aplicados.";
+        }
         if ($result['skipped'] > 0) {
             $msg .= " {$result['skipped']} omitidos (categoría llena o error).";
         }

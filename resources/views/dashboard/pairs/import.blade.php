@@ -27,6 +27,13 @@
             Solo los nombres son obligatorios. El correo y teléfono son opcionales.
             Revisarás posibles duplicados antes de confirmar.
         </p>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">
+            <strong>Columna opcional «schedule»</strong>: horario de disponibilidad del
+            jugador 1 en formato JSON, por día → hora «disponible desde». Ejemplo:
+            <code>{"2026-10-04":"09:00","2026-10-05":"08:30"}</code>.
+            Solo se aceptan días dentro del torneo; cada día reemplaza la disponibilidad
+            previa de ese jugador. En parejas aplica solo al jugador 1.
+        </p>
 
         <form method="POST" action="{{ route('pairs.import.preview', [$tournament, $category]) }}" enctype="multipart/form-data" class="mt-3">
             @csrf

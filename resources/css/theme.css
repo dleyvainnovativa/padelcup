@@ -1235,7 +1235,9 @@ input:-webkit-autofill:focus {
 
 /* Per-court availability window editor */
 .court-block { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 12px; }
-.court-block__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.court-block__head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.court-block__head .court-rename { flex: 1 1 auto; min-width: 0; } /* name grows; actions stay tight */
+.court-block__actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .court-wins { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .court-win-day { display: flex; align-items: flex-start; gap: 10px; }
 .court-win-day__label { flex: 0 0 96px; font-size: 12px; font-weight: 600; color: var(--text-muted); padding-top: 3px; }
@@ -2974,3 +2976,75 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
     font-size: 0.95rem;
   }
 }
+
+/* Icon-only court action buttons (duplicate / delete / select) ------------ */
+.court-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: var(--radius);
+}
+.court-icon-btn--danger { color: var(--danger-text); }
+.court-icon-btn.is-active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+/* Bulk action bar (select mode) ------------------------------------------- */
+.court-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 10px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+}
+.court-bulk-bar__info { font-size: 12px; color: var(--text-muted); }
+.court-bulk-bar__delete {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  border: 1px solid transparent;
+}
+.court-bulk-bar__delete:disabled { opacity: .5; cursor: default; }
+
+/* Window tags become interactive (press-to-edit / selectable) ------------- */
+.court-win-tag { cursor: pointer; user-select: none; transition: border-color .12s, background .12s; }
+.court-win-tag:hover { border-color: var(--accent); }
+.court-win-tag.is-editing { cursor: default; padding-left: 6px; }
+
+/* In select mode the per-tag × is hidden; the whole tag toggles selection. */
+.court-block.is-selecting .court-win-tag__x { display: none; }
+.court-block.is-selecting .court-win-tag { padding-right: 10px; }
+.court-win-tag.is-selected {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+.court-win-tag.is-selected .court-win-tag__label { color: var(--on-accent); }
+
+/* Inline time editor inside a tag */
+.court-win-editor { display: inline-flex; align-items: center; gap: 4px; }
+.court-win-editor__time {
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 4px;
+  background: var(--surface);
+  color: var(--text);
+  width: 78px;
+}
+.court-win-editor__arrow { color: var(--text-faint); font-size: 11px; }
+.court-win-editor__btn {
+  border: 0; background: transparent; cursor: pointer;
+  font-size: 13px; line-height: 1; padding: 2px 5px; border-radius: 5px;
+  color: var(--text-faint);
+}
+.court-win-editor__btn--ok { color: var(--success, #30a46c); font-weight: 700; }
+.court-win-editor__btn:hover { background: var(--bg-subtle); }

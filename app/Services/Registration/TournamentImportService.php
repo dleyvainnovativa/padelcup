@@ -46,14 +46,16 @@ class TournamentImportService
         return null; // unrecognized → treated as unset
     }
 
+    /** @var array<string,int>  array_flip of allowed 'Y-m-d' play days (empty = accept any) */
+    private array $playDaySet = [];
+
     /**
-     * Parse CSV text into [categoryName => [pairRows...]] plus per-category
-     * play_format and errors.
-     *
-     * @return array{groups: array<string, array<int,array>>, formats: array<string,string>, errors: array<int,string>, total: int}
+     * @param  array<int,string>  $playDays  allowed 'Y-m-d' play days for schedule
+     *         validation (empty = accept any well-formed date).
      */
-    public function parse(string $csvText): array
+    public function parse(string $csvText, array $playDays = []): array
     {
+        $this->playDaySet = array_flip($playDays);
         $groups = [];
         $formats = [];       // categoryName(lower) => 'singles'|'doubles'
         $formatSeen = [];    // categoryName(lower) => set of seen values (for conflict detection)
@@ -142,6 +144,15 @@ class TournamentImportService
                     'email' => trim((string) ($row['player2_email'] ?? '')) ?: null,
                     'phone' => trim((string) ($row['player2_phone'] ?? '')) ?: null,
                 ];
+            }
+
+            // Optional per-row schedule (JSON, player 1): day => "HH:MM" | "off".
+            [$schedule, $schedError] = $this->parseScheduleCell($row['schedule'] ?? null, $this->playDaySet);
+            if (! empty($schedule)) {
+                $entry['schedule'] = $schedule;
+            }
+            if ($schedError !== null) {
+                $errors[] = "Línea {$lineNo} ({$category}): horario — {$schedError}.";
             }
 
             $groups[$category][] = $entry;
@@ -323,5 +334,49 @@ class TournamentImportService
     private function resolveGroupFormat(?string $flag): GroupFormat
     {
         return ($flag === 'rr') ? GroupFormat::RoundRobin : GroupFormat::Mexicano;
+    }
+    private function parseScheduleCell($raw, array $playDaySet): array
+    {
+        $raw = trim((string) ($raw ?? ''));
+        if ($raw === '') return [[], null];
+
+        $decoded = json_decode($raw, true);
+        if (! is_array($decoded)) return [[], 'JSON inválido'];
+
+        $clean = [];
+        $bad = [];
+        foreach ($decoded as $day => $time) {
+            $day = trim((string) $day);
+            $d = \DateTime::createFromFormat('Y-m-d', $day);
+            if (! ($d && $d->format('Y-m-d') === $day)) {
+                $bad[] = $day;
+                continue;
+            }
+            if (! empty($playDaySet) && ! isset($playDaySet[$day])) {
+                $bad[] = $day;
+                continue;
+            }
+
+            $t = strtolower(trim((string) $time));
+            if ($t === 'off' || $t === 'no') {
+                $clean[$day] = 'off';
+                continue;
+            }
+
+            if (! preg_match('/^(\d{1,2}):(\d{2})(:\d{2})?$/', $t, $m)) {
+                $bad[] = $day;
+                continue;
+            }
+            $h = (int) $m[1];
+            $min = (int) $m[2];
+            if ($h > 23 || $min > 59) {
+                $bad[] = $day;
+                continue;
+            }
+            $clean[$day] = sprintf('%02d:%02d', $h, $min);
+        }
+
+        $error = $bad ? ('días/horas inválidos: ' . implode(', ', $bad)) : null;
+        return [$clean, $error];
     }
 }

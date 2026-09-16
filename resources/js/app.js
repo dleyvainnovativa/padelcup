@@ -114,6 +114,9 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
   if (document.querySelector('[data-validate-schedule]')) {
     initScheduleValidation();
   }
+  if (document.querySelector('[data-venues-root]')) {
+    import('./modules/courtSchedule').then((m) => m.initCourtSchedule());
+  }
 
   registerPlayersSheet(Alpine);
 

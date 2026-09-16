@@ -192,4 +192,82 @@ class VenueController extends Controller
 
         return back()->with('status', 'Horario eliminado.');
     }
+
+    /**
+     * Duplicate a court within its venue, copying every availability window.
+     *
+     * The copy lands last in the venue (sort_order = current count) and is
+     * named "{original} (copia)". Availability rows are cloned verbatim
+     * (starts_at / ends_at), so the new court is schedule-ready immediately.
+     */
+    public function duplicateCourt(Tournament $tournament, Court $court)
+    {
+        $this->authorize('update', $tournament);
+        abort_unless($court->venue->tournament_id === $tournament->id, 404);
+
+        $venue = $court->venue;
+
+        $copy = $venue->courts()->create([
+            'name' => \Illuminate\Support\Str::limit($court->name . ' (copia)', 255, ''),
+            'sort_order' => $venue->courts()->count(),
+            'is_active' => $court->is_active,
+        ]);
+
+        // Clone every availability window verbatim.
+        foreach ($court->availabilities as $a) {
+            $copy->availabilities()->create([
+                'starts_at' => $a->starts_at,
+                'ends_at' => $a->ends_at,
+            ]);
+        }
+
+        return back()->with('status', "Cancha duplicada como «{$copy->name}».");
+    }
+    /** Edit one availability window's start/end (same day). */
+    public function updateAvailability(Request $request, Tournament $tournament, CourtAvailability $availability)
+    {
+        $this->authorize('update', $tournament);
+        abort_unless($availability->court->venue->tournament_id === $tournament->id, 404);
+
+        $data = $request->validate([
+            'start_time' => ['required', 'date_format:H:i'],
+            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
+        ]);
+
+        $tz = 'America/Mexico_City';
+        // Keep the window on its existing day; only the times change.
+        $day = $availability->starts_at->timezone($tz)->format('Y-m-d');
+        $starts = \Carbon\Carbon::parse("{$day} {$data['start_time']}", $tz);
+        $ends = \Carbon\Carbon::parse("{$day} {$data['end_time']}", $tz);
+
+        // Avoid colliding with another identical window on the same court.
+        $dupe = $availability->court->availabilities()
+            ->whereKeyNot($availability->id)
+            ->where('starts_at', $starts)->where('ends_at', $ends)->exists();
+        if ($dupe) {
+            return back()->withErrors(['start_time' => 'Esa ventana ya existe para esta cancha.']);
+        }
+
+        $availability->update(['starts_at' => $starts, 'ends_at' => $ends]);
+
+        return back()->with('status', 'Horario actualizado.');
+    }
+
+    /** Delete several availability windows at once (multi-select). */
+    public function bulkDestroyAvailability(Request $request, Tournament $tournament, Court $court)
+    {
+        $this->authorize('update', $tournament);
+        abort_unless($court->venue->tournament_id === $tournament->id, 404);
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        // Scope strictly to THIS court so an id from another court can't be
+        // deleted by crafting the request.
+        $deleted = $court->availabilities()->whereIn('id', $data['ids'])->delete();
+
+        return back()->with('status', "{$deleted} " . ($deleted === 1 ? 'horario eliminado.' : 'horarios eliminados.'));
+    }
 }
