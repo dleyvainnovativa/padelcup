@@ -47,9 +47,14 @@
             </a>
         </div>
         <div class="col-auto">
+            <a href="{{ route('public.players', $tournament) }}" class="pub-btn">
+                <i class="fa-solid fa-users"></i> Jugadores
+            </a>
+        </div>
+        <div class="col-auto">
 
             <a href="{{ route('public.predictions.leaderboard', $tournament) }}" class="pub-btn">
-                <i class="fa-solid fa-wand-magic-sparkles"></i> Quiniela
+                <i class="fa-solid fa-hand-sparkles"></i> Predicciones
             </a>
         </div>
         <div class="col-auto">

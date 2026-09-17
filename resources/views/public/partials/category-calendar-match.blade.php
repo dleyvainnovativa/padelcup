@@ -119,7 +119,7 @@ $shareData = [
             data-predict-ctx="{{ $m->contextLabel() }}"
             data-predict-current="{{ $myPred ? json_encode($myPred->sets) : '' }}"
             @else disabled @endif>
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <i class="fa-solid fa-hand-sparkles"></i>
         </button>
         @endif
         @endauth

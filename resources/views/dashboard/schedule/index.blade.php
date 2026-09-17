@@ -100,8 +100,29 @@
                     Toca un jugador para resaltar sus partidos en el calendario.
                 </div>
 
+                {{-- Tabs for the three lists (only those with entries) --}}
+                @php
+                $plTabs = [];
+                if ($mcCount) $plTabs['multi'] = ['label' => 'En 2+ categorías', 'icon' => 'fa-user-group', 'count' => $mcCount];
+                if ($prefCount) $plTabs['pref'] = ['label' => 'Horario preferido', 'icon' => 'fa-user-clock', 'count' => $prefCount];
+                if ($busyCount) $plTabs['busy'] = ['label' => '3+ en un día', 'icon' => 'fa-gauge-high', 'count' => $busyCount];
+                $firstTab = array_key_first($plTabs);
+                @endphp
+                @if(count($plTabs) > 1)
+                <div class="tc-tabs pl-sheet__tabs mb-3" x-init="if (!plTab) plTab = @js($firstTab)">
+                    @foreach($plTabs as $key => $t)
+                    <button type="button" class="tc-tab" :class="{ 'is-active': plTab === @js($key) }" @click="plTab = @js($key)"
+                        title="{{ $t['label'] }}" aria-label="{{ $t['label'] }}">
+                        <i class="fa-solid {{ $t['icon'] }}"></i>
+                        <span class="pl-tab__label">{{ $t['label'] }}</span>
+                        <span class="pl-tab__count">{{ $t['count'] }}</span>
+                    </button>
+                    @endforeach
+                </div>
+                @endif
+
                 @if($mcCount)
-                <div class="pl-sheet__section" data-pl-section>
+                <div class="pl-sheet__section" data-pl-section data-pl-tab="multi" x-show="!plTab || plTab === 'multi'" x-cloak>
                     <div class="pl-sheet__section-title"><i class="fa-solid fa-user-group me-1"></i> En 2+ categorías ({{ $mcCount }})</div>
                     @foreach($multiCategoryPlayers as $row)
                     <button type="button" class="pl-row" data-pl-name="{{ Str::lower($row['name']) }}" @click="pick(@js($row['name']))">
@@ -114,7 +135,7 @@
                 @endif
 
                 @if($prefCount)
-                <div class="pl-sheet__section" data-pl-section>
+                <div class="pl-sheet__section" data-pl-section data-pl-tab="pref" x-show="!plTab || plTab === 'pref'" x-cloak>
                     <div class="pl-sheet__section-title"><i class="fa-solid fa-user-clock me-1"></i> Con horario preferido ({{ $prefCount }})</div>
                     @foreach($preferredSchedulePlayers as $row)
                     <button type="button" class="pl-row" data-pl-name="{{ Str::lower($row['name']) }}" @click="pick(@js($row['name']))">
@@ -127,7 +148,7 @@
                 @endif
 
                 @if($busyCount)
-                <div class="pl-sheet__section" data-pl-section>
+                <div class="pl-sheet__section" data-pl-section data-pl-tab="busy" x-show="!plTab || plTab === 'busy'" x-cloak>
                     <div class="pl-sheet__section-title"><i class="fa-solid fa-gauge-high me-1"></i> Con 3+ partidos en un día ({{ $busyCount }})</div>
                     @foreach($busyDayPlayers as $row)
                     <button type="button" class="pl-row" data-pl-name="{{ Str::lower($row['name']) }}" @click="pick(@js($row['name']))">
@@ -498,7 +519,7 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
 
         <div class="row g-3">
             <div class="col-12 col-lg-3">
-                <div class="tc-card" x-data="{ trayOpen: false }">
+                <div class="tc-card" x-data="{ trayOpen: false, trayCategory: '' }">
                     <div class="tc-card__head" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"
                         @click="trayOpen = !trayOpen">
                         <h3 style="margin:0;">
@@ -509,9 +530,23 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
                     </div>
                     <div class="tc-card__body" id="sched-tray" x-show="trayOpen" x-cloak
                         style="display:flex;flex-direction:column;gap:6px;min-height:60px;">
+                        @php
+                        $trayCategories = $unscheduled->map(fn($m) => $m->category->name)->unique()->sort()->values();
+                        @endphp
+                        @if($trayCategories->count() > 1)
+                        <select class="form-select form-select-sm sched-tray__filter" x-model="trayCategory"
+                            style="margin-bottom:4px;border-radius:var(--radius);">
+                            <option value="">Todas las categorías</option>
+                            @foreach($trayCategories as $cat)
+                            <option value="{{ $cat }}">{{ $cat }}</option>
+                            @endforeach
+                        </select>
+                        @endif
                         @forelse($unscheduled as $m)
                         <div class="sched-chip" draggable="true"
                             data-match-id="{{ $m->id }}"
+                            data-category="{{ $m->category->name }}"
+                            x-show="!trayCategory || trayCategory === @js($m->category->name)"
                             data-title="{{ $m->sideLabel('a') }} vs {{ $m->sideLabel('b') }}">
                             <span class="sched-chip__context">
                                 {{ $m->contextLabel() }}

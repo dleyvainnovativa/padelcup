@@ -76,6 +76,7 @@ Route::middleware(['auth'])->group(function () {
 
         // Full tournament export (downloads a portable JSON).
         Route::get('exportar', [\App\Http\Controllers\Dashboard\TournamentTransferController::class, 'export'])->name('tournaments.transfer.export');
+        Route::get('jugadores', [\App\Http\Controllers\Dashboard\TournamentPlayerController::class, 'index'])->name('tournament.players');
 
         // Pairs (nested under category)
         Route::prefix('categories/{category}')->group(function () {
@@ -264,6 +265,7 @@ Route::get('/t/{tournament}/quiniela', [\App\Http\Controllers\Public\PredictionC
 Route::get('/t/{tournament}/calendario', [\App\Http\Controllers\PublicTournamentController::class, 'schedule'])->name('public.schedule');
 Route::get('/t/{tournament}/jugador/{player}', [\App\Http\Controllers\PublicTournamentController::class, 'player'])->name('public.player');
 Route::get('/t/{tournament}/campeones', [\App\Http\Controllers\PublicTournamentController::class, 'winners'])->name('public.winners');
+Route::get('/t/{tournament}/jugadores', [\App\Http\Controllers\PublicTournamentController::class, 'players'])->name('public.players');
 Route::get('/t/{tournament}/{category:slug}', [\App\Http\Controllers\PublicTournamentController::class, 'category'])
     ->scopeBindings()
     ->name('public.category');

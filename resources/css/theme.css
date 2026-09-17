@@ -3048,3 +3048,159 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 }
 .court-win-editor__btn--ok { color: var(--success, #30a46c); font-weight: 700; }
 .court-win-editor__btn:hover { background: var(--bg-subtle); }
+
+.sched-sheet__cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+.sched-cat-chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.sched-cat-chip:hover { border-color: var(--accent); color: var(--text); }
+.sched-cat-chip.is-active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+/* Tabs in the "Jugadores" sheet ------------------------------------------ */
+.pl-sheet__tabs { flex-wrap: wrap; gap: 4px; }
+.pl-sheet__tabs .tc-tab {
+  font-size: 12px;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pl-tab__count {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+}
+.tc-tab.is-active .pl-tab__count {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Mobile: show only icon + count on the player tabs so they don't overflow. */
+@media (max-width: 640px) {
+  .pl-sheet__tabs { flex-wrap: nowrap; }
+  .pl-sheet__tabs .tc-tab { flex: 1 1 0; justify-content: center; }
+  .pl-tab__label { display: none; }
+}
+
+/* Category dropdown in the "Sin programar" tray -------------------------- */
+.sched-tray__filter { font-size: 12px; }
+
+/* Player directory (public + manager) ------------------------------------ */
+.pl-dir__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 12px;
+}
+.pl-dir__search i { color: var(--text-faint); }
+.pl-dir__search input {
+  flex: 1 1 auto;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+.pl-dir__clear { border: 0; background: transparent; color: var(--text-faint); cursor: pointer; }
+
+.pl-dir__cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.pl-dir__cat {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.pl-dir__cat:hover { border-color: var(--accent); color: var(--text); }
+.pl-dir__cat.is-active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+.pl-dir__list { display: flex; flex-direction: column; gap: 6px; }
+.pl-dir__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.pl-dir__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  flex: 1 1 auto;
+}
+a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
+.pl-dir__name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pl-dir__sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.pl-dir__sub i { color: var(--text-faint); font-size: 11px; }
+.pl-dir__muted { color: var(--text-faint); }
+.pl-dir__cat-tag {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.pl-dir__empty { font-size: 13px; color: var(--text-faint); padding: 16px 4px; text-align: center; }
+
+@media (max-width: 480px) {
+  .pl-dir__cat-tag { display: none; } /* la categoría ya se filtra con los chips */
+}

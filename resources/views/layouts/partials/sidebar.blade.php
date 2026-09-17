@@ -79,6 +79,9 @@ $inTournament = $isStaff && $ctxTournament instanceof \App\Models\Tournament;
     <a href="{{ $to('venues.index', $ctxTournament) }}" class="nav-item {{ $isActive('venues.*') }}">
         <i class="fa-solid fa-location-dot"></i> Sedes y canchas
     </a>
+    <a href="{{ $to('tournament.players', $ctxTournament) }}" class="nav-item {{ $isActive('tournament.players') }}">
+        <i class="fa-solid fa-users"></i> Jugadores
+    </a>
     <a href="{{ $to('tournaments.summary', $ctxTournament) }}" class="nav-item {{ $isActive('tournaments.summary') }}">
         <i class="fa-solid fa-chart-simple"></i> Resumen general
     </a>

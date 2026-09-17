@@ -745,4 +745,83 @@ class PublicTournamentController extends Controller
             ->map(fn($s) => ($s[0] ?? '') . '-' . ($s[1] ?? ''))
             ->implode(' ');
     }
+    /**
+     * Public player directory for a tournament: one row per player-per-category
+     * (per registration), highlighting the player with their partner shown
+     * subtly. Filterable by category, searchable by player OR partner name.
+     */
+    public function players(Tournament $tournament)
+    {
+        $this->ensurePublic($tournament);
+
+        // Only listed categories on the public side.
+        $categories = $tournament->categories()->orderBy('name')->get(['id', 'name']);
+
+        $pairs = \App\Models\Pair::whereIn('category_id', $categories->pluck('id'))
+            ->with([
+                'category:id,name',
+                'player1:id,name',
+                'player2:id,name',
+            ])
+            ->get();
+
+        $rows = $this->buildPlayerRows($pairs);
+
+        return view('public.players', [
+            'tournament' => $tournament,
+            'categories' => $categories,
+            'rows' => $rows,
+            'linkPlayers' => true, // link each row to the public player profile
+        ]);
+    }
+
+    /**
+     * Flatten pairs into one row per player-per-category.
+     * Each row: player (id,name), partner name (or null), category (id,name),
+     * plus a lowercase search blob covering both names.
+     *
+     * Shared shape with the manager directory so the same partial renders both.
+     *
+     * @return \Illuminate\Support\Collection<int, array>
+     */
+    private function buildPlayerRows(\Illuminate\Support\Collection $pairs)
+    {
+        $rows = collect();
+
+        foreach ($pairs as $pair) {
+            $cat = $pair->category;
+            $p1 = $pair->player1;
+            $p2 = $pair->player2;
+
+            // Row for player 1 (partner = player 2, may be null for singles).
+            if ($p1) {
+                $rows->push($this->playerRow($p1, $p2, $cat, (bool) $pair->is_singles));
+            }
+            // Row for player 2 (partner = player 1).
+            if ($p2) {
+                $rows->push($this->playerRow($p2, $p1, $cat, (bool) $pair->is_singles));
+            }
+        }
+
+        // Sort by player name, then category, for a stable directory.
+        return $rows
+            ->sortBy(fn($r) => \Illuminate\Support\Str::lower($r['player']['name']) . '|' . $r['category']['name'])
+            ->values();
+    }
+
+    private function playerRow($player, $partner, $category, bool $isSingles): array
+    {
+        $partnerName = $partner?->name;
+        $search = \Illuminate\Support\Str::lower(trim(
+            ($player->name ?? '') . ' ' . ($partnerName ?? '')
+        ));
+
+        return [
+            'player' => ['id' => $player->id, 'name' => $player->name],
+            'partner' => $partnerName,          // null for singles
+            'is_singles' => $isSingles,
+            'category' => ['id' => $category->id, 'name' => $category->name],
+            'search' => $search,
+        ];
+    }
 }
