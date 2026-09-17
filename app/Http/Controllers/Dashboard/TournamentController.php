@@ -121,8 +121,23 @@ class TournamentController extends Controller
             'is_listed' => $request->boolean('is_listed'),
         ]);
 
+        // Normalize before comparing so a save that doesn't touch scheduling
+        // (e.g. only toggling "public") does NOT count as a change and won't
+        // trigger the court resync.
+        $norm = function ($f, $v) {
+            if (in_array($f, ['play_start', 'play_end'], true)) {
+                return $v ? substr((string) $v, 0, 5) : null;
+            }
+            if (in_array($f, ['starts_on', 'ends_on'], true)) {
+                return $v ? \Illuminate\Carbon\Carbon::parse($v)->format('Y-m-d') : null;
+            }
+            if (in_array($f, ['day_durations', 'day_hours'], true)) {
+                return empty($v) ? null : $v;
+            }
+            return $v;
+        };
         $schedChanged = collect($schedFields)->contains(
-            fn($f) => json_encode(data_get($before, $f)) !== json_encode($tournament->{$f})
+            fn($f) => json_encode($norm($f, data_get($before, $f))) !== json_encode($norm($f, $tournament->{$f}))
         );
 
         $status = 'Torneo actualizado.';
@@ -151,14 +166,28 @@ class TournamentController extends Controller
     /** Re-seed all courts' availability windows from current tournament settings. */
     private function resyncCourtAvailability(Tournament $tournament): void
     {
+        // ADDITIVE: seed the default window only on days a court has NO window.
+        // Never deletes existing (custom / imported) windows, so editing the
+        // tournament no longer destroys per-court schedules. Shrinking the
+        // window doesn't trim old windows here, but pruneInvalidSchedule() moves
+        // off-grid matches to "unscheduled", so nothing invalid gets played.
         $tz = 'America/Mexico_City';
         $start = \Illuminate\Support\Str::of($tournament->play_start)->substr(0, 5);
         $end = \Illuminate\Support\Str::of($tournament->play_end)->substr(0, 5);
 
+        $tournament->load('courts.availabilities');
+
         foreach ($tournament->courts as $court) {
-            $court->availabilities()->delete();
+            $daysWithWindows = $court->availabilities
+                ->map(fn($a) => $a->starts_at->timezone($tz)->format('Y-m-d'))
+                ->unique()
+                ->flip();
+
             foreach ($tournament->playDays() as $day) {
                 $d = $day->format('Y-m-d');
+                if (isset($daysWithWindows[$d])) {
+                    continue; // keep the custom schedule for this day
+                }
                 $court->availabilities()->create([
                     'starts_at' => \Carbon\Carbon::parse("$d $start", $tz),
                     'ends_at' => \Carbon\Carbon::parse("$d $end", $tz),

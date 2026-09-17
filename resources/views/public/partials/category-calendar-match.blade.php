@@ -38,7 +38,7 @@ $shareData = [
         @else
         <span class="pub-muted">—</span>
         @endif
-        @if($m->court)<span class="pub-match__court"><i class="fa-solid fa-location-dot"></i> {{ $m->court->name }}</span>@endif
+        @if($m->court)<span class="pub-match__court"><i class="fa-solid fa-location-dot"></i> @if($m->court->venue){{ $m->court->venue->name }} · @endif{{ $m->court->name }}</span>@endif
     </div>
     <div class="pub-match__body">
         <div class="pub-match__ctx">

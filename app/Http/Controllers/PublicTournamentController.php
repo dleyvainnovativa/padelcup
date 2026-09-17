@@ -92,7 +92,7 @@ class PublicTournamentController extends Controller
 
         $calMatches = $category->matches()
             ->with([
-                'court',
+                'court.venue',
                 'group',
                 'pairA.player1',
                 'pairA.player2',
@@ -222,7 +222,7 @@ class PublicTournamentController extends Controller
             $bracketResults = $category->matches()
                 ->whereNull('group_id')
                 ->where('state', 'confirmed')
-                ->with(['court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+                ->with(['court.venue', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
                 ->orderBy('round')->orderBy('slot')->orderBy('id')
                 ->get()
                 ->groupBy('round');
@@ -241,7 +241,7 @@ class PublicTournamentController extends Controller
             $group->loadMissing('pairs');
             // Confirmed + scheduled matches within this group.
             $matches = \App\Models\GameMatch::where('group_id', $group->id)
-                ->with(['court'])
+                ->with(['court.venue'])
                 ->get();
 
             // Order pairs as they appear in standings (so row/col numbers match the
@@ -357,7 +357,7 @@ class PublicTournamentController extends Controller
         $matches = $tournament->categories()
             ->with(['matches' => function ($q) {
                 $q->whereNotNull('starts_at')
-                    ->with(['court', 'category', 'group', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+                    ->with(['court.venue', 'category', 'group', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
                     ->orderBy('starts_at');
             }])
             ->get()
@@ -463,7 +463,7 @@ class PublicTournamentController extends Controller
         // Matches involving any of those pairs.
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->where(fn($q) => $q->whereIn('pair_a_id', $pairIds)->orWhereIn('pair_b_id', $pairIds))
-            ->with(['category', 'group', 'court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->with(['category', 'group', 'court.venue', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
             ->orderBy('starts_at')
             ->get();
 

@@ -70,7 +70,7 @@
         <div class="pub-next__body">
             <div class="pub-next__when">
                 {{ $next->starts_at->timezone('America/Mexico_City')->translatedFormat('D d M · H:i') }}
-                @if($next->court) · <i class="fa-solid fa-location-dot"></i> {{ $next->court->name }}@endif
+                @if($next->court) · <i class="fa-solid fa-location-dot"></i> @if($next->court->venue){{ $next->court->venue->name }} · @endif{{ $next->court->name }}@endif
             </div>
             <div class="pub-next__match">{{ $next->sideLabel('a') }} <span class="pub-muted">vs</span> {{ $next->sideLabel('b') }}</div>
             <div class="pub-next__ctx">{{ $next->category->name }} · {{ $next->contextLabel() }}</div>
@@ -119,7 +119,7 @@
                         <div class="pub-pmatch__meta">
                             {{ $m->category->name }} · {{ $m->contextLabel() }}
                             @if($m->starts_at) · {{ $m->starts_at->timezone('America/Mexico_City')->translatedFormat('d M H:i') }}@endif
-                            @if($m->court) · {{ $m->court->name }}@endif
+                            @if($m->court) · @if($m->court->venue){{ $m->court->venue->name }} · @endif{{ $m->court->name }}@endif
                         </div>
                     </div>
                     <div class="pub-pmatch__score pub-mono">
