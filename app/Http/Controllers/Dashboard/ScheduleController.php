@@ -423,24 +423,49 @@ class ScheduleController extends Controller
         });
 
         if ($order === 'category') {
-            // Category → datetime → court. Unscheduled (null starts_at) sort last;
-            // ties on time break by court for a stable, readable order.
+            // Category → datetime → court.
+            // Null starts_at always goes last.
             $grouped = $showable
                 ->sortBy([
-                    fn($m) => $m->category->name,
-                    fn($m) => $m->starts_at ? $m->starts_at->timestamp : PHP_INT_MAX,
-                    fn($m) => $m->court?->name ?? '~',
+                    // Category
+                    fn($a, $b) =>
+                    strnatcasecmp(
+                        $a->category->name,
+                        $b->category->name
+                    ),
+
+                    // Date/time
+                    fn($a, $b) => ($a->starts_at?->getTimestamp() ?? PHP_INT_MAX)
+                        <=>
+                        ($b->starts_at?->getTimestamp() ?? PHP_INT_MAX),
+
+                    // Court when date/time is identical
+                    fn($a, $b) =>
+                    strnatcasecmp(
+                        $a->court?->name ?? '~',
+                        $b->court?->name ?? '~'
+                    ),
+
+                    // Final stable tie-breaker
+                    fn($a, $b) =>
+                    $a->id <=> $b->id,
                 ])
                 ->groupBy(fn($m) => $m->category->name);
 
-            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('dashboard.schedule.pdf-category', [
-                'tournament' => $tournament,
-                'byCategory' => $grouped,
-                'ghostQualifiers' => $ghostQualifiers,
-                'generatedAt' => now('America/Mexico_City'),
-            ])->setPaper('a4', 'portrait');
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView(
+                'dashboard.schedule.pdf-category',
+                [
+                    'tournament' => $tournament,
+                    'byCategory' => $grouped,
+                    'ghostQualifiers' => $ghostQualifiers,
+                    'generatedAt' => now('America/Mexico_City'),
+                ]
+            )->setPaper('a4', 'portrait');
 
-            return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-calendario-categoria.pdf');
+            return $pdf->download(
+                \Illuminate\Support\Str::slug($tournament->name)
+                    . '-calendario-categoria.pdf'
+            );
         }
 
         // Default: chronological. Scheduled matches grouped by day; unscheduled
