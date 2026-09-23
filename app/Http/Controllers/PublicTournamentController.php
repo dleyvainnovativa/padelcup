@@ -357,7 +357,25 @@ class PublicTournamentController extends Controller
         $matches = $tournament->categories()
             ->with(['matches' => function ($q) {
                 $q->whereNotNull('starts_at')
-                    ->with(['court.venue', 'category', 'group', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+                    ->with([
+                        'court.venue',
+                        'category',
+                        'group',
+                        'pairA.player1',
+                        'pairA.player2',
+                        'pairB.player1',
+                        'pairB.player2',
+                        // Feeder pairs power searchableNames() projection for R2 slots
+                        // whose participants aren't bound yet (avoids N+1 on search).
+                        'feederA.pairA.player1',
+                        'feederA.pairA.player2',
+                        'feederA.pairB.player1',
+                        'feederA.pairB.player2',
+                        'feederB.pairA.player1',
+                        'feederB.pairA.player2',
+                        'feederB.pairB.player1',
+                        'feederB.pairB.player2',
+                    ])
                     ->orderBy('starts_at');
             }])
             ->get()
@@ -378,26 +396,35 @@ class PublicTournamentController extends Controller
             $matches = $matches->filter(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d') === $dayFilter)->values();
         }
 
-        // "Buscar mi partido": filter to matches involving a player/pair name.
+        // Ghost/qualifier map [category_id => [seedLabel => pairName]] — built
+        // BEFORE the search filter so "Buscar mi partido" also matches PROJECTED
+        // (R2 / feeder / ghost-qualifier) participants, not just bound pairs.
+        $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
+            ->mapForTournament($tournament);
+
+        // "Buscar mi partido": filter to matches involving a player/pair name,
+        // INCLUDING matches where the player is a projected qualifier (so a
+        // player finds the round-2 slots they may reach).
         $matchedPlayers = collect();
         if ($search !== '') {
             $needle = mb_strtolower($search);
-            $matches = $matches->filter(function ($m) use ($needle) {
-                $names = [];
-                foreach ([$m->pairA, $m->pairB] as $pair) {
-                    if (! $pair) continue;
-                    $names[] = mb_strtolower($pair->name());
-                    foreach ([$pair->player1, $pair->player2] as $p) {
-                        if ($p) $names[] = mb_strtolower($p->name);
-                    }
+            $matches = $matches->filter(function ($m) use ($needle, $ghostQualifiers) {
+                // searchableNames() folds in bound players + feeder projections +
+                // ghost-qualifier names, lowercased and '|'-joined.
+                if (str_contains($m->searchableNames($ghostQualifiers), $needle)) {
+                    return true;
                 }
-                foreach ($names as $n) {
-                    if (str_contains($n, $needle)) return true;
+                // Also match the bound pair display name (e.g. a team alias).
+                foreach ([$m->pairA, $m->pairB] as $pair) {
+                    if ($pair && str_contains(mb_strtolower($pair->name()), $needle)) {
+                        return true;
+                    }
                 }
                 return false;
             })->values();
 
-            // Collect the distinct players whose name matched (for quick links).
+            // Collect the distinct BOUND players whose name matched (for quick
+            // profile links; projected players have no bound Player row yet).
             foreach ($matches as $m) {
                 foreach ([$m->pairA, $m->pairB] as $pair) {
                     if (! $pair) continue;
@@ -413,8 +440,6 @@ class PublicTournamentController extends Controller
 
         // Group by day for display.
         $byDay = $matches->groupBy(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'));
-        $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
-            ->mapForTournament($tournament);
         return view('public.schedule', [
             'tournament' => $tournament,
             'byDay' => $byDay,
@@ -823,5 +848,100 @@ class PublicTournamentController extends Controller
             'category' => ['id' => $category->id, 'name' => $category->name],
             'search' => $search,
         ];
+    }
+
+    protected function possibleR2Matches($pairIds, \App\Models\Tournament $tournament): array
+    {
+        $pairIds = collect($pairIds)->map(fn($v) => (int) $v)->all();
+        if (empty($pairIds)) return [];
+
+        $tz = 'America/Mexico_City';
+
+        // 1) The player's UNPLAYED R1 bracket matches (their pair is bound, no result yet).
+        $r1 = \App\Models\GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->whereNull('group_id') // bracket only
+            ->where(fn($q) => $q->whereIn('pair_a_id', $pairIds)->orWhereIn('pair_b_id', $pairIds))
+            ->whereNull('winner_pair_id') // not decided yet
+            ->with(['category:id,name', 'pairA', 'pairB'])
+            ->get();
+
+        if ($r1->isEmpty()) return [];
+        $r1ById = $r1->keyBy('id');
+
+        // 2) R2 matches fed by any of those R1 matches, still unbound on the fed side.
+        $r1Ids = $r1->pluck('id')->all();
+
+        $r2 = \App\Models\GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->whereNull('group_id')
+            ->where(fn($q) => $q->whereIn('feeder_a_id', $r1Ids)->orWhereIn('feeder_b_id', $r1Ids))
+            ->with([
+                'category:id,name',
+                'court.venue',
+                'pairA.player1',
+                'pairA.player2',
+                'pairB.player1',
+                'pairB.player2',
+                'feederA.pairA',
+                'feederA.pairB',
+                'feederB.pairA',
+                'feederB.pairB',
+            ])
+            ->get();
+
+        $out = [];
+
+        foreach ($r2 as $m) {
+            // Which side is fed by one of the player's R1 matches (and still unbound)?
+            $feedsFromMine = null; // 'a' | 'b'  → the side the PLAYER would occupy
+            if (in_array((int) $m->feeder_a_id, $r1Ids, true) && ! $m->pair_a_id) {
+                $feedsFromMine = 'a';
+            } elseif (in_array((int) $m->feeder_b_id, $r1Ids, true) && ! $m->pair_b_id) {
+                $feedsFromMine = 'b';
+            }
+            if ($feedsFromMine === null) continue;
+
+            // The OTHER side is the opponent(s) the player would face — its label
+            // already reads "Ganador (X / Y)" / a bound pair / a seed label.
+            $otherSide = $feedsFromMine === 'a' ? 'b' : 'a';
+            $vs = $m->sideLabel($otherSide);
+
+            // How the player reaches this slot (winner/loser of their R1).
+            $source = $feedsFromMine === 'a' ? $m->feeder_a_source : $m->feeder_b_source;
+            $reach = $source === 'loser' ? 'si pierde su partido' : 'si gana su partido';
+
+            $day = $m->starts_at?->timezone($tz);
+            $whenLabel = $day
+                ? \Illuminate\Support\Str::ucfirst($day->locale('es')->isoFormat('ddd D MMM')) . ' · ' . $day->format('H:i')
+                : null;
+
+            $out[] = [
+                'match_id' => $m->id,
+                'category' => $m->category?->name ?? '',
+                'round'    => $m->bracketRoundName(),
+                'when'     => $whenLabel,                 // null when unscheduled
+                'day'      => $day?->format('Y-m-d'),
+                'time'     => $day?->format('H:i'),
+                'court'    => $m->court?->name,
+                'vs'       => $vs,                         // "Ganador (X / Y)" etc.
+                'reach'    => $reach,                      // "si gana/pierde su partido"
+                'source'   => $source ?: 'winner',
+            ];
+        }
+
+        // Scheduled first (by time), then unscheduled; de-dup by match_id.
+        $seen = [];
+        $out = array_values(array_filter($out, function ($r) use (&$seen) {
+            if (isset($seen[$r['match_id']])) return false;
+            $seen[$r['match_id']] = true;
+            return true;
+        }));
+        usort($out, function ($a, $b) {
+            $aw = $a['when'] ? 0 : 1;
+            $bw = $b['when'] ? 0 : 1;
+            if ($aw !== $bw) return $aw <=> $bw;
+            return ($a['day'] . $a['time']) <=> ($b['day'] . $b['time']);
+        });
+
+        return $out;
     }
 }

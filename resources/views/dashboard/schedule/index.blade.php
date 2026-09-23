@@ -399,6 +399,10 @@
         @endforeach
     </div>
 </div>
+
+{{-- Player-search badges: up to 5 matching players; click to highlight, ⓘ for their matches --}}
+<div class="pl-badges" data-player-badges hidden></div>
+<script type="application/json" id="player-match-index">@json($playerMatchIndex ?? [])</script>
 @endif
 
 @if($courts->isEmpty())
@@ -464,6 +468,7 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
     'unplaceUrl' => route('schedule.unplace', $tournament),
     'unplaceManyUrl' => route('schedule.unplaceMany', $tournament),
     'switchCourtUrl' => route('schedule.switchCourt', $tournament),
+    'swapUrl' => route('schedule.swap', $tournament),
     'duration' => $tournament->match_duration_minutes,
     'courts' => $courts->mapWithKeys(fn ($c) => [$c->id => $c->name])->all(),
     'scheduled' => $scheduled->mapWithKeys(fn ($m) => [$m->id => [
@@ -510,6 +515,7 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
         <div class="sched-days mb-3">
             @foreach($days as $day)
             <button type="button" class="sched-day"
+                data-day="{{ $day->format('Y-m-d') }}"
                 :class="{ 'is-active': day === '{{ $day->format('Y-m-d') }}' }"
                 @click="setDay('{{ $day->format('Y-m-d') }}')">
                 {{ $day->locale('es')->isoFormat('ddd D MMM') }}

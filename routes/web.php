@@ -146,6 +146,7 @@ Route::middleware(['auth'])->group(function () {
             ->name('schedule.validation');
         Route::post('calendario/fases', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'savePhaseWindows'])->name('schedule.phases');
         Route::post('calendario/switch-court', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'switchCourt'])->name('schedule.switchCourt');
+        Route::post('calendario/intercambiar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'swapMatches'])->name('schedule.swap');
 
         // Resumen (tournament summary / leaderboard)
         Route::get('resumen', [\App\Http\Controllers\Dashboard\SummaryController::class, 'show'])->name('tournaments.summary');

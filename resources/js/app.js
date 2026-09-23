@@ -89,6 +89,9 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
   // Feature module: scheduling board (only on the calendar page).
   if (document.querySelector('[data-sched-board]')) {
     import('./modules/schedule').then((m) => m.initSchedule());
+    if (document.querySelector('[data-player-badges]')) {
+      import('./modules/playerBadges').then((m) => m.initPlayerBadges());
+    }
   }
 
   // Feature module: bracket results (tap a bracket match to score).

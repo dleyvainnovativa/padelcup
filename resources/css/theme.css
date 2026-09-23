@@ -3204,3 +3204,103 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
 @media (max-width: 480px) {
   .pl-dir__cat-tag { display: none; } /* la categoría ya se filtra con los chips */
 }
+
+/* Player-search badges (manager schedule) -------------------------------- */
+.pl-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+.pl-badge {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.pl-badge__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pl-badge__name:hover { background: var(--accent-soft); color: var(--accent-text); }
+.pl-badge__count {
+  display: inline-block;
+  min-width: 17px;
+  padding: 0 4px;
+  font-size: 11px;
+  line-height: 15px;
+  text-align: center;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+}
+.pl-badge__info {
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-faint);
+  padding: 0 9px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.pl-badge__info:hover { color: var(--accent); background: var(--accent-soft); }
+
+/* Player badge bottomsheet ------------------------------------------------ */
+.pl-badge-sheet__list { display: flex; flex-direction: column; gap: 8px; }
+.pl-badge-match {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.pl-badge-match:hover { border-color: var(--accent); background: var(--surface-2); }
+.pl-badge-match__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pl-badge-match__cat { font-weight: 600; font-size: 13px; color: var(--text); }
+.pl-badge-match__when { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono, monospace); }
+.pl-badge-match__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.pl-badge-match__partner i,
+.pl-badge-match__court i { color: var(--text-faint); margin-right: 4px; }
+.pl-badge-match__partner--solo { color: var(--text-faint); }
+
+/* Flash a match when jumped-to from the badge sheet ----------------------- */
+.sched-match.pl-badge-flash {
+  animation: plBadgeFlash 1.5s ease-out;
+}
+@keyframes plBadgeFlash {
+  0%, 40% { box-shadow: 0 0 0 3px var(--accent); }
+  100%    { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (max-width: 520px) {
+  .pl-badge__name { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; }
+}

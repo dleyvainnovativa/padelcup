@@ -48,6 +48,27 @@ export function initSchedule() {
     } catch (_) { toast.error('No se pudo quitar.'); }
   }
 
+  // Cross-slot swap: two placed matches trade court + time. Returns
+  // { conflicts:[...] } when blocked (so the caller can offer a force override),
+  // true on success, false on hard failure.
+  async function swap(matchId, targetMatchId, force = false) {
+    const payload = { match_id: matchId, target_match_id: targetMatchId };
+    if (force) payload.force = true;
+    try {
+      await post(cfg.swapUrl, payload);
+      toast.success('Partidos intercambiados.');
+      setTimeout(() => window.location.reload(), 450);
+      return true;
+    } catch (e) {
+      const conflicts = e?.body?.conflicts;
+      if (conflicts?.length && !force) {
+        return { conflicts };
+      }
+      toast.error('No se pudo intercambiar.');
+      return false;
+    }
+  }
+
   async function switchCourt(matchId, targetCourtId, date, slot) {
     try {
       const res = await post(cfg.switchCourtUrl, {
@@ -128,7 +149,7 @@ export function initSchedule() {
   });
 
   // --- Desktop drag (bonus; sheet still available) ------------------
-  if (!isTouch) initDrag(board, place, switchCourt, selection);
+  if (!isTouch) initDrag(board, place, switchCourt, swap, selection);
 
   // --- Bottom sheet -------------------------------------------------
   function openSheetFor(cell) {
@@ -291,7 +312,7 @@ function initMultiSelect(board, cfg) {
 }
 
 // --- Desktop drag ---------------------------------------------------
-function initDrag(board, place, switchCourt, selection) {
+function initDrag(board, place, switchCourt, swap, selection) {
   let draggedId = null;
   let draggedCell = null; // the cell the drag started from (for court/slot info)
 
@@ -343,11 +364,34 @@ function initDrag(board, place, switchCourt, selection) {
       }
 
       // Different slot OR dragging from the tray:
-      //   - empty target  → normal place() reschedule (existing behaviour)
-      //   - occupied target → block (a cross-slot swap changes times and would
-      //     need full conflict rechecks; out of scope for this feature)
+      //   - empty target    → normal place() reschedule (existing behaviour)
+      //   - occupied target → cross-slot SWAP: the two matches trade court+time,
+      //     with combined conflict/rest checks shown before committing.
       if (occupied) {
-        toast.error('Esa celda está ocupada. Para intercambiar, arrastra dentro del mismo horario.');
+        // A match dragged FROM the tray (no origin cell) has no time to trade,
+        // so a swap is meaningless — keep the old guidance for that case only.
+        if (!draggedCell) {
+          toast.error('Arrastra el partido a una celda vacía para programarlo.');
+          return;
+        }
+
+        const targetMatchEl = cell.querySelector('.sched-match');
+        const targetMatchId = targetMatchEl?.dataset.matchId;
+        if (!targetMatchId || targetMatchId === draggedId) return;
+
+        const res = await swap(draggedId, targetMatchId, false);
+        if (res && res.conflicts) {
+          const ok = await confirm({
+            title: 'Conflictos al intercambiar',
+            bodyList: res.conflicts,
+            intro: 'Este intercambio genera los siguientes conflictos:',
+            confirmText: 'Intercambiar de todos modos',
+            variant: 'danger',
+          });
+          if (ok) {
+            await swap(draggedId, targetMatchId, true);
+          }
+        }
         return;
       }
 
@@ -387,7 +431,6 @@ function buildSheet() {
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="text" class="sched-sheet__search-input" placeholder="Buscar por jugador…" autocomplete="off">
       </div>
-      <div class="sched-sheet__cats"></div>
       <div class="sched-sheet__list"></div>
     </div>`;
   document.body.appendChild(overlay);
@@ -396,7 +439,6 @@ function buildSheet() {
   const titleEl = overlay.querySelector('.sched-sheet__title');
   const subEl = overlay.querySelector('.sched-sheet__sub');
   const listEl = overlay.querySelector('.sched-sheet__list');
-  const catsEl = overlay.querySelector('.sched-sheet__cats');
   const searchInput = overlay.querySelector('.sched-sheet__search-input');
 
   function hide() { overlay.classList.remove('is-open'); }
@@ -408,56 +450,24 @@ function buildSheet() {
     subEl.textContent = subtitle;
     searchInput.value = '';
 
-    let activeCat = '';           // '' = all categories
-    let needle = '';
+    render(matches, onPick, '');
 
-    const applyFilters = () => {
-      const byCat = activeCat ? matches.filter((m) => m.category === activeCat) : matches;
-      const byName = needle ? byCat.filter((m) => (`${m.a} ${m.b}`).toLowerCase().includes(needle)) : byCat;
-      render(byName, onPick, needle, activeCat);
-    };
-
-    // Category chips (only when there's more than one category to travel).
-    const categories = [...new Set(matches.map((m) => m.category).filter(Boolean))].sort();
-    catsEl.innerHTML = '';
-    if (categories.length > 1) {
-      const mkChip = (label, value) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'sched-cat-chip' + (value === activeCat ? ' is-active' : '');
-        b.textContent = label;
-        b.addEventListener('click', () => {
-          activeCat = value;
-          catsEl.querySelectorAll('.sched-cat-chip').forEach((c) => c.classList.remove('is-active'));
-          b.classList.add('is-active');
-          applyFilters();
-        });
-        return b;
-      };
-      catsEl.appendChild(mkChip('Todas', ''));
-      categories.forEach((c) => catsEl.appendChild(mkChip(c, c)));
-    }
-
-    render(matches, onPick, '', '');
-
-    // Live filter by player name, composed with the active category.
-    searchInput.oninput = () => { needle = searchInput.value.trim().toLowerCase(); applyFilters(); };
+    // Live filter by player name (matches the side labels a/b, which carry names).
+    searchInput.oninput = () => render(matches, onPick, searchInput.value.trim().toLowerCase());
 
     overlay.classList.add('is-open');
     // Do NOT autofocus on touch — avoids the iOS keyboard popping over the sheet.
   }
 
-  function render(matches, onPick, needle, activeCat) {
+  function render(matches, onPick, needle) {
     listEl.innerHTML = '';
 
-    // matches is already filtered by caller (category + name); keep a guard for
-    // direct calls without pre-filtering.
     const filtered = needle
       ? matches.filter((m) => (`${m.a} ${m.b}`).toLowerCase().includes(needle))
       : matches;
 
     if (!filtered.length) {
-      listEl.innerHTML = (needle || activeCat)
+      listEl.innerHTML = needle
         ? '<div class="sched-sheet__empty">Sin coincidencias.</div>'
         : '<div class="sched-sheet__empty">No hay partidos sin programar.</div>';
       return;
