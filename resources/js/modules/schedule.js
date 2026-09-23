@@ -431,6 +431,7 @@ function buildSheet() {
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="text" class="sched-sheet__search-input" placeholder="Buscar por jugador…" autocomplete="off">
       </div>
+      <div class="sched-sheet__cats"></div>
       <div class="sched-sheet__list"></div>
     </div>`;
   document.body.appendChild(overlay);
@@ -439,6 +440,7 @@ function buildSheet() {
   const titleEl = overlay.querySelector('.sched-sheet__title');
   const subEl = overlay.querySelector('.sched-sheet__sub');
   const listEl = overlay.querySelector('.sched-sheet__list');
+  const catsEl = overlay.querySelector('.sched-sheet__cats');
   const searchInput = overlay.querySelector('.sched-sheet__search-input');
 
   function hide() { overlay.classList.remove('is-open'); }
@@ -450,16 +452,48 @@ function buildSheet() {
     subEl.textContent = subtitle;
     searchInput.value = '';
 
-    render(matches, onPick, '');
+    let activeCat = '';           // '' = all categories
+    let needle = '';
 
+    const applyFilters = () => {
+      const byCat = activeCat ? matches.filter((m) => m.category === activeCat) : matches;
+      const byName = needle ? byCat.filter((m) => (`${m.a} ${m.b}`).toLowerCase().includes(needle)) : byCat;
+      render(byName, onPick, needle, activeCat);
+    };
+
+    // Category chips (only when there's more than one category to travel).
+    const categories = [...new Set(matches.map((m) => m.category).filter(Boolean))].sort();
+    catsEl.innerHTML = '';
+    if (categories.length > 1) {
+      const mkChip = (label, value) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sched-cat-chip' + (value === activeCat ? ' is-active' : '');
+        b.textContent = label;
+        b.addEventListener('click', () => {
+          activeCat = value;
+          catsEl.querySelectorAll('.sched-cat-chip').forEach((c) => c.classList.remove('is-active'));
+          b.classList.add('is-active');
+          applyFilters();
+        });
+        return b;
+      };
+      catsEl.appendChild(mkChip('Todas', ''));
+      categories.forEach((c) => catsEl.appendChild(mkChip(c, c)));
+    }
+
+    render(matches, onPick, '', '');
+    
+    
     // Live filter by player name (matches the side labels a/b, which carry names).
+    // searchInput.oninput = () => { needle = searchInput.value.trim().toLowerCase(); applyFilters(); };
     searchInput.oninput = () => render(matches, onPick, searchInput.value.trim().toLowerCase());
 
     overlay.classList.add('is-open');
     // Do NOT autofocus on touch — avoids the iOS keyboard popping over the sheet.
   }
 
-  function render(matches, onPick, needle) {
+  function render(matches, onPick, needle, activeCat) {
     listEl.innerHTML = '';
 
     const filtered = needle
@@ -467,7 +501,7 @@ function buildSheet() {
       : matches;
 
     if (!filtered.length) {
-      listEl.innerHTML = needle
+      listEl.innerHTML = (needle || activeCat)
         ? '<div class="sched-sheet__empty">Sin coincidencias.</div>'
         : '<div class="sched-sheet__empty">No hay partidos sin programar.</div>';
       return;

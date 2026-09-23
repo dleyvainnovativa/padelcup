@@ -476,6 +476,7 @@ class PublicTournamentController extends Controller
         })
             ->whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->pluck('id');
+        $possibleMatches = $this->possibleR2Matches($pairIds, $tournament);
 
         abort_if($pairIds->isEmpty(), Response::HTTP_NOT_FOUND);
 
@@ -607,6 +608,7 @@ class PublicTournamentController extends Controller
             'subsIn' => $subsIn,
             'subsOut' => $subsOut,
             'pairCategory' => $pairCategory,   // [pair_id => category_id]
+            'possibleMatches' => $possibleMatches, // [pair_id => [GameMatch,...]] for projected R2 matches
 
         ]);
     }
@@ -857,25 +859,30 @@ class PublicTournamentController extends Controller
 
         $tz = 'America/Mexico_City';
 
-        // 1) The player's UNPLAYED R1 bracket matches (their pair is bound, no result yet).
+        // 1) The player's UNPLAYED "R1" matches that FEED a later match. Feeders
+        //    exist in BOTH shapes: Mexicano groups (round 1 → round 2, same
+        //    group_id) AND elimination brackets (group_id null). We do NOT
+        //    restrict on group_id — the feeder chain is what matters, not the
+        //    phase. A match is a feeder here iff some other match points at it via
+        //    feeder_a_id / feeder_b_id; but we can start from the player's own
+        //    undecided matches and look for parents that reference them.
         $r1 = \App\Models\GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
-            ->whereNull('group_id') // bracket only
             ->where(fn($q) => $q->whereIn('pair_a_id', $pairIds)->orWhereIn('pair_b_id', $pairIds))
             ->whereNull('winner_pair_id') // not decided yet
             ->with(['category:id,name', 'pairA', 'pairB'])
             ->get();
 
         if ($r1->isEmpty()) return [];
-        $r1ById = $r1->keyBy('id');
 
-        // 2) R2 matches fed by any of those R1 matches, still unbound on the fed side.
+        // 2) Matches fed by any of those (still unbound on the fed side). Feeder-
+        //    based, phase-agnostic — covers Mexicano R2 (same group) and bracket.
         $r1Ids = $r1->pluck('id')->all();
 
         $r2 = \App\Models\GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
-            ->whereNull('group_id')
             ->where(fn($q) => $q->whereIn('feeder_a_id', $r1Ids)->orWhereIn('feeder_b_id', $r1Ids))
             ->with([
                 'category:id,name',
+                'group:id,name',
                 'court.venue',
                 'pairA.player1',
                 'pairA.player2',
@@ -914,10 +921,17 @@ class PublicTournamentController extends Controller
                 ? \Illuminate\Support\Str::ucfirst($day->locale('es')->isoFormat('ddd D MMM')) . ' · ' . $day->format('H:i')
                 : null;
 
+            // Round label respects the phase: Mexicano group R2 → "Grupo X · R2";
+            // elimination bracket → "Semifinal" etc. (contextLabel already does
+            // exactly this split, so we reuse it.)
+            $roundLabel = $m->group_id
+                ? (($m->group?->name ? $m->group->name . ' · ' : '') . 'R' . $m->round)
+                : $m->bracketRoundName();
+
             $out[] = [
                 'match_id' => $m->id,
                 'category' => $m->category?->name ?? '',
-                'round'    => $m->bracketRoundName(),
+                'round'    => $roundLabel,
                 'when'     => $whenLabel,                 // null when unscheduled
                 'day'      => $day?->format('Y-m-d'),
                 'time'     => $day?->format('H:i'),

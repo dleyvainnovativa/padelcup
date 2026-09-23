@@ -1086,7 +1086,10 @@ class ScheduleController extends Controller
             ->orderBy('starts_at')
             ->get();
 
-        $index = []; // key => ['key','name','count','matches'=>[]]
+        // Track, per normalized name, the set of pair ids that player belongs to
+        // (used to resolve possible R2 matches after the loop).
+        $index = [];       // key => ['key','name','count','matches'=>[], 'possible'=>[]]
+        $pairIdsByKey = []; // key => [pair_id, ...]
 
         foreach ($matches as $m) {
             $day = $m->starts_at->timezone($tz);
@@ -1096,21 +1099,13 @@ class ScheduleController extends Controller
             $catName = $m->category?->name ?? '';
             $courtName = $m->court?->name ?? 'Sin cancha';
 
-            // For each side, each player's PARTNER is the other player on the same pair.
-            $sides = [
-                ['pair' => $m->pairA],
-                ['pair' => $m->pairB],
-            ];
-
-            foreach ($sides as $side) {
-                $pair = $side['pair'];
+            foreach ([$m->pairA, $m->pairB] as $pair) {
                 if (! $pair) continue;
-
                 $members = array_values(array_filter([$pair->player1, $pair->player2]));
                 foreach ($members as $p) {
                     if (blank($p->name)) continue;
-
                     $key = \App\Models\Player::normalize($p->name);
+
                     $partner = null;
                     foreach ($members as $other) {
                         if ($other->id !== $p->id && filled($other->name)) {
@@ -1119,22 +1114,49 @@ class ScheduleController extends Controller
                         }
                     }
 
-                    $index[$key] ??= ['key' => $key, 'name' => $p->name, 'count' => 0, 'matches' => []];
+                    $index[$key] ??= ['key' => $key, 'name' => $p->name, 'count' => 0, 'matches' => [], 'possible' => []];
                     $index[$key]['count']++;
                     $index[$key]['matches'][] = [
                         'match_id' => $m->id,
                         'category' => $catName,
-                        'partner'  => $partner,          // null = singles / partner unknown
+                        'partner'  => $partner,
                         'court'    => $courtName,
                         'day'      => $dayYmd,
                         'time'     => $time,
                         'label'    => $dtLabel,
                     ];
+
+                    $pairIdsByKey[$key][$pair->id] = true;
                 }
             }
         }
 
-        // Stable order: by display name.
+        // Also make sure players who ONLY have unplayed bracket matches (no
+        // scheduled match yet) still get an entry, so their possible R2 shows.
+        // Pull every bracket pair in the tournament and register its players.
+        $bracketPairs = \App\Models\Pair::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->with(['player1:id,name', 'player2:id,name'])
+            ->get();
+        foreach ($bracketPairs as $pair) {
+            foreach (array_filter([$pair->player1, $pair->player2]) as $p) {
+                if (blank($p->name)) continue;
+                $key = \App\Models\Player::normalize($p->name);
+                $index[$key] ??= ['key' => $key, 'name' => $p->name, 'count' => 0, 'matches' => [], 'possible' => []];
+                $pairIdsByKey[$key][$pair->id] = true;
+            }
+        }
+
+        // Resolve possible R2 matches per player from their pair-id set.
+        foreach ($index as $key => &$entry) {
+            $pairIds = array_keys($pairIdsByKey[$key] ?? []);
+            if (empty($pairIds)) continue;
+            $entry['possible'] = $this->possibleR2Matches($pairIds, $tournament);
+        }
+        unset($entry);
+
+        // Drop players who have neither scheduled matches nor possible R2 (noise).
+        $index = array_filter($index, fn($e) => $e['count'] > 0 || ! empty($e['possible']));
+
         $out = array_values($index);
         usort($out, fn($a, $b) => \Illuminate\Support\Str::lower($a['name']) <=> \Illuminate\Support\Str::lower($b['name']));
 
@@ -1148,25 +1170,30 @@ class ScheduleController extends Controller
 
         $tz = 'America/Mexico_City';
 
-        // 1) The player's UNPLAYED R1 bracket matches (their pair is bound, no result yet).
+        // 1) The player's UNPLAYED "R1" matches that FEED a later match. Feeders
+        //    exist in BOTH shapes: Mexicano groups (round 1 → round 2, same
+        //    group_id) AND elimination brackets (group_id null). We do NOT
+        //    restrict on group_id — the feeder chain is what matters, not the
+        //    phase. A match is a feeder here iff some other match points at it via
+        //    feeder_a_id / feeder_b_id; but we can start from the player's own
+        //    undecided matches and look for parents that reference them.
         $r1 = \App\Models\GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
-            ->whereNull('group_id') // bracket only
             ->where(fn($q) => $q->whereIn('pair_a_id', $pairIds)->orWhereIn('pair_b_id', $pairIds))
             ->whereNull('winner_pair_id') // not decided yet
             ->with(['category:id,name', 'pairA', 'pairB'])
             ->get();
 
         if ($r1->isEmpty()) return [];
-        $r1ById = $r1->keyBy('id');
 
-        // 2) R2 matches fed by any of those R1 matches, still unbound on the fed side.
+        // 2) Matches fed by any of those (still unbound on the fed side). Feeder-
+        //    based, phase-agnostic — covers Mexicano R2 (same group) and bracket.
         $r1Ids = $r1->pluck('id')->all();
 
         $r2 = \App\Models\GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
-            ->whereNull('group_id')
             ->where(fn($q) => $q->whereIn('feeder_a_id', $r1Ids)->orWhereIn('feeder_b_id', $r1Ids))
             ->with([
                 'category:id,name',
+                'group:id,name',
                 'court.venue',
                 'pairA.player1',
                 'pairA.player2',
@@ -1205,10 +1232,17 @@ class ScheduleController extends Controller
                 ? \Illuminate\Support\Str::ucfirst($day->locale('es')->isoFormat('ddd D MMM')) . ' · ' . $day->format('H:i')
                 : null;
 
+            // Round label respects the phase: Mexicano group R2 → "Grupo X · R2";
+            // elimination bracket → "Semifinal" etc. (contextLabel already does
+            // exactly this split, so we reuse it.)
+            $roundLabel = $m->group_id
+                ? (($m->group?->name ? $m->group->name . ' · ' : '') . 'R' . $m->round)
+                : $m->bracketRoundName();
+
             $out[] = [
                 'match_id' => $m->id,
                 'category' => $m->category?->name ?? '',
-                'round'    => $m->bracketRoundName(),
+                'round'    => $roundLabel,
                 'when'     => $whenLabel,                 // null when unscheduled
                 'day'      => $day?->format('Y-m-d'),
                 'time'     => $day?->format('H:i'),

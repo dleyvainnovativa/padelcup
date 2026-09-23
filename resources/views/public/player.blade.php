@@ -151,5 +151,42 @@
         </div>
     </div>
     @endif
+
+    {{-- Posibles (R2): tu partido de R1 aún no se juega, así que podrías jugar
+         en una de estas ranuras según ganes o pierdas. --}}
+    @if(!empty($possibleMatches))
+    <h2 class="pub-section-title" style="margin-top:24px;">
+        Posibles partidos <span class="pub-poss-hint">(R2, aún por confirmar)</span>
+    </h2>
+    <div class="pub-card">
+        <div class="pub-card__body" style="padding:0;">
+            @foreach($possibleMatches as $pm)
+            <div class="pub-match pub-match--poss">
+                <div class="pub-match__time">
+                    @if($pm['when'])
+                        <i class="fa-regular fa-clock"></i> {{ $pm['when'] }}
+                    @else
+                        <span class="pub-muted">Sin horario</span>
+                    @endif
+                    @if($pm['court'])<span class="pub-match__court"><i class="fa-solid fa-location-dot"></i> {{ $pm['court'] }}</span>@endif
+                </div>
+                <div class="pub-match__body">
+                    <div class="pub-match__pairs">
+                        <span class="pub-poss-tag">posible</span>
+                        vs {{ $pm['vs'] }}
+                    </div>
+                    <div class="pub-match__ctx">
+                        {{ $pm['category'] }} · {{ $pm['round'] }} — {{ $pm['reach'] }}
+                    </div>
+                </div>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    <p class="pub-poss-note">
+        <i class="fa-solid fa-circle-info"></i>
+        Estas ranuras dependen del resultado de tu partido anterior; el horario puede cambiar.
+    </p>
+    @endif
 </div>
 @endsection

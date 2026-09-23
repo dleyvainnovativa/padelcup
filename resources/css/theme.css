@@ -3304,3 +3304,61 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
 @media (max-width: 520px) {
   .pl-badge__name { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; }
 }
+
+
+/* --- Manager badge sheet: sección "Posibles (R2)" ----------------------- */
+.pl-badge-poss__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 2px 4px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.pl-badge-poss__head i { color: var(--warning-text, #8f4208); }
+
+.pl-badge-match--poss {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--warning-soft, #fbeccd) 40%, var(--surface));
+}
+.pl-badge-match__reach {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-style: italic;
+}
+.pl-badge-match__when--tbd { color: var(--text-faint); font-style: italic; }
+
+/* "posible" tag (both surfaces) */
+.pl-poss-tag,
+.pub-poss-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--warning-soft, #fbeccd);
+  color: var(--warning-text, #8f4208);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* --- Public player view: posibles R2 ------------------------------------ */
+.pub-poss-hint { font-size: 13px; font-weight: 400; color: var(--text-muted); }
+.pub-match--poss {
+  border-left: 3px dashed var(--warning, #b45309);
+  background: color-mix(in srgb, var(--warning-soft, #fbeccd) 30%, transparent);
+}
+.pub-poss-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 8px 2px 0;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.pub-poss-note i { color: var(--warning-text, #8f4208); margin-top: 2px; }

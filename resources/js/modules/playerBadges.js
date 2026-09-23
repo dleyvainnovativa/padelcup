@@ -98,10 +98,14 @@ function buildBadgeSheet(board) {
   overlay.querySelector('.sched-sheet__close').addEventListener('click', hide);
 
   function open(player) {
+    const possible = player.possible || [];
     titleEl.textContent = player.name;
-    subEl.textContent = `${player.count} ${player.count === 1 ? 'partido' : 'partidos'} programados`;
+    const parts = [`${player.count} ${player.count === 1 ? 'partido' : 'partidos'} programados`];
+    if (possible.length) parts.push(`${possible.length} posible${possible.length === 1 ? '' : 's'} (R2)`);
+    subEl.textContent = parts.join(' · ');
     listEl.innerHTML = '';
 
+    // --- Confirmed / scheduled matches ---
     player.matches.forEach((m) => {
       const item = document.createElement('button');
       item.type = 'button';
@@ -125,6 +129,44 @@ function buildBadgeSheet(board) {
       });
       listEl.appendChild(item);
     });
+
+    // --- Possible R2 matches (R1 not played yet): separate section below ---
+    if (possible.length) {
+      const heading = document.createElement('div');
+      heading.className = 'pl-badge-poss__head';
+      heading.innerHTML = `<i class="fa-solid fa-diagram-project"></i> Posibles (R2) — su partido anterior aún no se juega`;
+      listEl.appendChild(heading);
+
+      possible.forEach((m) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'pl-badge-match pl-badge-match--poss';
+        const when = m.when
+          ? `<span class="pl-badge-match__when">${escapeHtml(m.when)}</span>`
+          : `<span class="pl-badge-match__when pl-badge-match__when--tbd">Sin horario</span>`;
+        const court = m.court
+          ? `<span class="pl-badge-match__court"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(m.court)}</span>`
+          : '';
+        item.innerHTML = `
+          <div class="pl-badge-match__top">
+            <span class="pl-badge-match__cat">${escapeHtml(m.category)} · ${escapeHtml(m.round)}
+              <span class="pl-poss-tag">posible</span>
+            </span>
+            ${when}
+          </div>
+          <div class="pl-badge-match__bottom">
+            <span class="pl-badge-match__partner"><i class="fa-solid fa-code-branch"></i> vs ${escapeHtml(m.vs)}</span>
+            ${court}
+          </div>
+          <div class="pl-badge-match__reach">${escapeHtml(m.reach)}</div>`;
+
+        item.addEventListener('click', () => {
+          hide();
+          jumpToMatch(board, m.match_id);
+        });
+        listEl.appendChild(item);
+      });
+    }
 
     overlay.classList.add('is-open');
   }
