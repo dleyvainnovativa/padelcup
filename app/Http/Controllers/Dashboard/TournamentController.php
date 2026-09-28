@@ -234,4 +234,76 @@ class TournamentController extends Controller
 
         $tournament->rankingSystems()->sync($payload);
     }
+    /**
+     * Export the tournament's players as an .xlsx:
+     *   columns = player1_name | player2_name | category
+     * One row per pair (registration). In singles, player2 is blank.
+     */
+    public function exportPlayersXlsx(Tournament $tournament)
+    {
+        $this->authorize('view', $tournament);
+
+        // Graceful fallback if the spreadsheet lib isn't installed on this host.
+        if (! class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            return back()->withErrors(['export' => 'La librería de Excel no está disponible en el servidor.']);
+        }
+
+        $categories = $tournament->categories()->orderBy('name')->get();
+        $categories->load([
+            'pairs' => fn($q) => $q->with(['player1:id,name', 'player2:id,name']),
+        ]);
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Jugadores');
+
+        // Header row.
+        $sheet->fromArray(['player1_name', 'player2_name', 'category'], null, 'A1');
+        $sheet->getStyle('A1:C1')->getFont()->setBold(true);
+
+        $r = 2;
+        foreach ($categories as $category) {
+            // Stable order by pair id so re-exports match.
+            $pairs = $category->pairs->sortBy('id')->values();
+            foreach ($pairs as $pair) {
+                $p1 = $pair->player1?->name ?? '';
+                $p2 = ($pair->is_singles ?? false) ? '' : ($pair->player2?->name ?? '');
+                $sheet->setCellValue("A{$r}", $p1);
+                $sheet->setCellValue("B{$r}", $p2);
+                $sheet->setCellValue("C{$r}", $category->name);
+                $r++;
+            }
+        }
+
+        foreach (['A', 'B', 'C'] as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+        $sheet->freezePane('A2');
+
+        $slug = \Illuminate\Support\Str::slug($tournament->name ?: 'torneo');
+        $filename = "jugadores-{$slug}.xlsx";
+
+        // Stream the file to the browser.
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+    /** Unlock the tournament (back to Setup) — guarded, manager-confirmed. */
+    public function unlock(Tournament $tournament)
+    {
+        $this->authorize('update', $tournament);
+
+        if (! $tournament->isLocked()) {
+            return back()->with('status', 'El torneo no está bloqueado.');
+        }
+
+        $tournament->unlock();
+
+        return back()->with('status', 'Torneo desbloqueado. Ahora puedes hacer cambios de estructura; vuelve a bloquear al terminar.');
+    }
 }

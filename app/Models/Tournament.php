@@ -326,4 +326,22 @@ class Tournament extends Model
         }
         return $map;
     }
+    /**
+     * Unlock the tournament back to Setup so the manager can make structural
+     * changes mid-event (e.g. add a group winner, regenerate a bracket after a
+     * tie). Only meaningful from Locked; a completed tournament stays as-is.
+     *
+     * This is a deliberate, guarded action (the controller shows a warning) —
+     * unlocking re-enables regeneration that is otherwise blocked once results
+     * exist.
+     */
+    public function unlock(): void
+    {
+        if ($this->phase === \App\Enums\TournamentPhase::Locked) {
+            $this->forceFill([
+                'phase' => \App\Enums\TournamentPhase::Setup,
+                'locked_at' => null,
+            ])->save();
+        }
+    }
 }

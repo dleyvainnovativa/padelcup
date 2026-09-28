@@ -73,11 +73,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('categories/{category}/rebuild-bracket', [CategoryStructureController::class, 'rebuildBracket'])->name('categories.rebuildBracket');
 
         Route::post('regenerate-safe', [TournamentStructureController::class, 'regenerateSafe'])->name('tournaments.regenerateSafe');
-
+        Route::post('desbloquear', [\App\Http\Controllers\Dashboard\TournamentController::class, 'unlock'])->name('tournaments.unlock');
         // Full tournament export (downloads a portable JSON).
         Route::get('exportar', [\App\Http\Controllers\Dashboard\TournamentTransferController::class, 'export'])->name('tournaments.transfer.export');
         Route::get('jugadores', [\App\Http\Controllers\Dashboard\TournamentPlayerController::class, 'index'])->name('tournament.players');
-
+        Route::get('jugadores/export.xlsx', [\App\Http\Controllers\Dashboard\TournamentController::class, 'exportPlayersXlsx'])->name('tournaments.players.xlsx');
         // Pairs (nested under category)
         Route::prefix('categories/{category}')->group(function () {
             Route::post('pairs', [PairController::class, 'store'])->name('pairs.store');

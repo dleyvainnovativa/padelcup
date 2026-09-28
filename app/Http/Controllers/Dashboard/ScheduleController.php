@@ -97,18 +97,38 @@ class ScheduleController extends Controller
      */
     private function busyDayPlayers(Tournament $tournament, int $threshold = 3): \Illuminate\Support\Collection
     {
+        $tz = 'America/Mexico_City';
+
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->whereNotNull('starts_at')
-            ->with(['category:id,name', 'pairA.player1:id,name', 'pairA.player2:id,name', 'pairB.player1:id,name', 'pairB.player2:id,name'])
+            ->with([
+                'category:id,name',
+                'group:id,name',
+                'court:id,name',
+                'pairA.player1:id,name',
+                'pairA.player2:id,name',
+                'pairB.player1:id,name',
+                'pairB.player2:id,name',
+            ])
             ->orderBy('starts_at')
             ->get();
 
-        // [normName => ['name'=>, 'categories'=>[], 'days'=>['Y-m-d'=>['HH:MM', ...]]]]
+        // [normName => ['name'=>, 'categories'=>[], 'days'=>['Y-m-d'=>[matchRow,...]]]]
         $byName = [];
         foreach ($matches as $m) {
-            $day = $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d');
-            $time = $m->starts_at->timezone('America/Mexico_City')->format('H:i');
+            $local = $m->starts_at->timezone($tz);
+            $day = $local->format('Y-m-d');
+            $time = $local->format('H:i');
             $catName = $m->category?->name;
+
+            // Compact per-match row for the sheet. contextLabel() already renders
+            // "Categoría · Grupo A · R1" for groups and "… · SF" for brackets.
+            $matchRow = [
+                'time' => $time,
+                'context' => method_exists($m, 'contextLabel') ? $m->contextLabel() : ($catName ?? ''),
+                'court' => $m->court?->name,
+                'category' => $catName,
+            ];
 
             foreach ([$m->pairA, $m->pairB] as $pair) {
                 if (! $pair) continue;
@@ -116,7 +136,7 @@ class ScheduleController extends Controller
                     if (! $p || blank($p->name)) continue;
                     $key = \App\Models\Player::normalize($p->name);
                     $byName[$key] ??= ['name' => $p->name, 'categories' => [], 'days' => []];
-                    $byName[$key]['days'][$day][] = $time;
+                    $byName[$key]['days'][$day][] = $matchRow;
                     if ($catName && ! in_array($catName, $byName[$key]['categories'], true)) {
                         $byName[$key]['categories'][] = $catName;
                     }
@@ -124,23 +144,23 @@ class ScheduleController extends Controller
             }
         }
 
-        // Keep only players who hit the threshold on at least one day, and expose
-        // just those overloaded days.
         $dayLabel = fn(string $ymd) => \Illuminate\Support\Str::ucfirst(
-            \Carbon\Carbon::parse($ymd, 'America/Mexico_City')->locale('es')->isoFormat('ddd D MMM')
+            \Carbon\Carbon::parse($ymd, $tz)->locale('es')->isoFormat('ddd D MMM')
         );
 
         $out = [];
         foreach ($byName as $row) {
             $heavy = [];
-            foreach ($row['days'] as $ymd => $times) {
-                if (count($times) < $threshold) continue;
-                sort($times);
+            foreach ($row['days'] as $ymd => $matchRows) {
+                if (count($matchRows) < $threshold) continue;
+                // Sort the day's matches by time.
+                usort($matchRows, fn($a, $b) => $a['time'] <=> $b['time']);
                 $heavy[] = [
                     'day' => $ymd,
                     'label' => $dayLabel($ymd),
-                    'count' => count($times),
-                    'times' => $times,
+                    'count' => count($matchRows),
+                    'times' => array_column($matchRows, 'time'), // kept for back-compat
+                    'matches' => $matchRows,                     // NEW: full rows
                 ];
             }
             if (empty($heavy)) continue;
@@ -154,7 +174,6 @@ class ScheduleController extends Controller
             ];
         }
 
-        // Heaviest load first, then name.
         usort($out, fn($a, $b) => [$b['max'], strtolower($a['name'])] <=> [$a['max'], strtolower($b['name'])]);
 
         return collect($out);

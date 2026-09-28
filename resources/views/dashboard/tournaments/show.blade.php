@@ -36,6 +36,18 @@
             <a href="{{ route('schedule.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-calendar-days me-1"></i> Calendario</a>
             <a href="{{ route('tournaments.edit', $tournament) }}" class="btn btn-soft dash-edit-caution"><i class="fa-solid fa-pen me-1"></i> Editar</a>
             <a href="{{ route('categories.create', $tournament) }}" class="btn btn-accent"><i class="fa-solid fa-plus me-1"></i> Nueva categoría</a>
+
+            {{-- Desbloquear (solo si está bloqueado) --}}
+            @if($tournament->isLocked())
+            <form method="POST" action="{{ route('tournaments.unlock', $tournament) }}" class="d-inline"
+                data-confirm="Desbloquear permite cambios de estructura (grupos, llaves) a mitad del torneo. Úsalo solo si lo necesitas y vuelve a bloquear al terminar. ¿Continuar?"
+                data-confirm-title="Desbloquear torneo" data-confirm-variant="danger" data-confirm-ok="Desbloquear">
+                @csrf
+                <button class="btn btn-soft" style="color:var(--danger-text);">
+                    <i class="fa-solid fa-lock-open me-1"></i><span class="btn-label">Desbloquear</span>
+                </button>
+            </form>
+            @endif
         </div>
 
         {{-- Mobile: two primary buttons + an icon grid for the rest --}}

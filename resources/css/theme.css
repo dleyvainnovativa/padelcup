@@ -3362,3 +3362,43 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
   align-items: flex-start;
 }
 .pub-poss-note i { color: var(--warning-text, #8f4208); margin-top: 2px; }
+
+/* Busy-day players: expandable match detail ------------------------------ */
+.pl-busy { border-bottom: 1px solid var(--border); }
+.pl-busy:last-child { border-bottom: 0; }
+.pl-busy__head { display: flex; align-items: stretch; }
+.pl-busy__pick { flex: 1 1 auto; border: 0; background: transparent; }
+.pl-busy__toggle {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0 12px;
+  font-size: 12px;
+}
+.pl-busy__toggle:hover { color: var(--accent); }
+
+.pl-busy__detail {
+  padding: 2px 12px 12px 44px; /* indent under the count badge */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pl-busy__day-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.pl-busy__match {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  padding: 3px 0;
+}
+.pl-busy__time { color: var(--text); font-weight: 600; min-width: 44px; }
+.pl-busy__ctx { color: var(--text-muted); flex: 1 1 auto; }
+.pl-busy__court { color: var(--text-faint); white-space: nowrap; }
+.pl-busy__court i { margin-right: 3px; }

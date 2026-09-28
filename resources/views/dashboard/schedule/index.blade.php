@@ -158,6 +158,35 @@
                             @foreach($row['days'] as $d){{ $d['label'] }}: {{ $d['count'] }}@if(!$loop->last) · @endif @endforeach
                         </span>
                     </button>
+                    <div class="pl-busy" data-pl-name="{{ Str::lower($row['name']) }}" x-data="{ open: false }">
+                        <div class="pl-busy__head">
+                            <button type="button" class="pl-row pl-busy__pick" @click="pick(@js($row['name']))">
+                                <span class="mc-player__count mc-player__count--warn">{{ $row['max'] }}</span>
+                                <span class="pl-row__name">{{ $row['name'] }}</span>
+                                <span class="pl-row__meta">
+                                    @foreach($row['days'] as $d){{ $d['label'] }}: {{ $d['count'] }}@if(!$loop->last) · @endif @endforeach
+                                </span>
+                            </button>
+                            <button type="button" class="pl-busy__toggle" @click="open = !open"
+                                :aria-expanded="open ? 'true' : 'false'" title="Ver partidos">
+                                <i class="fa-solid" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                            </button>
+                        </div>
+                        <div class="pl-busy__detail" x-show="open" x-cloak>
+                            @foreach($row['days'] as $d)
+                            <div class="pl-busy__day">
+                                <div class="pl-busy__day-label">{{ $d['label'] }} · {{ $d['count'] }} partidos</div>
+                                @foreach($d['matches'] as $mm)
+                                <div class="pl-busy__match">
+                                    <span class="pl-busy__time font-mono">{{ $mm['time'] }}</span>
+                                    <span class="pl-busy__ctx">{{ $mm['context'] }}</span>
+                                    @if(!empty($mm['court']))<span class="pl-busy__court"><i class="fa-solid fa-location-dot"></i> {{ $mm['court'] }}</span>@endif
+                                </div>
+                                @endforeach
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
                     @endforeach
                 </div>
                 @endif
@@ -402,7 +431,9 @@
 
 {{-- Player-search badges: up to 5 matching players; click to highlight, ⓘ for their matches --}}
 <div class="pl-badges" data-player-badges hidden></div>
-<script type="application/json" id="player-match-index">@json($playerMatchIndex ?? [])</script>
+<script type="application/json" id="player-match-index">
+    @json($playerMatchIndex ?? [])
+</script>
 @endif
 
 @if($courts->isEmpty())
