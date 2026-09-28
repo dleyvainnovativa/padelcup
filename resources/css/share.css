@@ -313,3 +313,50 @@
 .ms-btn--ghost { background: var(--surface); border-color: var(--border-strong, #d4d8e0); color: var(--text); flex: 0 0 auto; padding-inline: 16px; }
 .ms-btn--primary { background: var(--accent); color: #fff; }
 .ms-btn__ico { font-size: 15px; line-height: 1; }
+
+
+.ms-accordion__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.ms-accordion__toggle:hover { border-color: var(--border-strong, #d4d8e0); }
+.ms-accordion__toggle.is-open { color: var(--text); border-color: var(--accent); }
+.ms-accordion__chev {
+  margin-left: auto;
+  font-size: 11px;
+  transition: transform .18s ease;
+}
+.ms-accordion__toggle.is-open .ms-accordion__chev { transform: rotate(180deg); }
+
+.ms-accordion__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-subtle);
+}
+.ms-accordion__panel[hidden] { display: none; }
+
+.ms-adv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ms-adv-row__label { font-size: 13px; font-weight: 600; color: var(--text); }
+.ms-color--sm { width: 40px; height: 30px; }

@@ -1,21 +1,23 @@
 // Match result share studio.
 //
-// Replaces the old instant-download card. Now, clicking a [data-share-match]
-// button opens a bottom-to-top drawer where the user:
-//   1. uploads a background photo (the export auto-sizes to this image),
-//   2. picks one of 3 themes (Ledger / Paper / Hero) — theme sets TEXT color,
-//   3. tunes a background PANEL color + its opacity (color picker + slider),
-//   4. exports a PNG compositing photo + themed scoreboard overlay.
+// Clicking a [data-share-match] button opens a bottom-to-top drawer where the
+// user: uploads a background photo, picks a THEME (5 now), tunes a background
+// PANEL color + opacity, and sets TEXT colors.
 //
-// Library-free: pure canvas. Portrait-oriented layout scales proportionally to
-// the uploaded image (landscape is a future second ratio branch). Uses the
-// app's existing fonts (Inter via --font-ui, JetBrains Mono via --font-mono).
+// Color model (v2): three independent channels — TEXT, SUBTLE, ACCENT — are
+// ALWAYS what drives the artwork. The "Negro / Blanco" buttons are quick presets
+// that set text+subtle; an "Colores avanzados" accordion exposes the three color
+// pickers directly. faint/line/loser/box are derived as opacity steps of TEXT.
 //
-// Data contract is unchanged from the old module:
-//   d = { tournament, category, context, pairA, pairB, sets:[[a,b],...], winner:'a'|'b' }
+// Library-free: pure canvas. Portrait layout scales proportionally to the photo.
+//
+// Data contract: d = { tournament, category, context, pairA, pairB,
+//                       sets:[[a,b],...], winner:'a'|'b' }
+// NOTE: there is NO duration/minutes in the data — templates that reference a
+// "MIN" slot in their inspiration fill it with SETS instead.
 
 export function initMatchShare() {
-    let drawer = null; // singleton drawer instance
+    let drawer = null;
 
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-share-match]');
@@ -28,59 +30,76 @@ export function initMatchShare() {
 }
 
 /* ============================================================================
-   THEMES — panel color/opacity are user-editable defaults. Text colors derive
-   from a single `ink` (black or white) at opacity steps, so a switch can flip
-   ALL text at once. `accent` is independent and never flips (Paper stays green).
-   `defaultInk` seeds the switch when a theme is chosen.
+   THEMES — each seeds panel color/opacity AND the three color channels
+   (defaultColors). Choosing a theme resets those; the user can then tweak any
+   channel via the Negro/Blanco presets or the advanced pickers.
    ========================================================================== */
 const THEMES = {
     ledger: {
         label: 'Ledger',
         panel: '#0C0C0E',
         panelOpacity: 0.55,
-        defaultInk: 'white',
-        accent: null, // no colored accent (winner dot uses ink)
+        defaultColors: { text: '#ffffff', subtle: '#c9c9c9', accent: '#d9f27a' },
     },
     paper: {
         label: 'Paper',
         panel: '#0C0C0E',
         panelOpacity: 0.55,
-        defaultInk: 'white',
-        accent: '#3da26e', // green — stays green regardless of ink switch
+        defaultColors: { text: '#ffffff', subtle: '#c9c9c9', accent: '#3da26e' },
     },
     hero: {
         label: 'Hero',
         panel: '#101014',
         panelOpacity: 0.55,
-        defaultInk: 'white',
-        accent: null,
+        defaultColors: { text: '#ffffff', subtle: '#c9c9c9', accent: '#d9f27a' },
     },
+    // marcador: {
+    //     label: 'Marcador',
+    //     panel: '#0C0C0E',
+    //     panelOpacity: 0.22,
+    //     defaultColors: { text: '#f0dcae', subtle: '#c9b48a', accent: '#f0dcae' },
+    // },
+    // duelo: {
+    //     label: 'Duelo',
+    //     panel: '#0C0C0E',
+    //     panelOpacity: 0.22,
+    //     defaultColors: { text: '#f0dcae', subtle: '#c9b48a', accent: '#f0dcae' },
+    // },
 };
 
-// Build the full color set for a theme given the chosen ink (black|white).
-function inkColors(ink) {
-    const base = ink === 'black' ? '20,20,15' : '255,255,255';
+// Quick presets for the Negro / Blanco buttons — they set text + subtle only,
+// leaving the accent channel (and its picker) untouched.
+const INK_PRESETS = {
+    black: { text: '#14140f', subtle: '#5f5f55' },
+    white: { text: '#ffffff', subtle: '#cfcfcf' },
+};
+
+// Build the full color set the templates consume from the 3 user channels.
+// text/subtle/accent are explicit; faint/line/loser/box derive from TEXT so the
+// winner/loser contrast holds regardless of the subtle choice.
+function buildColors(colors) {
+    const t = colors.text || '#ffffff';
+    const [r, g, b] = hexToRgb(t);
+    const base = `${r},${g},${b}`;
     return {
-        text: `rgba(${base},1)`,
-        muted: `rgba(${base},0.55)`,
+        text: t,
+        muted: colors.subtle || `rgba(${base},0.55)`,
         faint: `rgba(${base},0.42)`,
         line: `rgba(${base},0.14)`,
-        loser: `rgba(${base},0.42)`,
-        box: `rgba(${base},0.12)`, // empty score-box fill
+        loser: `rgba(${base},0.45)`,
+        box: `rgba(${base},0.12)`,
+        accent: colors.accent || t,
     };
 }
 
 /* ----------------------------------------------------------------------------
-   Voleo wordmark, drawn onto the canvas as the footer brand (replaces the old
-   fillText('VOLEO')). The SVG is recolored per ink (black / white) and cached
-   as a decoded <img>; the trailing dot stays lime in both. Image decode is
-   async, so a module-level re-render hook lets the preview refresh once a logo
-   finishes loading. viewBox 1365x398 → aspect ≈ 3.429.
+   Voleo wordmark, drawn onto the canvas as the footer brand. Recolored to the
+   current TEXT color and cached by that color string; the trailing dot stays
+   lime. Async decode → a re-render hook refreshes the preview once ready.
 ---------------------------------------------------------------------------- */
 const VOLEO_LOGO_ASPECT = 1365 / 398;
 const VOLEO_DOT = '#d9f27a';
 
-// Optional callback the drawer sets so a late-decoded logo can refresh preview.
 let _voleoReRender = null;
 function setVoleoReRender(fn) { _voleoReRender = fn; }
 
@@ -96,42 +115,38 @@ function voleoSvg(inkColor) {
         + `</g></g></svg>`;
 }
 
-const _voleoCache = {}; // ink -> { img, ready }
-function getVoleoLogo(ink) {
-    if (_voleoCache[ink]) return _voleoCache[ink].ready ? _voleoCache[ink].img : null;
-    const inkColor = ink === 'black' ? '#14140f' : '#ffffff';
+const _voleoCache = {}; // colorString -> { img, ready }
+function getVoleoLogo(color) {
+    if (_voleoCache[color]) return _voleoCache[color].ready ? _voleoCache[color].img : null;
     const img = new Image();
     const entry = { img, ready: false };
-    _voleoCache[ink] = entry;
+    _voleoCache[color] = entry;
     img.onload = () => { entry.ready = true; if (_voleoReRender) _voleoReRender(); };
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(voleoSvg(inkColor));
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(voleoSvg(color));
     return null;
 }
-// Warm both variants up front so they're ready by export time.
-function preloadVoleoLogos() { getVoleoLogo('black'); getVoleoLogo('white'); }
+function preloadVoleoLogos() { getVoleoLogo('#14140f'); getVoleoLogo('#ffffff'); }
 
-// Resolves once the given ink's logo has decoded (or immediately if ready).
-function whenVoleoReady(ink) {
+function whenVoleoReady(color) {
     return new Promise((resolve) => {
-        if (getVoleoLogo(ink)) return resolve();     // already decoded
-        const entry = _voleoCache[ink];
+        if (getVoleoLogo(color)) return resolve();
+        const entry = _voleoCache[color];
         const prev = entry.img.onload;
         entry.img.onload = () => { if (prev) prev(); resolve(); };
-        // Safety timeout so export never hangs if decode fails.
         setTimeout(resolve, 1500);
     });
 }
 
-/* Draw the Voleo wordmark where the old fillText('VOLEO') sat.
-   align: 'left' | 'right'. (x, yBaseline) = old text anchor. sizePx ≈ old font
-   size. Falls back to the plain text (in fallbackColor / fMono) until decoded. */
-function drawVoleoBrand(ctx, ink, x, yBaseline, sizePx, align, fallbackColor, fMono) {
-    const img = getVoleoLogo(ink);
+/* Draw the Voleo wordmark. align: 'left' | 'right' | 'center'. */
+function drawVoleoBrand(ctx, color, x, yBaseline, sizePx, align, fallbackColor, fMono) {
+    const img = getVoleoLogo(color);
     if (img) {
-        const h = sizePx * 1.25;                 // logo height ≈ text size, slight bump
+        const h = sizePx * 1.25;
         const w = h * VOLEO_LOGO_ASPECT;
-        const top = yBaseline - h * 0.82;        // baseline → top of glyph box
-        const left = align === 'right' ? x - w : x;
+        const top = yBaseline - h * 0.82;
+        let left = x;
+        if (align === 'right') left = x - w;
+        else if (align === 'center') left = x - w / 2;
         ctx.drawImage(img, left, top, w, h);
     } else {
         ctx.save();
@@ -147,18 +162,16 @@ function drawVoleoBrand(ctx, ink, x, yBaseline, sizePx, align, fallbackColor, fM
    DRAWER
    ========================================================================== */
 function createDrawer() {
-    preloadVoleoLogos(); // warm both ink variants of the Voleo wordmark
-    // State for the current session.
+    preloadVoleoLogos();
     const state = {
         data: null,
-        img: null, // HTMLImageElement of the uploaded photo
+        img: null,
         theme: 'ledger',
-        ink: THEMES.ledger.defaultInk, // 'black' | 'white' — flips ALL text
+        colors: { ...THEMES.ledger.defaultColors }, // {text, subtle, accent}
         panelColor: THEMES.ledger.panel,
         panelOpacity: THEMES.ledger.panelOpacity,
     };
 
-    // --- Build DOM ---
     const root = document.createElement('div');
     root.className = 'ms-drawer';
     root.innerHTML = `
@@ -193,8 +206,8 @@ function createDrawer() {
             <div class="ms-field__label">Fondo del panel</div>
             <div class="ms-row">
               <input type="color" class="ms-color" data-ms-color value="#0C0C0E">
-              <input type="range" class="ms-range" data-ms-opacity min="0" max="100" value="62">
-              <span class="ms-range__val" data-ms-opacity-val>62%</span>
+              <input type="range" class="ms-range" data-ms-opacity min="0" max="100" value="55">
+              <span class="ms-range__val" data-ms-opacity-val>55%</span>
             </div>
           </div>
 
@@ -207,6 +220,25 @@ function createDrawer() {
               <button type="button" class="ms-ink__opt" data-ms-ink-opt="white">
                 <span class="ms-ink__dot" style="background:#fff;border:1px solid #ccc"></span> Blanco
               </button>
+            </div>
+
+            <button type="button" class="ms-accordion__toggle" data-ms-adv-toggle aria-expanded="false">
+              <i class="fas fa-sliders"></i> Colores avanzados
+              <i class="fas fa-chevron-down ms-accordion__chev"></i>
+            </button>
+            <div class="ms-accordion__panel" data-ms-adv hidden>
+              <div class="ms-adv-row">
+                <span class="ms-adv-row__label">Texto</span>
+                <input type="color" class="ms-color ms-color--sm" data-ms-c-text>
+              </div>
+              <div class="ms-adv-row">
+                <span class="ms-adv-row__label">Sutil</span>
+                <input type="color" class="ms-color ms-color--sm" data-ms-c-subtle>
+              </div>
+              <div class="ms-adv-row">
+                <span class="ms-adv-row__label">Acento</span>
+                <input type="color" class="ms-color ms-color--sm" data-ms-c-accent>
+              </div>
             </div>
           </div>
         </div>
@@ -222,7 +254,6 @@ function createDrawer() {
     </div>`;
     document.body.appendChild(root);
 
-    // --- Refs ---
     const $ = (sel) => root.querySelector(sel);
     const canvas = $('[data-ms-canvas]');
     const emptyEl = $('[data-ms-drop]');
@@ -232,63 +263,61 @@ function createDrawer() {
     const opacityInput = $('[data-ms-opacity]');
     const opacityVal = $('[data-ms-opacity-val]');
     const inkEl = $('[data-ms-ink]');
+    const advToggle = $('[data-ms-adv-toggle]');
+    const advPanel = $('[data-ms-adv]');
+    const cText = $('[data-ms-c-text]');
+    const cSubtle = $('[data-ms-c-subtle]');
+    const cAccent = $('[data-ms-c-accent]');
     const exportBtn = $('[data-ms-export]');
     const rephotoBtn = $('[data-ms-rephoto]');
     const shareBtn = $('[data-ms-share]');
 
-    // Show the "Compartir" button only where the browser can share files
-    // (mobile Safari/Chrome). Elsewhere the download button is the primary action.
     const canShareFiles = !!(navigator.canShare && (() => {
         try {
-            return navigator.canShare({
-                files: [new File([new Blob()], 'x.png', {
-                    type: 'image/png'
-                })]
-            });
-        } catch (e) {
-            return false;
-        }
+            return navigator.canShare({ files: [new File([new Blob()], 'x.png', { type: 'image/png' })] });
+        } catch (e) { return false; }
     })());
     if (canShareFiles) {
         shareBtn.hidden = false;
         exportBtn.classList.remove('ms-btn--primary');
     } else {
-        // No file share: download is the primary action.
         exportBtn.classList.add('ms-btn--primary');
         exportBtn.classList.remove('ms-btn--ghost');
     }
 
-    // Reflect ink selection in the toggle.
-    function syncInkUI() {
-        inkEl.querySelectorAll('[data-ms-ink-opt]').forEach((el) =>
-            el.classList.toggle('is-active', el.dataset.msInkOpt === state.ink));
+    // Reflect current colors into the pickers + preset button highlight.
+    function syncColorUI() {
+        cText.value = toHexInput(state.colors.text);
+        cSubtle.value = toHexInput(state.colors.subtle);
+        cAccent.value = toHexInput(state.colors.accent);
+        const t = state.colors.text.toLowerCase();
+        inkEl.querySelectorAll('[data-ms-ink-opt]').forEach((el) => {
+            const preset = INK_PRESETS[el.dataset.msInkOpt];
+            el.classList.toggle('is-active', preset && preset.text.toLowerCase() === t);
+        });
     }
-    syncInkUI();
 
-    // Theme thumbnails.
+    // Theme thumbnails (swatch shows the theme's accent — the artwork's key hue).
     Object.entries(THEMES).forEach(([key, t]) => {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'ms-theme' + (key === state.theme ? ' is-active' : '');
         b.dataset.msTheme = key;
-        b.innerHTML = `<span class="ms-theme__sw" style="background:${t.panel}"></span><span class="ms-theme__name">${t.label}</span>`;
+        b.innerHTML = `<span class="ms-theme__sw" style="background:${t.defaultColors.accent}"></span><span class="ms-theme__name">${t.label}</span>`;
         themesEl.appendChild(b);
     });
 
+    syncColorUI();
+
     // --- Events ---
-    root.querySelectorAll('[data-ms-close]').forEach((el) =>
-        el.addEventListener('click', close));
+    root.querySelectorAll('[data-ms-close]').forEach((el) => el.addEventListener('click', close));
 
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files[0];
         if (file) loadPhoto(file);
     });
 
-    // Drag & drop onto the empty area.
-    emptyEl.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        emptyEl.classList.add('is-drag');
-    });
+    emptyEl.addEventListener('dragover', (e) => { e.preventDefault(); emptyEl.classList.add('is-drag'); });
     emptyEl.addEventListener('dragleave', () => emptyEl.classList.remove('is-drag'));
     emptyEl.addEventListener('drop', (e) => {
         e.preventDefault();
@@ -304,32 +333,40 @@ function createDrawer() {
         if (!b) return;
         state.theme = b.dataset.msTheme;
         const t = THEMES[state.theme];
-        // Switching theme resets panel color/opacity AND seeds the ink to that
-        // theme's default (user can still flip it afterward — independent toggle).
         state.panelColor = t.panel;
         state.panelOpacity = t.panelOpacity;
-        state.ink = t.defaultInk;
+        state.colors = { ...t.defaultColors };
         colorInput.value = t.panel;
         opacityInput.value = Math.round(t.panelOpacity * 100);
         opacityVal.textContent = Math.round(t.panelOpacity * 100) + '%';
-        syncInkUI();
-        themesEl.querySelectorAll('[data-ms-theme]').forEach((el) =>
-            el.classList.toggle('is-active', el === b));
+        syncColorUI();
+        themesEl.querySelectorAll('[data-ms-theme]').forEach((el) => el.classList.toggle('is-active', el === b));
         render();
     });
 
+    // Negro / Blanco presets set text + subtle (accent untouched).
     inkEl.addEventListener('click', (e) => {
         const b = e.target.closest('[data-ms-ink-opt]');
         if (!b) return;
-        state.ink = b.dataset.msInkOpt; // 'black' | 'white'
-        syncInkUI();
+        const preset = INK_PRESETS[b.dataset.msInkOpt];
+        state.colors.text = preset.text;
+        state.colors.subtle = preset.subtle;
+        syncColorUI();
         render();
     });
 
-    colorInput.addEventListener('input', () => {
-        state.panelColor = colorInput.value;
-        render();
+    // Advanced accordion.
+    advToggle.addEventListener('click', () => {
+        const open = advPanel.hidden;
+        advPanel.hidden = !open;
+        advToggle.setAttribute('aria-expanded', String(open));
+        advToggle.classList.toggle('is-open', open);
     });
+    cText.addEventListener('input', () => { state.colors.text = cText.value; syncColorUI(); render(); });
+    cSubtle.addEventListener('input', () => { state.colors.subtle = cSubtle.value; syncColorUI(); render(); });
+    cAccent.addEventListener('input', () => { state.colors.accent = cAccent.value; render(); });
+
+    colorInput.addEventListener('input', () => { state.panelColor = colorInput.value; render(); });
     opacityInput.addEventListener('input', () => {
         state.panelOpacity = opacityInput.value / 100;
         opacityVal.textContent = opacityInput.value + '%';
@@ -339,7 +376,6 @@ function createDrawer() {
     exportBtn.addEventListener('click', exportPng);
     shareBtn.addEventListener('click', sharePng);
 
-    // --- Photo loading ---
     function loadPhoto(file) {
         const url = URL.createObjectURL(file);
         const img = new Image();
@@ -353,16 +389,12 @@ function createDrawer() {
             if (shareBtn) shareBtn.disabled = false;
             render();
         };
-        img.onerror = () => {
-            URL.revokeObjectURL(url);
-        };
+        img.onerror = () => URL.revokeObjectURL(url);
         img.src = url;
     }
 
-    // --- Public API ---
     function open(data) {
         state.data = data;
-        // Reset per-open visual state (keep last theme choice).
         state.img = null;
         emptyEl.style.display = '';
         canvas.style.display = 'none';
@@ -371,23 +403,13 @@ function createDrawer() {
         if (shareBtn) shareBtn.disabled = true;
         fileInput.value = '';
 
-        // Pause the public-page 60s auto-refresh so it can't reload the page and
-        // wipe the editor mid-edit. publicPages.js checks this flag.
         document.body.classList.add('pc-drawer-open');
-
-        // Lock background scroll, compensating for the scrollbar width so the page
-        // doesn't jump/shift when the scrollbar disappears.
         const sbw = window.innerWidth - document.documentElement.clientWidth;
         if (sbw > 0) document.body.style.paddingRight = sbw + 'px';
         document.body.style.overflow = 'hidden';
 
-        // Make the drawer displayable FIRST (removes display:none), then add the
-        // .is-open class on the NEXT frame so the CSS transform has a starting
-        // point to animate from. Adding both in one frame makes it appear instantly.
         root.style.display = 'block';
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => root.classList.add('is-open'));
-        });
+        requestAnimationFrame(() => { requestAnimationFrame(() => root.classList.add('is-open')); });
     }
 
     function close() {
@@ -395,37 +417,29 @@ function createDrawer() {
         document.body.style.overflow = '';
         document.body.style.paddingRight = '';
         document.body.classList.remove('pc-drawer-open');
-        // Hide after the slide-out transition finishes (matches CSS duration).
-        setTimeout(() => {
-            if (!root.classList.contains('is-open')) root.style.display = 'none';
-        }, 300);
+        setTimeout(() => { if (!root.classList.contains('is-open')) root.style.display = 'none'; }, 300);
     }
 
-    // --- Render (preview) ---
     function render() {
         if (!state.img || !state.data) return;
-        // Let a late-decoded Voleo logo refresh this preview.
         setVoleoReRender(render);
         drawComposite(canvas, state.img, state.data, {
             theme: state.theme,
-            ink: state.ink,
+            colors: state.colors,
             panelColor: state.panelColor,
             panelOpacity: state.panelOpacity,
             preview: true,
         });
     }
 
-    // --- Render the full-res PNG to a Blob (shared by download + share) ---
     function makeBlob() {
         return new Promise((resolve) => {
             if (!state.img || !state.data) return resolve(null);
-            // Ensure the Voleo logo for the current ink is decoded first, so the
-            // exported PNG shows the wordmark (not the text fallback).
-            whenVoleoReady(state.ink).then(() => {
+            whenVoleoReady(state.colors.text).then(() => {
                 const out = document.createElement('canvas');
                 drawComposite(out, state.img, state.data, {
                     theme: state.theme,
-                    ink: state.ink,
+                    colors: state.colors,
                     panelColor: state.panelColor,
                     panelOpacity: state.panelOpacity,
                     preview: false,
@@ -435,11 +449,8 @@ function createDrawer() {
         });
     }
 
-    function filename() {
-        return slug(state.data.category || 'partido') + '-resultado.png';
-    }
+    function filename() { return slug(state.data.category || 'partido') + '-resultado.png'; }
 
-    // --- Download (fallback / desktop) ---
     async function exportPng() {
         const blob = await makeBlob();
         if (!blob) return;
@@ -453,54 +464,30 @@ function createDrawer() {
         URL.revokeObjectURL(url);
     }
 
-    // --- Native share sheet (Instagram Stories, WhatsApp, Facebook, …) ---
-    // Uses the Web Share API with a file. On phones this opens the OS share
-    // sheet with all installed apps as targets — the closest thing to a direct
-    // "post to Stories" a web page can do. Falls back to download when the
-    // browser can't share files (most desktops).
     async function sharePng() {
         const blob = await makeBlob();
         if (!blob) return;
-        const file = new File([blob], filename(), {
-            type: 'image/png'
-        });
-
-        if (navigator.canShare && navigator.canShare({
-                files: [file]
-            })) {
+        const file = new File([blob], filename(), { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
-                await navigator.share({
-                    files: [file],
-                    title: state.data.category || 'Resultado',
-                    text: shareCaption(state.data),
-                });
-            } catch (e) {
-                // User cancelled the share sheet — do nothing.
-            }
+                await navigator.share({ files: [file], title: state.data.category || 'Resultado', text: shareCaption(state.data) });
+            } catch (e) { /* cancelled */ }
         } else {
-            // No file-share support → download instead.
             await exportPng();
         }
     }
 
-    return {
-        open,
-        close
-    };
+    return { open, close };
 }
 
 /* ============================================================================
-   COMPOSITOR — draws photo + themed scoreboard overlay onto a canvas.
-   Auto-sizes to the uploaded image. Layout is proportional to image height so
-   it scales to any portrait ratio (1080×1350, 1080×1920, etc.).
+   COMPOSITOR
    ========================================================================== */
 function drawComposite(canvas, img, d, opts) {
-    const theme = THEMES[opts.theme] || THEMES.ledger;
-    const ink = opts.ink || theme.defaultInk;
-    const c = inkColors(ink); // text colors derived from ink
-    const accent = theme.accent; // fixed accent (Paper green), or null
+    const c = buildColors(opts.colors);
+    const accent = c.accent;
+    const logoColor = opts.colors.text;
 
-    // Export at the photo's native size (capped for preview to keep it snappy).
     const maxW = opts.preview ? 720 : img.naturalWidth;
     const scaleToOut = maxW / img.naturalWidth;
     const W = Math.round(img.naturalWidth * scaleToOut);
@@ -510,93 +497,44 @@ function drawComposite(canvas, img, d, opts) {
     canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    // 1) Photo.
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(img, 0, 0, W, H);
 
-    // 2) Panel overlay (user color + opacity).
     const [pr, pg, pb] = hexToRgb(opts.panelColor);
     ctx.fillStyle = `rgba(${pr},${pg},${pb},${opts.panelOpacity})`;
     ctx.fillRect(0, 0, W, H);
 
-    // Unit = proportional to width so type scales with the image.
-    const u = W / 1080; // design was authored at 1080 wide
+    const u = W / 1080;
     const pad = 80 * u;
+    const fUI = getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim() || "'Inter', sans-serif";
+    const fMono = getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim() || "'JetBrains Mono', monospace";
 
-    const fUI = getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim() ||
-        "'Inter', sans-serif";
-    const fMono = getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim() ||
-        "'JetBrains Mono', monospace";
-
-    // Route to the theme layout.
-    const layout = {
-        ctx,
-        W,
-        H,
-        u,
-        pad,
-        c,
-        accent,
-        fUI,
-        fMono,
-        d,
-        ink: opts.ink,
-    };
+    const layout = { ctx, W, H, u, pad, c, accent, fUI, fMono, d, logoColor };
     if (opts.theme === 'paper') drawPaper(layout);
     else if (opts.theme === 'hero') drawHero(layout);
+    else if (opts.theme === 'marcador') drawMarcador(layout);
+    else if (opts.theme === 'duelo') drawDuelo(layout);
     else drawLedger(layout);
 }
 
 /* ---- Shared helpers ---- */
 function setsAndGames(d) {
-    let aSets = 0,
-        bSets = 0,
-        aGames = 0,
-        bGames = 0;
+    let aSets = 0, bSets = 0, aGames = 0, bGames = 0;
     (d.sets || []).forEach(([a, b]) => {
-        a = +a || 0;
-        b = +b || 0;
-        aGames += a;
-        bGames += b;
-        if (a > b) aSets++;
-        else if (b > a) bSets++;
+        a = +a || 0; b = +b || 0;
+        aGames += a; bGames += b;
+        if (a > b) aSets++; else if (b > a) bSets++;
     });
-    return {
-        aSets,
-        bSets,
-        aGames,
-        bGames
-    };
+    return { aSets, bSets, aGames, bGames };
 }
 
-function pairName(d, side) {
-    const raw = side === 'a' ? d.pairA : d.pairB;
-    return raw || '';
-}
+function pairName(d, side) { return (side === 'a' ? d.pairA : d.pairB) || ''; }
 
-/* ---- Theme 1: LEDGER (dark, stat strip) — matches reference HTML spacing ---- */
-function drawLedger({
-    ctx,
-    W,
-    H,
-    u,
-    pad,
-    c,
-    fUI,
-    fMono,
-    d,
-    ink
-}) {
-    const winA = d.winner === 'a',
-        winB = d.winner === 'b';
-    const {
-        aSets,
-        bSets,
-        aGames,
-        bGames
-    } = setsAndGames(d);
+/* ---- Theme 1: LEDGER ---- */
+function drawLedger({ ctx, W, H, u, pad, c, fUI, fMono, d, logoColor }) {
+    const winA = d.winner === 'a', winB = d.winner === 'b';
+    const { aSets, bSets, aGames, bGames } = setsAndGames(d);
 
-    // Header: tournament (mono, muted) + category (bold) left; group/round right.
     ctx.textAlign = 'left';
     ctx.fillStyle = c.muted;
     ctx.font = `500 ${20 * u}px ${fMono}`;
@@ -615,49 +553,32 @@ function drawLedger({
     ctx.textAlign = 'left';
     line(ctx, pad, 186 * u, W - pad, 186 * u, c.line);
 
-    // --- Two spacious score rows (names stacked on two lines, big score column).
-    // Mirrors the HTML: each row ~38px vertical padding, a divider between them.
-    const rowH = 210 * u; // generous row height (was cramped before)
-    const block1Top = H * 0.30; // start of first row
-    const rowMidGap = rowH; // second row sits a full rowH below
+    const rowH = 210 * u;
+    const block1Top = H * 0.30;
+    const rowMidGap = rowH;
 
-    drawLedgerRow(ctx, W, pad, u, block1Top, pairName(d, 'a'),
-        d.sets.map((s) => s[0]), winA, c, fUI);
-
-    // Divider between the two pairs.
+    drawLedgerRow(ctx, W, pad, u, block1Top, pairName(d, 'a'), d.sets.map((s) => s[0]), winA, c, fUI);
     const divY = block1Top + rowH - 78 * u;
     line(ctx, pad, divY, W - pad, divY, c.line);
+    drawLedgerRow(ctx, W, pad, u, block1Top + rowMidGap, pairName(d, 'b'), d.sets.map((s) => s[1]), winB, c, fUI);
 
-    drawLedgerRow(ctx, W, pad, u, block1Top + rowMidGap, pairName(d, 'b'),
-        d.sets.map((s) => s[1]), winB, c, fUI);
-
-    // Stat strip (SETS / GAMES) — no duration.
     const stripY = H - 200 * u;
     line(ctx, pad, stripY, W - pad, stripY, c.line);
     const colW = (W - pad * 2) / 2;
     stat(ctx, pad, stripY + 62 * u, u, 'SETS', `${aSets} – ${bSets}`, c, fMono, fUI);
     stat(ctx, pad + colW, stripY + 62 * u, u, 'GAMES', `${aGames} – ${bGames}`, c, fMono, fUI);
 
-    // Footer brand.
-    drawVoleoBrand(ctx, ink, pad, H - 56 * u, 19 * u, 'left', c.muted, fMono);
+    drawVoleoBrand(ctx, logoColor, pad, H - 56 * u, 19 * u, 'left', c.muted, fMono);
 }
 
-// One Ledger row: name stacked on up to 2 lines (left), score digits big (right),
-// vertically centered together with real breathing room.
 function drawLedgerRow(ctx, W, pad, u, top, name, scores, isWin, c, fUI) {
-    // Dimming follows the actual result: the WINNER is bright/bold, the loser is
-    // muted — regardless of whether the winner is pair A or pair B.
     const nameColor = isWin ? c.text : c.loser;
     const scoreColor = isWin ? c.text : c.loser;
-
-    // Split the pair name onto two lines at " / " or " · " if present.
     const parts = splitPair(name);
     const nameSize = 54 * u;
     const nameLH = 62 * u;
 
-    // Winner dot + name lines, left column.
     let nameX = pad;
-    const centerY = top + (parts.length > 1 ? nameLH * 0.5 : 0);
     if (isWin) {
         ctx.fillStyle = c.text;
         ctx.beginPath();
@@ -668,48 +589,23 @@ function drawLedgerRow(ctx, W, pad, u, top, name, scores, isWin, c, fUI) {
     ctx.textAlign = 'left';
     ctx.fillStyle = nameColor;
     ctx.font = `${isWin ? 700 : 500} ${nameSize}px ${fUI}`;
-    parts.forEach((ln, i) => {
-        ctx.fillText(truncate(ln, 22), nameX, top + i * nameLH);
-    });
+    parts.forEach((ln, i) => ctx.fillText(truncate(ln, 22), nameX, top + i * nameLH));
 
-    // Score digits, right column — vertically aligned to the name block center.
     const scoreY = top + (parts.length > 1 ? nameLH : 0) - 6 * u;
     ctx.textAlign = 'center';
-    const size = 100 * u,
-        gap = 30 * u;
+    const size = 100 * u, gap = 30 * u;
     const total = scores.length * size + (scores.length - 1) * gap;
     let x = W - pad - total + size / 2;
     ctx.fillStyle = scoreColor;
     ctx.font = `${isWin ? 800 : 600} ${104 * u}px ${fUI}`;
-    scores.forEach((s) => {
-        ctx.fillText(String(s), x, scoreY);
-        x += size + gap;
-    });
+    scores.forEach((s) => { ctx.fillText(String(s), x, scoreY); x += size + gap; });
 }
 
-/* ---- Theme 2: PAPER (light, one accent) — roomier name→score spacing ---- */
-function drawPaper({
-    ctx,
-    W,
-    H,
-    u,
-    pad,
-    c,
-    accent,
-    fUI,
-    fMono,
-    d,
-    ink
-}) {
-    const {
-        aSets,
-        bSets,
-        aGames,
-        bGames
-    } = setsAndGames(d);
+/* ---- Theme 2: PAPER ---- */
+function drawPaper({ ctx, W, H, u, pad, c, accent, fUI, fMono, d, logoColor }) {
+    const { aSets, bSets, aGames, bGames } = setsAndGames(d);
     const green = accent || c.text;
 
-    // Header (two mono lines) + accent dot.
     ctx.textAlign = 'left';
     ctx.fillStyle = c.muted;
     ctx.font = `500 ${20 * u}px ${fMono}`;
@@ -722,8 +618,6 @@ function drawPaper({
     ctx.arc(W - pad - 11 * u, 92 * u, 11 * u, 0, Math.PI * 2);
     ctx.fill();
 
-    // Winners block — GANADORES label, big stacked name, then score on its OWN
-    // line well below (this is the spacing the reference shows).
     const top = H * 0.34;
     ctx.fillStyle = green;
     ctx.font = `500 ${18 * u}px ${fMono}`;
@@ -734,31 +628,26 @@ function drawPaper({
     const winScores = d.winner === 'b' ? d.sets.map((s) => s[1]) : d.sets.map((s) => s[0]);
     const loseScores = d.winner === 'b' ? d.sets.map((s) => s[0]) : d.sets.map((s) => s[1]);
 
-    // Winner name, up to two lines.
     ctx.fillStyle = c.text;
     ctx.font = `700 ${78 * u}px ${fUI}`;
     const wParts = splitPair(winnerName);
     const nLH = 82 * u;
     wParts.forEach((ln, i) => ctx.fillText(truncate(ln, 20), pad, top + 76 * u + i * nLH));
 
-    // Winner score — its own line, generous gap below the name.
     const scoreY = top + 76 * u + wParts.length * nLH + 96 * u;
     ctx.fillStyle = green;
     ctx.font = `800 ${132 * u}px ${fUI}`;
     drawScoreDigits(ctx, pad, scoreY, u, winScores, 40 * u, 'left');
 
-    // Divider.
     const divY = scoreY + 56 * u;
     line(ctx, pad, divY, W - pad, divY, c.line);
 
-    // Loser name + score, muted, with matching breathing room.
     ctx.fillStyle = c.loser;
     ctx.font = `500 ${44 * u}px ${fUI}`;
     ctx.fillText(truncate(loserName, 30), pad, divY + 78 * u);
     ctx.font = `600 ${64 * u}px ${fUI}`;
     drawScoreDigits(ctx, pad, divY + 156 * u, u, loseScores, 30 * u, 'left');
 
-    // Footer stats + brand.
     ctx.fillStyle = c.faint;
     ctx.font = `500 ${17 * u}px ${fMono}`;
     ctx.fillText('SETS', pad, H - 118 * u);
@@ -768,19 +657,14 @@ function drawPaper({
     ctx.fillText(`${aSets} – ${bSets}`, pad, H - 78 * u);
     ctx.fillText(`${aGames} – ${bGames}`, pad + 240 * u, H - 78 * u);
 
-    drawVoleoBrand(ctx, ink, W - pad, H - 78 * u, 19 * u, 'right', c.muted, fMono);
+    drawVoleoBrand(ctx, logoColor, W - pad, H - 78 * u, 19 * u, 'right', c.muted, fMono);
     ctx.textAlign = 'left';
 }
 
-// Draw a row of big score digits from an x anchor.
 function drawScoreDigits(ctx, x, y, u, scores, gap, align) {
     ctx.textAlign = 'left';
     let cx = x;
-    scores.forEach((s) => {
-        const str = String(s);
-        ctx.fillText(str, cx, y);
-        cx += ctx.measureText(str).width + gap;
-    });
+    scores.forEach((s) => { const str = String(s); ctx.fillText(str, cx, y); cx += ctx.measureText(str).width + gap; });
 }
 
 function stat(ctx, x, y, u, label, value, c, fMono, fUI) {
@@ -793,26 +677,14 @@ function stat(ctx, x, y, u, label, value, c, fMono, fUI) {
     ctx.fillText(value, x, y);
 }
 
-// Split "A / B" or "A · B" into two lines; else single line.
 function splitPair(name) {
     if (!name) return [''];
     const m = name.split(/\s*[/·]\s*/);
     return m.length >= 2 ? [m[0], m.slice(1).join(' · ')] : [name];
 }
 
-/* ---- Theme 3: HERO (scoreline is the image) ---- */
-function drawHero({
-    ctx,
-    W,
-    H,
-    u,
-    pad,
-    c,
-    fUI,
-    fMono,
-    d,
-    ink
-}) {
+/* ---- Theme 3: HERO ---- */
+function drawHero({ ctx, W, H, u, pad, c, fUI, fMono, d, logoColor }) {
     const winA = d.winner === 'a';
 
     ctx.textAlign = 'left';
@@ -822,19 +694,15 @@ function drawHero({
     ctx.fillText((head[0] || '').toUpperCase(), pad, 100 * u);
     if (head[1]) ctx.fillText(truncate(head[1], 40).toUpperCase(), pad, 134 * u);
 
-    // Giant scoreline (each set as "a–b" stacked).
     const cy = H * 0.34;
     ctx.fillStyle = c.text;
     ctx.font = `800 ${180 * u}px ${fUI}`;
     const lines = (d.sets || []).map(([a, b]) => `${a}–${b}`);
-    lines.slice(0, 3).forEach((ln, i) => {
-        ctx.fillText(ln, pad, cy + i * 170 * u);
-    });
+    lines.slice(0, 3).forEach((ln, i) => ctx.fillText(ln, pad, cy + i * 170 * u));
 
     const afterY = cy + Math.min(lines.length, 3) * 170 * u - 40 * u;
     line(ctx, pad, afterY, W - pad, afterY, c.line);
 
-    // Pair rows with winner dot.
     ctx.font = `700 ${46 * u}px ${fUI}`;
     const rowY = afterY + 70 * u;
     dot(ctx, pad + 8 * u, rowY - 14 * u, 8 * u, c.text, true);
@@ -846,14 +714,181 @@ function drawHero({
     ctx.font = `500 ${46 * u}px ${fUI}`;
     ctx.fillText(truncate(pairName(d, winA ? 'b' : 'a'), 34), pad + 36 * u, rowY + 60 * u);
 
-    // Footer.
-    drawVoleoBrand(ctx, ink, pad, H - 70 * u, 19 * u, 'left', c.muted, fMono);
+    drawVoleoBrand(ctx, logoColor, pad, H - 70 * u, 19 * u, 'left', c.muted, fMono);
+}
+
+/* ---- Theme 4: MARCADOR (single-line score, center chip, stat wings) ----
+   Inspiration slot "48 MIN" → filled with SETS (no duration in the data). */
+function drawMarcador({ ctx, W, H, u, pad, c, accent, fUI, fMono, d, logoColor }) {
+    const { aSets, bSets, aGames, bGames } = setsAndGames(d);
+
+    // Top: tournament · category, centered mono muted.
+    ctx.textAlign = 'center';
+    ctx.fillStyle = c.muted;
+    ctx.font = `500 ${18 * u}px ${fMono}`;
+    ctx.fillText(truncate([d.tournament, d.category].filter(Boolean).join(' · ').toUpperCase(), 46), W / 2, 92 * u);
+
+    // Big single-line score, auto-fit to width.
+    const scoreStr = (d.sets || []).map(([a, b]) => `${a}–${b}`).join('   ');
+    const px = fitFont(ctx, scoreStr, W - pad * 2, 210 * u, 800, fUI);
+    const scoreY = H * 0.42;
+    ctx.fillStyle = accent;
+    ctx.textAlign = 'center';
+    ctx.font = `800 ${px}px ${fUI}`;
+    ctx.fillText(scoreStr, W / 2, scoreY);
+
+    // Row: center chip (winner caption) + stat wings (GAMES left, SETS right).
+    const rowY = scoreY + 96 * u;
+    const chip = drawChip(ctx, W / 2, rowY, winnerCaption(d), 30 * u, fUI, accent, contrastColor(accent), 28 * u, 17 * u);
+    const leftCX = (pad + chip.x) / 2;
+    const rightCX = (chip.x + chip.w + (W - pad)) / 2;
+    drawWingInline(ctx, leftCX, rowY, `${aGames}–${bGames}`, 'GAMES', u, fUI, fMono, c.muted, c.faint);
+    drawWingInline(ctx, rightCX, rowY, `${aSets}–${bSets}`, 'SETS', u, fUI, fMono, c.muted, c.faint);
+
+    drawVoleoBrand(ctx, logoColor, W / 2, H - 64 * u, 19 * u, 'center', c.muted, fMono);
+    ctx.textAlign = 'left';
+}
+
+/* ---- Theme 5: DUELO (stacked score, names left/right, center chip) ----
+   Inspiration slot "48 min · Grupo A" → "SETS · context" (no duration). */
+function drawDuelo({ ctx, W, H, u, pad, c, accent, fUI, fMono, d, logoColor }) {
+    const { aSets, bSets } = setsAndGames(d);
+    const winA = d.winner !== 'b';
+
+    // Top line.
+    ctx.textAlign = 'center';
+    ctx.fillStyle = c.muted;
+    ctx.font = `500 ${18 * u}px ${fMono}`;
+    ctx.fillText(truncate([d.tournament, d.category].filter(Boolean).join(' · ').toUpperCase(), 46), W / 2, 92 * u);
+
+    // Stacked score, one set per line, centered.
+    const lines = (d.sets || []).map(([a, b]) => `${a}–${b}`).slice(0, 3);
+    const px = fitFont(ctx, lines[0] || '0–0', (W - pad * 2) * 0.72, 190 * u, 800, fUI);
+    const lh = px * 0.98;
+    const blockTop = H * 0.30;
+    ctx.fillStyle = accent;
+    ctx.textAlign = 'center';
+    ctx.font = `800 ${px}px ${fUI}`;
+    lines.forEach((ln, i) => ctx.fillText(ln, W / 2, blockTop + i * lh));
+    const scoreBottom = blockTop + (lines.length - 1) * lh;
+
+    // Names + center chip.
+    const rowY = scoreBottom + 100 * u;
+    const chipLabel = [`${aSets}–${bSets}`, d.context || d.category].filter(Boolean).join(' · ');
+    const chip = drawChip(ctx, W / 2, rowY, chipLabel, 26 * u, fUI, accent, contrastColor(accent), 24 * u, 15 * u);
+
+    const wName = winA ? pairName(d, 'a') : pairName(d, 'b');
+    const lName = winA ? pairName(d, 'b') : pairName(d, 'a');
+    // Clamp each name column so it never runs under the centered chip.
+    const gap = 26 * u;
+    const leftMaxW = (chip.x - gap) - pad;
+    const rightMaxW = (W - pad) - (chip.x + chip.w + gap);
+    drawStackNames(ctx, pad, rowY, splitPair(wName), c.text, 'left', u, fUI, leftMaxW);
+    drawStackNames(ctx, W - pad, rowY, splitPair(lName), c.muted, 'right', u, fUI, rightMaxW);
+
+    drawVoleoBrand(ctx, logoColor, W / 2, H - 64 * u, 19 * u, 'center', c.muted, fMono);
+    ctx.textAlign = 'left';
+}
+
+/* ---- new-template helpers ---- */
+// Auto-shrink a font so `text` fits within maxW.
+function fitFont(ctx, text, maxW, startPx, weight, family) {
+    let px = startPx;
+    ctx.font = `${weight} ${px}px ${family}`;
+    while (ctx.measureText(text).width > maxW && px > 12) {
+        px -= 2;
+        ctx.font = `${weight} ${px}px ${family}`;
+    }
+    return px;
+}
+
+// A filled rounded chip with centered text; returns its box {x,y,w,h}.
+function drawChip(ctx, cx, cy, text, fontPx, family, fillColor, textColor, padX, padY) {
+    ctx.font = `700 ${fontPx}px ${family}`;
+    const tw = ctx.measureText(text).width;
+    const w = tw + padX * 2;
+    const h = fontPx + padY * 2;
+    const x = cx - w / 2;
+    const y = cy - h / 2;
+    roundRect(ctx, x, y, w, h, h * 0.30);
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.fillStyle = textColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, cx, cy + fontPx * 0.04);
+    ctx.textBaseline = 'alphabetic';
+    return { x, y, w, h };
+}
+
+// Inline "value LABEL" wing, centered on cx (value bold, label mono faint).
+function drawWingInline(ctx, cx, y, value, label, u, fUI, fMono, valColor, labColor) {
+    ctx.textBaseline = 'middle';
+    ctx.font = `700 ${26 * u}px ${fUI}`;
+    const vw = ctx.measureText(value).width;
+    ctx.font = `500 ${16 * u}px ${fMono}`;
+    const lw = ctx.measureText(' ' + label).width;
+    let x = cx - (vw + lw) / 2;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = valColor;
+    ctx.font = `700 ${26 * u}px ${fUI}`;
+    ctx.fillText(value, x, y);
+    x += vw;
+    ctx.fillStyle = labColor;
+    ctx.font = `500 ${16 * u}px ${fMono}`;
+    ctx.fillText(' ' + label, x, y);
+    ctx.textBaseline = 'alphabetic';
+}
+
+// Two-line names anchored at x (align left/right), vertically centered on cy.
+// Each line is shrunk to fit maxW, then ellipsized if still too wide, so names
+// never collide with the centered chip.
+function drawStackNames(ctx, x, cy, parts, color, align, u, fUI, maxW) {
+    ctx.fillStyle = color;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'middle';
+    const lh = 42 * u;
+    const startY = cy - (parts.length - 1) * lh / 2;
+    const floor = 22 * u;
+    parts.forEach((p, i) => {
+        let px = 34 * u;
+        ctx.font = `700 ${px}px ${fUI}`;
+        if (maxW) {
+            while (ctx.measureText(p).width > maxW && px > floor) {
+                px -= 1;
+                ctx.font = `700 ${px}px ${fUI}`;
+            }
+        }
+        let text = p;
+        if (maxW && ctx.measureText(text).width > maxW) {
+            while (text.length > 1 && ctx.measureText(text + '…').width > maxW) text = text.slice(0, -1);
+            text = text + '…';
+        }
+        ctx.fillText(text, x, startY + i * lh);
+    });
+    ctx.textBaseline = 'alphabetic';
+}
+
+// Winner caption from the winning pair's first names → "A & B ganan".
+function winnerCaption(d) {
+    const w = d.winner === 'b' ? d.pairB : d.pairA;
+    const parts = splitPair(w || '').map((p) => p.trim().split(/\s+/)[0]).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0]} & ${parts[1]} ganan`;
+    if (parts.length === 1) return `${parts[0]} gana`;
+    return 'Resultado';
+}
+
+// Dark or light text that reads on top of `hex` (by luminance).
+function contrastColor(hex) {
+    const [r, g, b] = hexToRgb(hex);
+    const L = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return L > 0.6 ? '#14140f' : '#ffffff';
 }
 
 /* ---- primitive helpers ---- */
 function line(ctx, x1, y1, x2, y2, color) {
     ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(1, (x2 - x1) * 0 + 1);
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
@@ -863,14 +898,8 @@ function line(ctx, x1, y1, x2, y2, color) {
 function dot(ctx, x, y, r, color, filled) {
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
-    if (filled) {
-        ctx.fillStyle = color;
-        ctx.fill();
-    } else {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-    }
+    if (filled) { ctx.fillStyle = color; ctx.fill(); }
+    else { ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke(); }
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -883,26 +912,9 @@ function roundRect(ctx, x, y, w, h, r) {
     ctx.closePath();
 }
 
-function wrapText(ctx, text, x, y, maxW, lh) {
-    const words = (text || '').split(' ');
-    let lineStr = '',
-        yy = y;
-    words.forEach((w) => {
-        const test = lineStr ? lineStr + ' ' + w : w;
-        if (ctx.measureText(test).width > maxW && lineStr) {
-            ctx.fillText(lineStr, x, yy);
-            lineStr = w;
-            yy += lh;
-        } else {
-            lineStr = test;
-        }
-    });
-    if (lineStr) ctx.fillText(lineStr, x, yy);
-}
-
 function truncate(s, n) {
     s = s || '';
-    return s.length > n ? s.slice(0, n - 1) + '\u2026' : s;
+    return s.length > n ? s.slice(0, n - 1) + '…' : s;
 }
 
 function hexToRgb(hex) {
@@ -912,13 +924,25 @@ function hexToRgb(hex) {
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+// Normalize any color string to a 6-digit hex for <input type=color>.
+function toHexInput(color) {
+    if (!color) return '#ffffff';
+    if (color[0] === '#') {
+        const h = color.slice(1);
+        if (h.length === 3) return '#' + h.split('').map((c) => c + c).join('');
+        return '#' + h.slice(0, 6);
+    }
+    const [r, g, b] = hexToRgb(color); // falls back to 0 for rgba()
+    const to = (n) => n.toString(16).padStart(2, '0');
+    return `#${to(r)}${to(g)}${to(b)}`;
+}
+
 function slug(s) {
     return (s || '').toString().toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
         .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-// Short caption included with the shared file (some apps use it as the message).
 function shareCaption(d) {
     const winner = d.winner === 'b' ? d.pairB : d.pairA;
     const parts = [d.tournament, d.category].filter(Boolean).join(' · ');
