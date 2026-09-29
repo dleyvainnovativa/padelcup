@@ -12,6 +12,11 @@
         <h1>{{ $category->name }}</h1>
         <div class="pub-title-actions">
             <span class="pub-live"><span class="pub-status__dot pub-status__dot--live"></span> En vivo</span>
+            <button type="button" class="pub-btn pub-btn--sm"
+                data-changes-url="{{ route('public.category.changes', [$tournament, $category]) }}"
+                data-changes-title="Cambios · {{ $category->name }}">
+                <i class="fa-solid fa-clock-rotate-left"></i> Cambios
+            </button>
             <button type="button" class="pub-btn pub-btn--icon" data-share="{{ route('public.category', [$tournament, $category]) }}" data-share-title="{{ $category->name }} · {{ $tournament->name }}">
                 <i class="fa-solid fa-share-nodes"></i> Compartir
             </button>
@@ -63,38 +68,38 @@
                 <div class="pub-card">
                     <div class="pub-card__head">{{ $group['name'] }}</div>
                     <div class="pub-table-wrap">
-                    <table class="pub-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Pareja</th>
-                                <th>PJ</th>
-                                <th>Pts</th>
-                                <th title="Sets ganados–perdidos">Sets</th>
-                                <th>G+</th>
-                                <th>G-</th>
-                                <th>Dif</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($group['rows'] as $pos => $row)
-                            @php $rank = $pos + 1; $q = in_array($row['pair_id'], $qualifierIds); @endphp
-                            <tr class="{{ $rank <= 3 ? 'pub-top'.$rank : '' }}">
-                                <td>{{ $rank }}</td>
-                                <td>
-                                    {{ $row['pair_name'] }}
-                                    @if($q)<i class="fa-solid fa-circle-up pub-q" title="Clasifica"></i>@endif
-                                </td>
-                                <td>{{ $row['played'] }}</td>
-                                <td><strong>{{ $row['points'] }}</strong></td>
-                                <td class="pub-mono">{{ $row['sets_for'] }}–{{ $row['sets_against'] }}</td>
-                                <td><strong>{{ $row['games_for'] }}</strong></td>
-                                <td><strong>{{ $row['games_against'] }}</strong></td>
-                                <td class="pub-mono">{{ $row['game_diff'] > 0 ? '+' : '' }}{{ $row['game_diff'] }}</td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                        <table class="pub-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Pareja</th>
+                                    <th>PJ</th>
+                                    <th>Pts</th>
+                                    <th title="Sets ganados–perdidos">Sets</th>
+                                    <th>G+</th>
+                                    <th>G-</th>
+                                    <th>Dif</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($group['rows'] as $pos => $row)
+                                @php $rank = $pos + 1; $q = in_array($row['pair_id'], $qualifierIds); @endphp
+                                <tr class="{{ $rank <= 3 ? 'pub-top'.$rank : '' }}">
+                                    <td>{{ $rank }}</td>
+                                    <td>
+                                        {{ $row['pair_name'] }}
+                                        @if($q)<i class="fa-solid fa-circle-up pub-q" title="Clasifica"></i>@endif
+                                    </td>
+                                    <td>{{ $row['played'] }}</td>
+                                    <td><strong>{{ $row['points'] }}</strong></td>
+                                    <td class="pub-mono">{{ $row['sets_for'] }}–{{ $row['sets_against'] }}</td>
+                                    <td><strong>{{ $row['games_for'] }}</strong></td>
+                                    <td><strong>{{ $row['games_against'] }}</strong></td>
+                                    <td class="pub-mono">{{ $row['game_diff'] > 0 ? '+' : '' }}{{ $row['game_diff'] }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
                 </div>
                 @endforeach
@@ -109,37 +114,37 @@
             <div x-show="view === 'general'" x-cloak>
                 <div class="pub-card">
                     <div class="pub-table-wrap">
-                    <table class="pub-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Pareja</th>
-                                <th>Grupo</th>
-                                <th>PJ</th>
-                                <th>Pts</th>
-                                <th title="Sets ganados–perdidos">Sets</th>
-                                <th>G+</th>
-                                <th>G-</th>
-                                <th>Dif</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($combined as $i => $row)
-                            @php $rank = $i + 1; $q = in_array($row['pair_id'], $qualifierIds); @endphp
-                            <tr class="{{ $rank <= 3 ? 'pub-top'.$rank : '' }}">
-                                <td>{{ $rank }}</td>
-                                <td>{{ $row['pair_name'] }} @if($q)<i class="fa-solid fa-circle-up pub-q"></i>@endif</td>
-                                <td class="pub-muted">{{ $row['group_name'] }}</td>
-                                <td>{{ $row['played'] }}</td>
-                                <td><strong>{{ $row['points'] }}</strong></td>
-                                <td class="pub-mono">{{ $row['sets_for'] }}–{{ $row['sets_against'] }}</td>
-                                <td><strong>{{ $row['games_for'] }}</strong></td>
-                                <td><strong>{{ $row['games_against'] }}</strong></td>
-                                <td class="pub-mono">{{ $row['game_diff'] > 0 ? '+' : '' }}{{ $row['game_diff'] }}</td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                        <table class="pub-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Pareja</th>
+                                    <th>Grupo</th>
+                                    <th>PJ</th>
+                                    <th>Pts</th>
+                                    <th title="Sets ganados–perdidos">Sets</th>
+                                    <th>G+</th>
+                                    <th>G-</th>
+                                    <th>Dif</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($combined as $i => $row)
+                                @php $rank = $i + 1; $q = in_array($row['pair_id'], $qualifierIds); @endphp
+                                <tr class="{{ $rank <= 3 ? 'pub-top'.$rank : '' }}">
+                                    <td>{{ $rank }}</td>
+                                    <td>{{ $row['pair_name'] }} @if($q)<i class="fa-solid fa-circle-up pub-q"></i>@endif</td>
+                                    <td class="pub-muted">{{ $row['group_name'] }}</td>
+                                    <td>{{ $row['played'] }}</td>
+                                    <td><strong>{{ $row['points'] }}</strong></td>
+                                    <td class="pub-mono">{{ $row['sets_for'] }}–{{ $row['sets_against'] }}</td>
+                                    <td><strong>{{ $row['games_for'] }}</strong></td>
+                                    <td><strong>{{ $row['games_against'] }}</strong></td>
+                                    <td class="pub-mono">{{ $row['game_diff'] > 0 ? '+' : '' }}{{ $row['game_diff'] }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

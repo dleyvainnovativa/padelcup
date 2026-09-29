@@ -337,11 +337,16 @@ class ScheduleController extends Controller
             return response()->json(['ok' => false, 'conflicts' => $conflicts], 422);
         }
 
+        $before = $this->scheduleSnapshot($match);
+
         $match->update([
             'court_id' => $court->id,
             'starts_at' => $startsAt,
             'duration_minutes' => $duration,
         ]);
+
+        // Log the schedule change for the public "Últimos cambios" feed.
+        $this->auditScheduleChange($match->fresh(), $before, $request, 'reprogramar');
 
         return response()->json(['ok' => true, 'warnings' => $conflicts]);
     }
@@ -356,7 +361,9 @@ class ScheduleController extends Controller
         $match = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->findOrFail($data['match_id']);
 
+        $before = $this->scheduleSnapshot($match);
         $match->update(['court_id' => null, 'starts_at' => null]);
+        $this->auditScheduleChange($match->fresh(), $before, $request, 'quitar del calendario');
 
         return response()->json(['ok' => true]);
     }
@@ -1087,6 +1094,40 @@ class ScheduleController extends Controller
             'after'         => ['court_id' => $m->court_id],
             'note'          => $note,
         ]);
+    }
+    private function auditScheduleChange(GameMatch $m, array $before, Request $request, string $note): void
+    {
+        $tz = 'America/Mexico_City';
+
+        $after = [
+            'court_id'  => $m->court_id,
+            'starts_at' => $m->starts_at ? $m->starts_at->timezone($tz)->format('Y-m-d H:i') : null,
+        ];
+
+        // Skip a no-op (nothing actually changed).
+        if (($before['court_id'] ?? null) === ($after['court_id'] ?? null)
+            && ($before['starts_at'] ?? null) === ($after['starts_at'] ?? null)
+        ) {
+            return;
+        }
+
+        \App\Models\MatchAudit::create([
+            'game_match_id' => $m->id,
+            'user_id'       => $request->user()?->id,
+            'action'        => 'schedule_change',
+            'before'        => $before,
+            'after'         => $after,
+            'note'          => $note,
+        ]);
+    }
+
+    /** Snapshot a match's current court + local start time (for a `before`). */
+    private function scheduleSnapshot(GameMatch $m): array
+    {
+        return [
+            'court_id'  => $m->court_id,
+            'starts_at' => $m->starts_at ? $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d H:i') : null,
+        ];
     }
     private function playerMatchIndex(Tournament $tournament): array
     {

@@ -3402,3 +3402,40 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
 .pl-busy__ctx { color: var(--text-muted); flex: 1 1 auto; }
 .pl-busy__court { color: var(--text-faint); white-space: nowrap; }
 .pl-busy__court i { margin-right: 3px; }
+
+
+/* Public "Últimos cambios" bottomsheet ----------------------------------- */
+.pc-changes-overlay {
+  position: fixed; inset: 0; z-index: 1000; display: none;
+  background: rgba(0,0,0,0.5);
+}
+.pc-changes-overlay.is-open { display: block; }
+.pc-changes {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  max-height: 82vh; overflow-y: auto;
+  background: var(--surface);
+  border-top-left-radius: 20px; border-top-right-radius: 20px;
+  box-shadow: 0 -12px 40px rgba(0,0,0,0.25);
+  transform: translateY(100%); transition: transform .26s cubic-bezier(.32,.72,0,1);
+  padding: 0 18px calc(18px + env(safe-area-inset-bottom, 0px));
+}
+.pc-changes-overlay.is-open .pc-changes { transform: translateY(0); }
+@media (min-width: 640px) {
+  .pc-changes { left: 50%; right: auto; transform: translate(-50%, 100%); width: 520px; border-radius: 20px; bottom: 4vh; }
+  .pc-changes-overlay.is-open .pc-changes { transform: translate(-50%, 0); }
+}
+.pc-changes__grip { width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong, #d4d8e0); margin: 10px auto 4px; }
+.pc-changes__head { display: flex; align-items: center; justify-content: space-between; padding-top: 4px; }
+.pc-changes__title { font-size: 16px; font-weight: 700; }
+.pc-changes__close { border: 0; background: transparent; font-size: 26px; line-height: 1; color: var(--text-muted); cursor: pointer; }
+.pc-changes__sub { font-size: 12px; color: var(--text-faint); margin: 2px 0 12px; }
+.pc-changes__list { display: flex; flex-direction: column; gap: 8px; }
+.pc-changes__loading, .pc-changes__empty { font-size: 13px; color: var(--text-faint); padding: 16px 4px; text-align: center; }
+.pc-change {
+  border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
+  background: var(--surface);
+}
+.pc-change__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pc-change__match { font-size: 13px; font-weight: 600; color: var(--text); }
+.pc-change__ago { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+.pc-change__summary { font-size: 12px; color: var(--text-muted); margin-top: 4px; }

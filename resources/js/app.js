@@ -109,7 +109,9 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
   if (document.querySelector('[data-auto-refresh], [data-share], [data-qr]')) {
     import('./modules/publicPages').then((m) => m.initPublicPages());
   }
-
+  if (document.querySelector('[data-changes-url]')) {
+    import('./modules/publicChanges').then((m) => m.initPublicChanges());
+  }
   // Feature module: shareable match result image.
   if (document.querySelector('[data-share-match]')) {
     import('./modules/matchShare').then((m) => m.initMatchShare());

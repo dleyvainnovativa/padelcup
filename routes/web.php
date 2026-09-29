@@ -176,6 +176,8 @@ Route::middleware(['auth'])->group(function () {
             [TournamentRankingController::class, 'revert']
         )
             ->name('tournaments.rankings.revert');
+        Route::post('respaldar', [\App\Http\Controllers\Dashboard\TournamentController::class, 'backupNow'])
+            ->name('tournaments.backup');
     });
     Route::resource('ranking-systems', RankingSystemController::class);
 
@@ -260,6 +262,8 @@ Route::get('/', [\App\Http\Controllers\PublicTournamentController::class, 'landi
 
 // Public, read-only tournament pages (Phase 8) — no auth.
 Route::get('/torneos', [\App\Http\Controllers\PublicTournamentController::class, 'directory'])->name('public.directory');
+Route::get('/t/{tournament}/cambios', [\App\Http\Controllers\PublicTournamentController::class, 'changes'])->name('public.changes');
+Route::get('/t/{tournament}/categorias/{category}/cambios', [\App\Http\Controllers\PublicTournamentController::class, 'categoryChanges'])->name('public.category.changes');
 Route::get('/anuncio/{ad}/clic', [\App\Http\Controllers\Admin\AdController::class, 'click'])->name('ads.click');
 Route::get('/t/{tournament}', [\App\Http\Controllers\PublicTournamentController::class, 'show'])->name('public.tournament');
 Route::get('/t/{tournament}/quiniela', [\App\Http\Controllers\Public\PredictionController::class, 'leaderboard'])->name('public.predictions.leaderboard');

@@ -306,4 +306,40 @@ class TournamentController extends Controller
 
         return back()->with('status', 'Torneo desbloqueado. Ahora puedes hacer cambios de estructura; vuelve a bloquear al terminar.');
     }
+    /** Save a JSON backup of THIS tournament to server storage (overwrites). */
+    public function backupNow(Tournament $tournament, \App\Services\Tournament\TournamentTransferService $transfer)
+    {
+        $this->authorize('update', $tournament);
+
+        try {
+            $data = $transfer->export($tournament);
+            $payload = [
+                'backed_up_at' => now()->toIso8601String(),
+                'tournament_id' => $tournament->id,
+                'tournament_name' => $tournament->name,
+                'data' => $data,
+            ];
+            $disk = \Illuminate\Support\Facades\Storage::disk('local');
+            $disk->makeDirectory('backups');
+            $disk->put(
+                "backups/tournament-{$tournament->id}.json",
+                json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+            );
+        } catch (\Throwable $e) {
+            return back()->withErrors(['backup' => 'No se pudo respaldar: ' . $e->getMessage()]);
+        }
+
+        return back()->with('status', 'Respaldo guardado en el servidor (' . now('America/Mexico_City')->format('H:i') . ').');
+    }
+
+    /**
+     * OPTIONAL helper for the view: last backup time for this tournament, or null.
+     * Call from show() and pass to the blade to render a "último respaldo" line.
+     */
+    public function lastBackupAt(Tournament $tournament): ?\Carbon\Carbon
+    {
+        $path = storage_path("app/backups/tournament-{$tournament->id}.json");
+        if (! is_file($path)) return null;
+        return \Carbon\Carbon::createFromTimestamp(filemtime($path))->timezone('America/Mexico_City');
+    }
 }

@@ -958,4 +958,124 @@ class PublicTournamentController extends Controller
 
         return $out;
     }
+    /** Tournament-wide recent schedule changes (JSON). */
+    public function changes(Tournament $tournament)
+    {
+        $this->ensurePublic($tournament);
+        return response()->json(['changes' => $this->recentScheduleChanges($tournament)]);
+    }
+
+    /** Recent schedule changes for one category (JSON). */
+    public function categoryChanges(Tournament $tournament, Category $category)
+    {
+        $this->ensurePublic($tournament);
+        abort_unless($category->tournament_id === $tournament->id, 404);
+        return response()->json(['changes' => $this->recentScheduleChanges($tournament, $category)]);
+    }
+
+    /**
+     * Build the public change feed: court + time changes in the last 48h, newest
+     * first, rendered as human rows. Optionally scoped to one category.
+     *
+     * @return array<int, array{when:string, ago:string, category:string, match:string, summary:string}>
+     */
+    private function recentScheduleChanges(Tournament $tournament, ?Category $category = null): array
+    {
+        $tz = 'America/Mexico_City';
+        $since = now()->subHours(48);
+
+        $audits = \App\Models\MatchAudit::query()
+            ->whereIn('action', ['schedule_change', 'court_switch'])
+            ->where('created_at', '>=', $since)
+            ->whereHas('match', function ($q) use ($tournament, $category) {
+                $q->whereHas('category', function ($qq) use ($tournament, $category) {
+                    $qq->where('tournament_id', $tournament->id);
+                    if ($category) $qq->where('id', $category->id);
+                });
+            })
+            ->with([
+                'match:id,category_id,group_id,round,pair_a_id,pair_b_id,court_id,starts_at',
+                'match.category:id,name',
+                'match.group:id,name',
+                'match.court:id,name',
+            ])
+            ->orderByDesc('created_at')
+            ->limit(60)
+            ->get();
+
+        // Court id → name map so before/after court ids render as names.
+        $courtNames = $tournament->courts()
+            ->with('venue')
+            ->get()
+            ->mapWithKeys(fn($court) => [
+                $court->id => "{$court->venue->name}: {$court->name}"
+            ]);
+        $out = [];
+        foreach ($audits as $a) {
+            $m = $a->match;
+            if (! $m) continue;
+
+            $before = $a->before ?? [];
+            $after = $a->after ?? [];
+
+            $summary = $this->changeSummary($a->action, $before, $after, $courtNames, $tz);
+            if ($summary === null) continue; // nothing meaningful to show
+
+            $created = $a->created_at->timezone($tz);
+            $out[] = [
+                'when' => $created->format('Y-m-d H:i'),
+                'ago' => $created->locale('es')->diffForHumans(),
+                'category' => $m->category?->name ?? '',
+                'match' => method_exists($m, 'contextLabel') ? $m->contextLabel() : ($m->category?->name ?? ''),
+                'summary' => $summary,
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Human "from → to" summary for one audit; null if nothing changed. */
+    private function changeSummary(string $action, array $before, array $after, $courtNames, string $tz): ?string
+    {
+        $fmtTime = function ($val) use ($tz) {
+            if (blank($val)) return null;
+            try {
+                return \Illuminate\Support\Str::ucfirst(
+                    \Carbon\Carbon::parse($val, $tz)->locale('es')->isoFormat('ddd D MMM · HH:mm')
+                );
+            } catch (\Throwable $e) {
+                return (string) $val;
+            }
+        };
+        $courtName = fn($id) => $id ? ($courtNames[$id] ?? ('Cancha ' . $id)) : null;
+
+        $bT = $fmtTime($before['starts_at'] ?? null);
+        $aT = $fmtTime($after['starts_at'] ?? null);
+        $bC = $courtName($before['court_id'] ?? null);
+        $aC = $courtName($after['court_id'] ?? null);
+
+        $timeChanged = ($before['starts_at'] ?? null) !== ($after['starts_at'] ?? null);
+        $courtChanged = ($before['court_id'] ?? null) !== ($after['court_id'] ?? null);
+
+        // Sent back to the tray.
+        if (blank($after['starts_at'] ?? null) && ! blank($before['starts_at'] ?? null)) {
+            return 'Se quitó del calendario (por reprogramar)';
+        }
+
+        // First-time scheduling (was in the tray → now placed): read cleanly.
+        if (! $bT && $aT) {
+            $where = $aC ? " · {$aC}" : '';
+            return "Programado: {$aT}{$where}";
+        }
+
+        $parts = [];
+        if ($timeChanged && $bT && $aT) {
+            $parts[] = "Horario: {$bT} → {$aT}";
+        }
+        if ($courtChanged && ($bC || $aC)) {
+            $parts[] = ($bC ?? '—') . ' → ' . ($aC ?? '—');
+        }
+
+        return empty($parts) ? null : implode(' · ', $parts);
+    }
 }

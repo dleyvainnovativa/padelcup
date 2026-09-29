@@ -52,6 +52,13 @@
             </a>
         </div>
         <div class="col-auto">
+            <button type="button" class="pub-btn"
+                data-changes-url="{{ route('public.changes', $tournament) }}"
+                data-changes-title="Últimos cambios">
+                <i class="fa-solid fa-clock-rotate-left"></i> Cambios
+            </button>
+        </div>
+        <div class="col-auto">
 
             <a href="{{ route('public.predictions.leaderboard', $tournament) }}" class="pub-btn">
                 <i class="fa-solid fa-hand-sparkles"></i> Predicciones
