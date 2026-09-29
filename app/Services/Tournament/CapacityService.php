@@ -234,31 +234,16 @@ class CapacityService
         $days = $tournament->playDays()->values();
         if ($days->isEmpty()) return ['windows' => [], 'overflow' => false];
 
-        // Build a FLAT list of concrete slots across all play days. Each day
-        // contributes its own slots from ITS OWN window (day_hours override or the
-        // global play_start/play_end) stepping by that day's duration — so a day
-        // that runs 18:00–23:00 yields fewer slots starting at 18:00, and the
-        // proposal never suggests a time before a day actually opens.
+        // Flat list of concrete slots a COURT CAN ACTUALLY SERVE across all play
+        // days — court availability (∩ each day's play hours) rather than the
+        // full hoursForDay() span. This is the same constraint the auto-scheduler
+        // enforces at placement time, so a proposed window never suggests a time
+        // no court is open (e.g. 08:00 on a day whose courts run 18:00–23:00, or
+        // a midday gap between two court blocks). Falls back to the full per-day
+        // window when no court has any availability rows.
         //
         // $slots[i] = ['start' => Carbon, 'end' => Carbon]
-        $slots = [];
-        foreach ($days as $d) {
-            [$dStart, $dEnd] = $tournament->hoursForDay($d);
-            [$sh, $sm] = array_map('intval', explode(':', $dStart));
-            [$eh, $em] = array_map('intval', explode(':', $dEnd));
-            $startMin = $sh * 60 + $sm;
-            $endMin   = $eh * 60 + $em;
-
-            // Per-day match duration (last day may run longer for SF/F).
-            $dayDur = $tournament->durationForDay($d);
-            if ($dayDur < 1) $dayDur = $duration;
-
-            $ymd = $d->format('Y-m-d');
-            for ($m = $startMin; $m + $dayDur <= $endMin; $m += $dayDur) {
-                $start = Carbon::parse($ymd, 'America/Mexico_City')->setTime(intdiv($m, 60), $m % 60);
-                $slots[] = ['start' => $start, 'end' => $start->copy()->addMinutes($dayDur)];
-            }
-        }
+        $slots = $this->courtServableSlots($tournament);
 
         $maxSlotIndex = count($slots); // exclusive upper bound
         if ($maxSlotIndex < 1) return ['windows' => [], 'overflow' => false];
@@ -312,5 +297,133 @@ class CapacityService
             16 => 'r16',
             default => 'r32',
         };
+    }
+
+    /**
+     * Flat, time-ordered list of concrete slots that at least one court can
+     * actually serve, across every play day. Each slot is one grid row on one
+     * day: [ 'start' => Carbon, 'end' => Carbon ]. Rows repeat per court are NOT
+     * produced here — capacity across courts is applied later (rows × courts),
+     * exactly as before. This only decides WHICH times are openable.
+     *
+     * @return array<int,array{start:\Carbon\Carbon,end:\Carbon\Carbon}>
+     */
+    private function courtServableSlots(Tournament $tournament): array
+    {
+        $tz = 'America/Mexico_City';
+
+        $tournament->loadMissing('venues.courts.availabilities');
+        $courts = $tournament->courts()->with('availabilities')->get();
+
+        // Collect every court-availability window, clipped to its day's play
+        // hours, as [startTs, endTs] segments. If no court has any window, we
+        // fall back to the full per-day hoursForDay() span below.
+        $segments = [];
+        foreach ($courts as $court) {
+            foreach ($court->availabilities as $w) {
+                if (! $w->starts_at || ! $w->ends_at) continue;
+                foreach ($this->clipWindowToDayHoursLocal($tournament, $w->starts_at->timestamp, $w->ends_at->timestamp) as $seg) {
+                    $segments[] = $seg;
+                }
+            }
+        }
+
+        $useAvailability = ! empty($segments);
+
+        // If we have real court windows, merge overlapping/touching segments so a
+        // time openable by ANY court counts once (pooled capacity is applied later).
+        if ($useAvailability) {
+            usort($segments, fn($a, $b) => $a[0] <=> $b[0]);
+            $merged = [];
+            foreach ($segments as $seg) {
+                if (! empty($merged) && $seg[0] <= $merged[count($merged) - 1][1]) {
+                    $merged[count($merged) - 1][1] = max($merged[count($merged) - 1][1], $seg[1]);
+                } else {
+                    $merged[] = $seg;
+                }
+            }
+            $segments = $merged;
+        }
+
+        // Build slots day by day so each day keeps its own duration and grid
+        // anchor (the day's own open time — matching the scheduler's per-day
+        // grid), then keep only slots that fall inside an openable segment.
+        $duration = (int) ($tournament->match_duration_minutes ?: 75);
+        $slots = [];
+
+        foreach ($tournament->playDays()->values() as $d) {
+            [$dStart, $dEnd] = $tournament->hoursForDay($d);
+            [$sh, $sm] = array_map('intval', explode(':', $dStart));
+            [$eh, $em] = array_map('intval', explode(':', $dEnd));
+            $startMin = $sh * 60 + $sm;
+            $endMin   = $eh * 60 + $em;
+
+            $dayDur = $tournament->durationForDay($d);
+            if ($dayDur < 1) $dayDur = $duration;
+
+            $ymd = $d->format('Y-m-d');
+
+            for ($m = $startMin; $m + $dayDur <= $endMin; $m += $dayDur) {
+                $start = Carbon::parse($ymd, $tz)->setTime(intdiv($m, 60), $m % 60);
+                $end   = $start->copy()->addMinutes($dayDur);
+
+                if ($useAvailability) {
+                    // Keep the slot only if it is fully contained in an openable
+                    // segment (a court can host a whole match here). Half-covered
+                    // slots are dropped, matching the scheduler's containment check.
+                    $slotStartTs = $start->timestamp;
+                    $slotEndTs   = $end->timestamp;
+                    $inside = false;
+                    foreach ($segments as [$segStart, $segEnd]) {
+                        if ($segStart <= $slotStartTs && $slotEndTs <= $segEnd) {
+                            $inside = true;
+                            break;
+                        }
+                        if ($segStart > $slotStartTs) break; // segments are sorted
+                    }
+                    if (! $inside) continue;
+                }
+
+                $slots[] = ['start' => $start, 'end' => $end];
+            }
+        }
+
+        return $slots;
+    }
+
+    /**
+     * Intersect a court-availability window with each covered day's play hours.
+     * Local copy of SchedulingService::clipWindowToDayHours so CapacityService
+     * stays self-contained (no cross-service dependency). Same semantics.
+     *
+     * @return array<int,array{0:int,1:int}> [ [startTs, endTs], ... ]
+     */
+    private function clipWindowToDayHoursLocal(Tournament $tournament, int $startTs, int $endTs): array
+    {
+        if ($endTs <= $startTs) return [];
+
+        $tz = 'America/Mexico_City';
+        $segments = [];
+        $cursorDay = Carbon::createFromTimestamp($startTs, $tz)->startOfDay();
+        $lastDay   = Carbon::createFromTimestamp($endTs, $tz)->startOfDay();
+
+        while ($cursorDay->lte($lastDay)) {
+            [$dStart, $dEnd] = $tournament->hoursForDay($cursorDay);
+            [$sh, $sm] = array_map('intval', explode(':', $dStart));
+            [$eh, $em] = array_map('intval', explode(':', $dEnd));
+
+            $dayOpen  = $cursorDay->timestamp + ($sh * 60 + $sm) * 60;
+            $dayClose = $cursorDay->timestamp + ($eh * 60 + $em) * 60;
+
+            $segStart = max($startTs, $dayOpen);
+            $segEnd   = min($endTs, $dayClose);
+            if ($segStart < $segEnd) {
+                $segments[] = [$segStart, $segEnd];
+            }
+
+            $cursorDay = $cursorDay->copy()->addDay();
+        }
+
+        return $segments;
     }
 }
