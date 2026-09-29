@@ -404,9 +404,15 @@ class ScheduleController extends Controller
     {
         $this->authorize('update', $tournament);
 
-        $conflicts = $this->scheduler->detectConflicts($tournament);
+        // One pass builds all three reports (player conflicts incl. possible R2,
+        // players with 3+ matches in a day, per-category play order).
+        $audit = $this->scheduler->audit($tournament);
 
-        return back()->with('conflicts', $conflicts)->with('conflictsChecked', true);
+        return back()
+            ->with('conflicts', $audit['conflicts'])
+            ->with('scheduleLoad', $audit['load'])
+            ->with('scheduleOrder', $audit['order'])
+            ->with('conflictsChecked', true);
     }
 
     /** Export the full schedule as a PDF (for WhatsApp / sharing). */

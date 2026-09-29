@@ -3481,3 +3481,41 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
 .bp-group-row__name { font-size: 13px; color: var(--text); }
 .bp-group-row__size { font-size: 11px; color: var(--text-faint); }
 .bp-group-row__input { width: 72px; border-radius: var(--radius); }
+
+
+/* ---------------------------------------------------------------
+   Schedule audit ("Revisar conflictos"): order per category,
+   3+ matches per day, possible (R2) conflicts
+   --------------------------------------------------------------- */
+.audit-summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.audit-summary__item {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; padding: 6px 10px;
+  border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface);
+}
+.audit-summary__item.is-ok   { background: var(--success-soft); color: var(--success-text); border-color: transparent; }
+.audit-summary__item.is-warn { background: var(--warning-soft); color: var(--warning-text); border-color: transparent; }
+.audit-summary__item.is-bad  { background: var(--danger-soft);  color: var(--danger-text);  border-color: transparent; }
+
+.audit-cat { display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.audit-cat:last-child { border-bottom: 0; padding-bottom: 0; }
+.audit-cat__head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.audit-cat__name { font-weight: 600; font-size: 14px; margin-right: 4px; }
+
+.audit-details > summary {
+  cursor: pointer; font-size: 12px; font-weight: 600; color: var(--warning-text);
+  list-style: none; margin-bottom: 6px;
+}
+.audit-details > summary::-webkit-details-marker { display: none; }
+.audit-details > summary::before { content: "▸ "; }
+.audit-details[open] > summary::before { content: "▾ "; }
+.audit-details .conflict-row + .conflict-row { margin-top: 8px; }
+
+.audit-load { margin-left: auto; font-size: 12px; font-weight: 700; }
+.audit-load__detail { font-weight: 500; color: var(--text-muted); }
+.audit-note { font-size: 11px; color: var(--text-faint); margin: 4px 0 0; }
+
+.conflict-row__vs { display: block; font-size: 12px; color: var(--text); margin: 1px 0; }
+.conflict-row__alt { display: block; font-style: italic; }
+.conflict-row__tag--possible { background: var(--warning-soft); color: var(--warning-text); }
+.conflict-row--possible { border-left-style: dashed; }

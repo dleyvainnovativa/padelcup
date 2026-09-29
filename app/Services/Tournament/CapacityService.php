@@ -156,7 +156,7 @@ class CapacityService
         return $counts;
     }
 
-    /** qualifiers = groups × advance_per_group + extra_qualifiers (config-based). */
+    /** qualifiers = Σ per-group winners (overrides honoured) + extra_qualifiers. */
     private function qualifierCount($category): int
     {
         $groupCount = $category->groups->count();
@@ -164,7 +164,7 @@ class CapacityService
             // No groups yet: estimate from preferred size if available, else 0.
             return 0;
         }
-        return $groupCount * (int) $category->advance_per_group + (int) ($category->extra_qualifiers ?? 0);
+        return $category->qualifiersTotal($groupCount); // honours per-group overrides
     }
 
     /** Smallest power of 2 ≥ n (min 2). */

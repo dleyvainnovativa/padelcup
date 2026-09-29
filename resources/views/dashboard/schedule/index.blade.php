@@ -368,47 +368,9 @@
 </div>
 @endif
 
-{{-- Conflict check report --}}
+{{-- Conflict check report (order per category, 3+ matches/day, player conflicts) --}}
 @if(session('conflictsChecked'))
-@php $conflicts = session('conflicts', []); @endphp
-@if(empty($conflicts))
-<div class="tc-card mb-3" style="border-color:color-mix(in srgb, var(--success,#30a46c) 40%, transparent);">
-    <div class="tc-card__body" style="color:var(--success-text);font-size:13px;">
-        <i class="fa-solid fa-circle-check me-1"></i> Sin conflictos: ningún jugador está programado en partidos que se encimen.
-    </div>
-</div>
-@else
-<div class="tc-card mb-3">
-    <div class="tc-card__head">
-        <h3><i class="fa-solid fa-user-clock me-1"></i> Conflictos de jugadores ({{ count($conflicts) }})</h3>
-    </div>
-    <div class="tc-card__body" style="display:flex;flex-direction:column;gap:8px;">
-        @foreach($conflicts as $c)
-        <div class="conflict-row conflict-row--{{ $c['severity'] }}">
-            <div class="conflict-row__player">
-                <i class="fa-solid {{ $c['severity'] === 'overlap' ? 'fa-triangle-exclamation' : 'fa-clock' }}"></i>
-                {{ $c['player'] }}
-                <span class="conflict-row__tag">{{ $c['severity'] === 'overlap' ? 'Se encima' : 'Poco descanso' }}</span>
-            </div>
-            <div class="conflict-row__matches">
-                @foreach($c['matches'] as $mi)
-                <div class="conflict-row__match">
-                    <span class="conflict-row__label">{{ $mi['label'] }}</span>
-                    <span class="conflict-row__when">
-                        @if($mi['court'])<i class="fa-solid fa-location-dot"></i> {{ $mi['court'] }} · @endif
-                        {{ $mi['time'] ?? 'sin hora' }}
-                    </span>
-                </div>
-                @endforeach
-            </div>
-        </div>
-        @endforeach
-        <p style="font-size:11px;color:var(--text-faint);margin:4px 0 0;">
-            Mueve o quita uno de los partidos en conflicto para resolverlo, luego vuelve a revisar.
-        </p>
-    </div>
-</div>
-@endif
+@include('dashboard.schedule.partials.audit-report')
 @endif
 
 @if($categories->count() > 1)

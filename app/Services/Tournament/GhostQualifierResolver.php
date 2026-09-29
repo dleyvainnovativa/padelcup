@@ -154,9 +154,11 @@ class GhostQualifierResolver
         // real binder uses so the ghost matches the eventual binding.
         $extra = (int) ($category->extra_qualifiers ?? 0);
         if ($extra > 0 && $allComplete) {
-            $adv = (int) $category->advance_per_group;
             $pool = [];
             foreach ($byLetter as $letter => $group) {
+                // Per-group winners (override or global) — must mirror
+                // BracketService::qualifiers() so the ghost matches the binding.
+                $adv = $category->winnersForGroupPosition(ord($letter) - ord('A'));
                 $standing = $completeStandings[$letter];
                 if ($standing->count() > $adv) {
                     $pool[] = $standing->get($adv); // the (N+1)-th place row

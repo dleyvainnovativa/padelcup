@@ -624,78 +624,134 @@ class SchedulingService
     }
 
     /**
-     * Post-resolution conflict check: find players booked in two (or more)
-     * SCHEDULED matches whose times overlap (hard conflict) or fall within the
-     * rest gap (soft warning). Only considers matches with KNOWN players — the
-     * cross-category collapse that placeholder scheduling can't prevent up front.
+     * Player conflicts (overlap / too little rest). Kept for existing callers —
+     * now also includes Mexicano R2 candidacies, flagged 'possible' => true.
      *
-     * @return array<int,array{player:string, severity:string, matches:array}>
+     * @return array<int,array{player:string, severity:string, possible:bool, matches:array}>
      */
     public function detectConflicts(Tournament $tournament): array
     {
-        $restSec = ((int) ($tournament->min_rest_minutes ?? 30)) * 60;
+        return $this->audit($tournament)['conflicts'];
+    }
 
+    /**
+     * Full "Revisar conflictos" report — see ScheduleAudit for the rules:
+     *   conflicts → per-player overlap / rest (sure + possible R2)
+     *   load      → players with 3+ (sure + possible) matches in one day
+     *   order     → per-category play-order errors / warnings
+     */
+    public function audit(Tournament $tournament, int $dayThreshold = 3): array
+    {
+        $restSec = ((int) ($tournament->min_rest_minutes ?? 30)) * 60;
+        [$rows, $groupsByCategory] = $this->auditRows($tournament);
+
+        return (new ScheduleAudit($restSec, 'America/Mexico_City', $dayThreshold))
+            ->run($rows, $groupsByCategory);
+    }
+
+    /**
+     * Flatten every match of the tournament into ScheduleAudit's plain row
+     * shape. ALL matches are loaded (scheduled or not, known pairs or not):
+     * the order check needs unscheduled dependencies, and R2 candidacies come
+     * from feeders whose own pairs are known.
+     *
+     * @return array{0: array<int,array>, 1: array<int,array<string,int>>}
+     */
+    public function auditRows(Tournament $tournament): array
+    {
+        $defaultDuration = (int) ($tournament->match_duration_minutes ?: 60);
+
+        $players = ['pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'];
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
-            ->whereNotNull('starts_at')
-            ->whereNotNull('pair_a_id')->whereNotNull('pair_b_id')
-            ->with(['category', 'group', 'court', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->with(array_merge(['category', 'group', 'court'], $players, [
+                'feederA.pairA.player1', 'feederA.pairA.player2', 'feederA.pairB.player1', 'feederA.pairB.player2',
+                'feederB.pairA.player1', 'feederB.pairA.player2', 'feederB.pairB.player1', 'feederB.pairB.player2',
+            ]))
             ->get();
 
-        // [normalizedName => [ ['match'=>m,'start'=>ts,'end'=>ts], ... ]]
-        // Keyed by IDENTITY (normalized name) so the same human playing in two
-        // categories (different Player rows) is detected as one person.
-        $byPlayer = [];
-        foreach ($matches as $m) {
-            $start = $m->starts_at->timestamp;
-            $end = $start + (((int) ($m->duration_minutes ?: 60)) * 60);
-            foreach ($this->playerKeys($m) as $pkey) {
-                $byPlayer[$pkey][] = ['match' => $m, 'start' => $start, 'end' => $end];
+        // [category_id => [letter => group_id]] in the same order BracketService letters them.
+        $groupsByCategory = [];
+        $letterByGroup = [];
+        $groups = \App\Models\Group::whereIn('category_id', $matches->pluck('category_id')->unique())
+            ->orderBy('category_id')->orderBy('position')->orderBy('id')
+            ->get(['id', 'category_id']);
+        foreach ($groups->groupBy('category_id') as $cid => $list) {
+            foreach ($list->values() as $i => $g) {
+                $L = chr(ord('A') + $i);
+                $groupsByCategory[$cid][$L] = $g->id;
+                $letterByGroup[$g->id] = $L;
             }
         }
 
-        $conflicts = [];
-        foreach ($byPlayer as $pkey => $entries) {
-            if (count($entries) < 2) continue;
-            usort($entries, fn($a, $b) => $a['start'] <=> $b['start']);
-
-            for ($i = 0; $i < count($entries) - 1; $i++) {
-                for ($j = $i + 1; $j < count($entries); $j++) {
-                    $a = $entries[$i];
-                    $b = $entries[$j];
-
-                    $hardOverlap = $a['start'] < $b['end'] && $b['start'] < $a['end'];
-                    $restViolation = ! $hardOverlap
-                        && $b['start'] >= $a['end']
-                        && ($b['start'] - $a['end'] < $restSec);
-
-                    if (! $hardOverlap && ! $restViolation) continue;
-
-                    $conflicts[] = [
-                        'player' => $this->playerNameByKey($a['match'], $pkey) ?? 'Jugador',
-                        'severity' => $hardOverlap ? 'overlap' : 'rest',
-                        'matches' => [
-                            $this->matchInfo($a['match']),
-                            $this->matchInfo($b['match']),
-                        ],
-                    ];
+        $playersOf = function ($pair): array {
+            $out = [];
+            if (! $pair) return $out;
+            foreach ([$pair->player1, $pair->player2] as $p) {
+                if ($p && filled($p->name)) {
+                    $out[\App\Models\Player::normalize($p->name)] = $p->name;
                 }
             }
+            return $out;
+        };
+
+        $rows = [];
+        foreach ($matches as $m) {
+            $start = $m->starts_at?->timestamp;
+            $duration = (int) ($m->duration_minutes ?: $defaultDuration);
+            $isGroup = $m->group_id !== null;
+
+            if ($isGroup) {
+                $phase = 'la fase de grupos';
+                $rank = 0;
+            } elseif ($m->is_third_place) {
+                $phase = '3er lugar';
+                $rank = max(1, $m->bracketTotalRounds()); // same rank as the final
+            } else {
+                $phase = $m->bracketRoundAbbr();
+                $rank = max(1, (int) $m->round);
+            }
+
+            $rows[$m->id] = [
+                'id' => $m->id,
+                'category_id' => $m->category_id,
+                'category' => $m->category?->name ?? 'Categoría',
+                'group_id' => $m->group_id,
+                'group_letter' => $isGroup ? ($letterByGroup[$m->group_id] ?? null) : null,
+                'round' => $m->round,
+                'is_third_place' => (bool) $m->is_third_place,
+                'is_bye' => $m->seed_label_a === 'BYE' || $m->seed_label_b === 'BYE',
+                'confirmed' => $m->state === \App\Enums\MatchState::Confirmed,
+                'start' => $start,
+                'end' => $start !== null ? $start + $duration * 60 : null,
+                'phase' => $phase,
+                'phase_rank' => $rank,
+                'feeders' => [
+                    'a' => $m->feeder_a_id ? ['id' => $m->feeder_a_id, 'source' => $m->feeder_a_source ?: 'winner'] : null,
+                    'b' => $m->feeder_b_id ? ['id' => $m->feeder_b_id, 'source' => $m->feeder_b_source ?: 'winner'] : null,
+                ],
+                'seed_labels' => ['a' => $m->seed_label_a, 'b' => $m->seed_label_b],
+                'players' => ['a' => $playersOf($m->pairA), 'b' => $playersOf($m->pairB)],
+                'info' => [
+                    'label' => $m->contextLabel(),
+                    // Same label minus the category — used inside per-category messages.
+                    'short' => \Illuminate\Support\Str::after($m->contextLabel(), ($m->category?->name ?? '') . ' · '),
+                    'vs' => $m->sideLabel('a') . ' vs ' . $m->sideLabel('b'),
+                    'court' => $m->court?->name,
+                    'time' => $m->starts_at?->timezone('America/Mexico_City')->translatedFormat('D d M · H:i'),
+                ],
+            ];
         }
 
-        // De-dupe (same player + same two matches).
-        $seen = [];
-        $unique = [];
-        foreach ($conflicts as $c) {
-            $key = $c['player'] . '|' . implode('|', array_map(fn($x) => $x['label'] . $x['time'], $c['matches']));
-            if (isset($seen[$key])) continue;
-            $seen[$key] = true;
-            $unique[] = $c;
+        // Feeders pointing outside the loaded set (shouldn't happen) are dropped
+        // so the audit never dereferences a missing row.
+        foreach ($rows as $id => $r) {
+            foreach (['a', 'b'] as $s) {
+                $fid = $r['feeders'][$s]['id'] ?? null;
+                if ($fid && ! isset($rows[$fid])) $rows[$id]['feeders'][$s] = null;
+            }
         }
 
-        // Hard overlaps first.
-        usort($unique, fn($a, $b) => ($a['severity'] === 'overlap' ? 0 : 1) <=> ($b['severity'] === 'overlap' ? 0 : 1));
-
-        return $unique;
+        return [$rows, $groupsByCategory];
     }
 
     /**

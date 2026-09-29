@@ -427,7 +427,9 @@ class BracketService
         // the returned list, so take the tail.
         $extra = (int) ($category->extra_qualifiers ?? 0);
         if ($extra > 0) {
-            $auto = $groups->count() * (int) $category->advance_per_group;
+            // Sum of per-group winners (honours winners_per_group overrides) —
+            // qualifiers() lists all auto pairs first, then the extras.
+            $auto = $category->autoQualifiersTotal($groups->count());
             $ranked = $this->qualifiers($category)['qualifiers'] ?? [];
             $extraIds = array_slice($ranked, $auto, $extra);
             foreach ($extraIds as $k => $pairId) {

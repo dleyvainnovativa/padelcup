@@ -159,7 +159,21 @@ class Category extends Model
      */
     public function qualifiersTotal(int $groupCount): int
     {
-        return ($this->advance_per_group * $groupCount) + $this->extra_qualifiers;
+        return $this->autoQualifiersTotal($groupCount) + (int) $this->extra_qualifiers;
+    }
+
+    /**
+     * Auto (non-extra) qualifiers across the first $groupCount groups, honouring
+     * per-group overrides (winners_per_group). Equals advance_per_group ×
+     * groupCount when there are no overrides.
+     */
+    public function autoQualifiersTotal(int $groupCount): int
+    {
+        $total = 0;
+        for ($i = 0; $i < $groupCount; $i++) {
+            $total += $this->winnersForGroupPosition($i);
+        }
+        return $total;
     }
     public static function normalizeKey(?string $name): string
     {
