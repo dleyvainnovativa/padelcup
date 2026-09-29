@@ -3529,3 +3529,12 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
 .pl-busy__tag--possible { background: var(--warning-soft); color: var(--warning-text); }
 .pl-busy__alt { display: block; font-size: 11px; font-style: italic; color: var(--text-faint); }
 .pl-busy__note { font-size: 11px; color: var(--text-faint); }
+
+/* Auto-programar: "Máx. 2/día" switch — v3 ------------------------------ */
+.sched-auto { display: inline-flex; align-items: center; gap: 8px; }
+.sched-auto__opt {
+  display: inline-flex; align-items: center; gap: 5px; margin: 0;
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+  cursor: pointer; white-space: nowrap; user-select: none;
+}
+.sched-auto__opt input { accent-color: var(--accent); margin: 0; }

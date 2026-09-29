@@ -357,9 +357,17 @@ class ScheduleController extends Controller
         }
 
         $duration = (int) $request->input('duration', $tournament->match_duration_minutes ?: 75);
-        $result = $this->scheduler->autoSchedule($tournament, $courts, $duration, $duration);
+        // "Máx. 2 partidos por día por jugador" switch (on by default). Hidden
+        // input sends 0 when unchecked; missing entirely → on.
+        $limitPerDay = $request->boolean('limit_per_day', true);
+        $result = $this->scheduler->autoSchedule($tournament, $courts, $duration, $duration, $limitPerDay, 2);
 
         $msg = "{$result['scheduled']} partidos programados.";
+        if (! empty($result['over_limit_players'])) {
+            $n = $result['over_limit_players'];
+            $msg .= ' ' . ($n === 1 ? '1 jugador quedó' : "{$n} jugadores quedaron")
+                . ' con 3+ partidos en un día (no había espacio). Revisa conflictos para ver quién.';
+        }
         if ($result['unplaced'] > 0) {
             $msg .= " {$result['unplaced']} no cupieron.";
             // Note which phases came up short (e.g. window too small).

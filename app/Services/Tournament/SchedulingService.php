@@ -177,8 +177,14 @@ class SchedulingService
      *
      * @return array{scheduled: int, unplaced: int, by_phase: array<string,array{scheduled:int,unplaced:int}>}
      */
-    public function autoSchedule(Tournament $tournament, Collection $courts, int $duration = 60, int $stepMinutes = 30): array
-    {
+    public function autoSchedule(
+        Tournament $tournament,
+        Collection $courts,
+        int $duration = 60,
+        int $stepMinutes = 30,
+        bool $limitPerDay = true,   // prefer slots where nobody goes over $maxPerDay that day
+        int $maxPerDay = 2,
+    ): array {
         $stepSec = $stepMinutes * 60;
         $durSec = $duration * 60;
         $restSec = ((int) ($tournament->min_rest_minutes ?? 30)) * 60;
@@ -236,10 +242,36 @@ class SchedulingService
         }
 
         // Seed occupancy from already-scheduled matches.
+        $feederPairs = [
+            'feederA.pairA.player1', 'feederA.pairA.player2', 'feederA.pairB.player1', 'feederA.pairB.player2',
+            'feederB.pairA.player1', 'feederB.pairA.player2', 'feederB.pairB.player1', 'feederB.pairB.player2',
+        ];
         $existing = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->whereNotNull('starts_at')
-            ->with(['pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->with(array_merge(['pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'], $feederPairs))
             ->get();
+
+        // --- Matches-per-day tracking (same semantics as ScheduleAudit::load) ---
+        // $dayTokens[playerKey]['Y-m-d'][token] = true. A token is one match the
+        // player will play that day: "m{id}" for a known match, "f{feederId}" for
+        // a Mexicano R2 candidacy (the player plays exactly ONE R2 out of the two
+        // fed by their R1, so both options on the same day share one token).
+        $dayOf = fn(int $ts) => Carbon::createFromTimestamp($ts, 'America/Mexico_City')->format('Y-m-d');
+        $dayTokens = [];
+
+        // --- Source-group completion (bracket first round waits for its groups) ---
+        // [category_id => [letter => group_id]] in BracketService's lettering order,
+        // and [group_id => latest end ts] of that group's scheduled matches.
+        $lettersByCat = [];
+        $groupRows = \App\Models\Group::whereIn('category_id', $tournament->categories()->pluck('id'))
+            ->orderBy('category_id')->orderBy('position')->orderBy('id')
+            ->get(['id', 'category_id']);
+        foreach ($groupRows->groupBy('category_id') as $cid => $list) {
+            foreach ($list->values() as $i => $g) {
+                $lettersByCat[$cid][chr(ord('A') + $i)] = $g->id;
+            }
+        }
+        $groupEnd = [];
 
         $courtBusy = [];
         $playerBusy = [];
@@ -253,6 +285,13 @@ class SchedulingService
             // human across categories collides with themselves.
             foreach ($this->playerKeys($m) as $pkey) {
                 $playerBusy[$pkey][] = [$start, $end];
+                $dayTokens[$pkey][$dayOf($start)]['m' . $m->id] = true;
+            }
+            foreach ($this->r2CandidateTokens($m) as $c) {
+                $dayTokens[$c['key']][$dayOf($start)][$c['token']] = true;
+            }
+            if ($m->group_id) {
+                $groupEnd[$m->group_id] = max($groupEnd[$m->group_id] ?? 0, $end);
             }
         }
 
@@ -263,7 +302,7 @@ class SchedulingService
         // only), since there's no window to anchor a placeholder to.
         $query = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->whereNull('starts_at')
-            ->with(['group', 'category', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2']);
+            ->with(array_merge(['group', 'category', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'], $feederPairs));
 
         if ($hasPhases) {
             // Ready matches OR placeholders that will be fed later (feeders) OR
@@ -326,6 +365,8 @@ class SchedulingService
         $placements = []; // [matchId => [courtId, startTs]]
         $byPhase = [];     // [phaseKey => [scheduled, unplaced]]
         $availabilityBlocked = 0; // unplaced specifically due to player availability
+        $overLimitMatches = 0;    // placed only by breaking the per-day preference
+        $overLimitPlayers = [];   // "playerKey|Y-m-d" => true
 
         foreach ($matches as $match) {
             $phase = $match->phaseKey();
@@ -344,7 +385,35 @@ class SchedulingService
                 }
             }
 
+            // Bracket first round seeded from groups (A1 vs B2, Q1…): can't start
+            // before those groups' last scheduled match ends. A side fed by an
+            // unscheduled BYE slot ("A1 vs BYE") waits on the BYE slot's groups.
+            if (! $match->group_id) {
+                $earliest = max($earliest, $this->seedGroupsEarliest($match, $lettersByCat, $groupEnd));
+                foreach (['feederA', 'feederB'] as $rel) {
+                    $f = $match->$rel;
+                    if ($f && ! isset($endOf[$f->id]) && ($f->seed_label_a === 'BYE' || $f->seed_label_b === 'BYE')) {
+                        $earliest = max($earliest, $this->seedGroupsEarliest($f, $lettersByCat, $groupEnd));
+                    }
+                }
+            }
+
             $playerKeys = $this->playerKeys($match);
+            $r2Tokens = $this->r2CandidateTokens($match);
+
+            // How many players in this match would go past $maxPerDay on $day?
+            $overflow = function (string $day) use (&$dayTokens, $playerKeys, $r2Tokens, $maxPerDay): int {
+                $n = 0;
+                foreach ($playerKeys as $k) {
+                    if (count($dayTokens[$k][$day] ?? []) + 1 > $maxPerDay) $n++;
+                }
+                foreach ($r2Tokens as $c) {
+                    if (isset($dayTokens[$c['key']][$day][$c['token']])) continue; // sibling R2 already that day
+                    if (count($dayTokens[$c['key']][$day] ?? []) + 1 > $maxPerDay) $n++;
+                }
+                return $n;
+            };
+            $useLimit = $limitPerDay && (! empty($playerKeys) || ! empty($r2Tokens));
 
             // Per-day availability WINDOW for THIS match: for each restricted day,
             // ['from'=>ts, 'until'=>ts|null] — the binding "from" is the latest
@@ -352,7 +421,7 @@ class SchedulingService
             // rules hold). Empty when no participating player has a rule.
             $availWindows = $this->availabilityWindows($match, $availabilityMap);
 
-            $slot = $this->findSlotInMemory(
+            $findSlot = fn(?\Closure $dayFilter) => $this->findSlotInMemory(
                 $courts,
                 $courtWindows,
                 $courtBusy,
@@ -368,7 +437,30 @@ class SchedulingService
                 $availWindows,
                 $dayDurations,
                 $dayAnchorMinutes,
+                $dayFilter,
             );
+
+            // Least damage first: earliest slot with 0 players over the limit;
+            // if none, allow 1, then 2… (so one unavoidable player — e.g. in 3
+            // categories — doesn't drag everyone else in the match over too).
+            // Last resort: earliest slot, exactly as before. The limit is a
+            // PREFERENCE — it never leaves a match unscheduled.
+            $slot = null;
+            $overLimit = false;
+            if ($useLimit) {
+                $maxOver = count($playerKeys) + count($r2Tokens);
+                for ($allow = 0; $allow <= $maxOver; $allow++) {
+                    $slot = $findSlot(fn(string $day) => $overflow($day) <= $allow);
+                    if ($slot) {
+                        $overLimit = $allow > 0;
+                        break;
+                    }
+                }
+            }
+            if (! $slot) {
+                $slot = $findSlot(null);
+                $overLimit = $overLimit || ($useLimit && $slot !== null);
+            }
 
             if ($slot) {
                 [$courtId, $startTs, $slotDurSec] = $slot;
@@ -380,6 +472,23 @@ class SchedulingService
                 $placements[$match->id] = [$courtId, $startTs, intdiv($slotDurSec, 60)];
                 $endOf[$match->id] = $endTs;
                 $byPhase[$phase]['scheduled']++;
+
+                $d = $dayOf($startTs);
+                foreach ($playerKeys as $k) {
+                    $dayTokens[$k][$d]['m' . $match->id] = true;
+                }
+                foreach ($r2Tokens as $c) {
+                    $dayTokens[$c['key']][$d][$c['token']] = true;
+                }
+                if ($match->group_id) {
+                    $groupEnd[$match->group_id] = max($groupEnd[$match->group_id] ?? 0, $endTs);
+                }
+                if ($overLimit) {
+                    $overLimitMatches++;
+                    foreach (array_merge($playerKeys, array_column($r2Tokens, 'key')) as $k) {
+                        if (count($dayTokens[$k][$d] ?? []) > $maxPerDay) $overLimitPlayers[$k . '|' . $d] = true;
+                    }
+                }
             } else {
                 $byPhase[$phase]['unplaced']++;
                 // Distinguish "blocked by availability" from "didn't fit": if the
@@ -427,6 +536,12 @@ class SchedulingService
             'unplaced' => $matches->count() - count($placements),
             'availability_blocked' => $availabilityBlocked,
             'by_phase' => $byPhase,
+            'limit_per_day' => $limitPerDay ? $maxPerDay : null,
+            'over_limit_matches' => $overLimitMatches,
+            'over_limit_players' => count(array_unique(array_map(
+                fn($k) => explode('|', $k)[0],
+                array_keys($overLimitPlayers)
+            ))),
         ];
     }
 
@@ -453,6 +568,7 @@ class SchedulingService
         array $availWindows = [],
         array $dayDurations = [],
         array $dayAnchorMinutes = [],
+        ?\Closure $dayFilter = null,   // fn(string 'Y-m-d'): bool — skip days it rejects
     ): ?array {
         $best = null;
 
@@ -498,6 +614,12 @@ class SchedulingService
 
                         // Must fit inside the court/phase segment.
                         if ($end > $segEnd) break;
+
+                        // Per-day preference (e.g. max 2 matches per player per day).
+                        if ($dayFilter !== null && ! $dayFilter($day)) {
+                            $ts += $stepThis;
+                            continue;
+                        }
 
                         if (! empty($availWindows) && isset($availWindows[$day]) && ! empty($availWindows[$day]['off'])) {
                             // Whole day blocked for a participating player — jump past it.
@@ -842,6 +964,58 @@ class SchedulingService
      *
      * @return array<int,string>
      */
+    /**
+     * Mexicano R2 candidacies of a match: for each side with no known pair but a
+     * GROUP feeder, every player of that feeder is a candidate. Token "f{feederId}"
+     * — the player plays exactly one of the R2 matches sharing it.
+     * Bracket feeders are ignored (same rule as ScheduleAudit).
+     *
+     * @return array<int,array{key:string, token:string}>
+     */
+    private function r2CandidateTokens(GameMatch $match): array
+    {
+        $out = [];
+        foreach (['a' => 'feederA', 'b' => 'feederB'] as $side => $rel) {
+            $known = $side === 'a' ? $match->pair_a_id : $match->pair_b_id;
+            if ($known) continue;
+            $f = $match->$rel;
+            if (! $f || ! $f->group_id) continue;
+            foreach ([$f->pairA, $f->pairB] as $pair) {
+                if (! $pair) continue;
+                foreach ([$pair->player1, $pair->player2] as $p) {
+                    if ($p && filled($p->name)) {
+                        $out[] = ['key' => \App\Models\Player::normalize($p->name), 'token' => 'f' . $f->id];
+                    }
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Earliest start for a bracket match seeded from groups: the latest end among
+     * the groups its seed labels point at ("A1" → group A, "Q1" → every group).
+     * Groups with nothing scheduled impose nothing (0).
+     */
+    private function seedGroupsEarliest(GameMatch $match, array $lettersByCat, array $groupEnd): int
+    {
+        $letters = $lettersByCat[$match->category_id] ?? [];
+        $earliest = 0;
+        foreach ([$match->seed_label_a, $match->seed_label_b] as $label) {
+            if (! $label || $label === 'BYE') continue;
+            $gids = [];
+            if (preg_match('/^Q\d+$/', $label)) {
+                $gids = array_values($letters);
+            } elseif (preg_match('/^([A-Z])\d+$/', $label, $mm) && isset($letters[$mm[1]])) {
+                $gids = [$letters[$mm[1]]];
+            }
+            foreach ($gids as $gid) {
+                $earliest = max($earliest, $groupEnd[$gid] ?? 0);
+            }
+        }
+        return $earliest;
+    }
+
     private function playerKeys(GameMatch $match): array
     {
         $keys = [];

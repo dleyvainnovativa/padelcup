@@ -27,7 +27,15 @@
                 data-confirm="Se programarán automáticamente los partidos sin horario en los espacios libres. ¿Continuar?"
                 data-confirm-title="Auto-programar" data-confirm-ok="Programar">
                 @csrf
-                <button class="btn btn-accent"><i class="fa-solid fa-wand-magic-sparkles me-1"></i><span class="btn-label">Auto-programar</span></button>
+                <div class="sched-auto">
+                    <button class="btn btn-accent"><i class="fa-solid fa-wand-magic-sparkles me-1"></i><span class="btn-label">Auto-programar</span></button>
+                    {{-- Preference: nobody over 2 matches/day when there's room (falls back when there isn't). --}}
+                    <input type="hidden" name="limit_per_day" value="0">
+                    <label class="sched-auto__opt" title="Prioriza que ningún jugador tenga más de 2 partidos en un día. Si no hay espacio, programa igual y te avisa.">
+                        <input type="checkbox" name="limit_per_day" value="1" checked>
+                        Máx. 2/día
+                    </label>
+                </div>
             </form>
             <div x-data="{ open: false }" style="position:relative;">
                 <button type="button" class="btn btn-soft" @click="open = !open" @click.outside="open = false">
