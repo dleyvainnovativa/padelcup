@@ -88,6 +88,80 @@ class ScheduleController extends Controller
     }
 
     /**
+     * Cheatsheet "3+ en un día": players with 3+ matches on a single day, across
+     * ALL categories. Uses the SAME engine as "Revisar conflictos"
+     * (SchedulingService::audit → ScheduleAudit::load), so both views always
+     * agree. On top of matches with known pairs it counts Mexicano R2:
+     *   - both R2 options on the same day → 1 sure match ("R2 (uno de 2)")
+     *   - options on different days       → 1 possible match on each day
+     * Bracket matches count once their pairs are known.
+     *
+     * Row: name, categories[], max, days[ day, label, count, sure, possible,
+     *      matches[ time, context, court, category, kind, alts[ time, court ] ] ]
+     */
+    private function busyDayPlayers(Tournament $tournament, int $threshold = 3): \Illuminate\Support\Collection
+    {
+        $tz = 'America/Mexico_City';
+        $load = $this->scheduler->audit($tournament, $threshold)['load'];
+
+        $fmtTime = fn(?int $ts) => $ts ? \Carbon\Carbon::createFromTimestamp($ts, $tz)->format('H:i') : null;
+        $dayLabel = fn(string $ymd) => \Illuminate\Support\Str::ucfirst(
+            \Carbon\Carbon::parse($ymd, $tz)->locale('es')->isoFormat('ddd D MMM')
+        );
+
+        // ScheduleAudit returns one row per (player, day) → regroup per player.
+        $byName = [];
+        foreach ($load as $row) {
+            $key = \App\Models\Player::normalize($row['player']);
+            $byName[$key] ??= ['name' => $row['player'], 'categories' => [], 'days' => []];
+
+            $matches = [];
+            foreach ($row['matches'] as $mi) {
+                $cat = $mi['category'] ?? null;
+                if ($cat && ! in_array($cat, $byName[$key]['categories'], true)) {
+                    $byName[$key]['categories'][] = $cat;
+                }
+                $matches[] = [
+                    'time' => $fmtTime($mi['ts'] ?? null),
+                    'context' => $mi['label'],
+                    'court' => $mi['court'] ?? null,
+                    'category' => $cat,
+                    'kind' => $mi['kind'] ?? 'sure',   // sure | r2_sure | r2_possible
+                    'alts' => array_map(fn($a) => [
+                        'time' => $fmtTime($a['ts'] ?? null),
+                        'court' => $a['court'] ?? null,
+                    ], $mi['alts'] ?? []),
+                ];
+            }
+            usort($matches, fn($a, $b) => ($a['time'] ?? '') <=> ($b['time'] ?? ''));
+
+            $byName[$key]['days'][] = [
+                'day' => $row['day'],
+                'label' => $dayLabel($row['day']),
+                'count' => $row['total'],
+                'sure' => $row['sure'],
+                'possible' => $row['possible'],
+                'times' => array_column($matches, 'time'), // kept for back-compat
+                'matches' => $matches,
+            ];
+        }
+
+        $out = [];
+        foreach ($byName as $p) {
+            usort($p['days'], fn($a, $b) => $a['day'] <=> $b['day']);
+            $p['max'] = max(array_column($p['days'], 'count'));
+            $out[] = $p;
+        }
+        usort($out, fn($a, $b) => [$b['max'], strtolower($a['name'])] <=> [$a['max'], strtolower($b['name'])]);
+
+        return collect($out);
+    }
+
+    /**
+     * PREVIOUS implementation (known pairs only, no Mexicano R2). No longer
+     * called — kept compilable for reference / quick rollback: swap the call in
+     * index() back to busyDayPlayersKnownOnly().
+     *
      * Cheatsheet: players with 3+ matches on a SINGLE day, counted across ALL
      * categories. Keyed by NORMALIZED NAME because the same human is usually a
      * separate Player row per category — counting by player_id would split them
@@ -95,7 +169,7 @@ class ScheduleController extends Controller
      *
      * Each row: name, categories, and per-day [day, count, times[]].
      */
-    private function busyDayPlayers(Tournament $tournament, int $threshold = 3): \Illuminate\Support\Collection
+    private function busyDayPlayersKnownOnly(Tournament $tournament, int $threshold = 3): \Illuminate\Support\Collection
     {
         $tz = 'America/Mexico_City';
 

@@ -733,6 +733,7 @@ class SchedulingService
                 'players' => ['a' => $playersOf($m->pairA), 'b' => $playersOf($m->pairB)],
                 'info' => [
                     'label' => $m->contextLabel(),
+                    'category' => $m->category?->name,
                     // Same label minus the category — used inside per-category messages.
                     'short' => \Illuminate\Support\Str::after($m->contextLabel(), ($m->category?->name ?? '') . ' · '),
                     'vs' => $m->sideLabel('a') . ' vs ' . $m->sideLabel('b'),

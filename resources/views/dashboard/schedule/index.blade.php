@@ -151,20 +151,14 @@
                 <div class="pl-sheet__section" data-pl-section data-pl-tab="busy" x-show="!plTab || plTab === 'busy'" x-cloak>
                     <div class="pl-sheet__section-title"><i class="fa-solid fa-gauge-high me-1"></i> Con 3+ partidos en un día ({{ $busyCount }})</div>
                     @foreach($busyDayPlayers as $row)
-                    <button type="button" class="pl-row" data-pl-name="{{ Str::lower($row['name']) }}" @click="pick(@js($row['name']))">
-                        <span class="mc-player__count mc-player__count--warn">{{ $row['max'] }}</span>
-                        <span class="pl-row__name">{{ $row['name'] }}</span>
-                        <span class="pl-row__meta">
-                            @foreach($row['days'] as $d){{ $d['label'] }}: {{ $d['count'] }}@if(!$loop->last) · @endif @endforeach
-                        </span>
-                    </button>
+                    {{-- One expandable row per player (the old duplicate plain row was removed). --}}
                     <div class="pl-busy" data-pl-name="{{ Str::lower($row['name']) }}" x-data="{ open: false }">
                         <div class="pl-busy__head">
                             <button type="button" class="pl-row pl-busy__pick" @click="pick(@js($row['name']))">
                                 <span class="mc-player__count mc-player__count--warn">{{ $row['max'] }}</span>
                                 <span class="pl-row__name">{{ $row['name'] }}</span>
                                 <span class="pl-row__meta">
-                                    @foreach($row['days'] as $d){{ $d['label'] }}: {{ $d['count'] }}@if(!$loop->last) · @endif @endforeach
+                                    @foreach($row['days'] as $d){{ $d['label'] }}: {{ $d['count'] }}@if(!empty($d['possible'])) ({{ $d['possible'] }} {{ $d['possible'] === 1 ? 'posible' : 'posibles' }})@endif @if(!$loop->last) · @endif @endforeach
                                 </span>
                             </button>
                             <button type="button" class="pl-busy__toggle" @click="open = !open"
@@ -175,16 +169,35 @@
                         <div class="pl-busy__detail" x-show="open" x-cloak>
                             @foreach($row['days'] as $d)
                             <div class="pl-busy__day">
-                                <div class="pl-busy__day-label">{{ $d['label'] }} · {{ $d['count'] }} partidos</div>
+                                <div class="pl-busy__day-label">
+                                    {{ $d['label'] }} · {{ $d['count'] }} partidos
+                                    @if(!empty($d['possible']))
+                                        ({{ $d['sure'] }} {{ $d['sure'] === 1 ? 'seguro' : 'seguros' }} + {{ $d['possible'] }} {{ $d['possible'] === 1 ? 'posible' : 'posibles' }})
+                                    @endif
+                                </div>
                                 @foreach($d['matches'] as $mm)
                                 <div class="pl-busy__match">
                                     <span class="pl-busy__time font-mono">{{ $mm['time'] }}</span>
-                                    <span class="pl-busy__ctx">{{ $mm['context'] }}</span>
+                                    <span class="pl-busy__ctx">
+                                        {{ $mm['context'] }}
+                                        @if(($mm['kind'] ?? 'sure') === 'r2_sure')
+                                            <span class="pl-busy__tag">R2 (uno de {{ 1 + count($mm['alts'] ?? []) }})</span>
+                                        @elseif(($mm['kind'] ?? 'sure') === 'r2_possible')
+                                            <span class="pl-busy__tag pl-busy__tag--possible">Posible</span>
+                                        @endif
+                                        @foreach(($mm['alts'] ?? []) as $alt)
+                                            <span class="pl-busy__alt">o {{ $alt['time'] }}@if(!empty($alt['court'])) · {{ $alt['court'] }}@endif</span>
+                                        @endforeach
+                                    </span>
                                     @if(!empty($mm['court']))<span class="pl-busy__court"><i class="fa-solid fa-location-dot"></i> {{ $mm['court'] }}</span>@endif
                                 </div>
                                 @endforeach
                             </div>
                             @endforeach
+                            <div class="pl-busy__note">
+                                R2 (uno de 2): jugará solo uno, según gane o pierda en R1 — cuenta 1.
+                                Posible: sus opciones de R2 caen en días distintos.
+                            </div>
                         </div>
                     </div>
                     @endforeach

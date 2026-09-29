@@ -3519,3 +3519,13 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
 .conflict-row__alt { display: block; font-style: italic; }
 .conflict-row__tag--possible { background: var(--warning-soft); color: var(--warning-text); }
 .conflict-row--possible { border-left-style: dashed; }
+
+/* Busy-day players (3+ en un día): R2 sure / possible tags — v2 ---------- */
+.pl-busy__tag {
+  display: inline-block; margin-left: 4px; padding: 0 5px;
+  font-size: 10px; font-weight: 600; line-height: 16px; border-radius: 4px;
+  background: var(--bg-subtle); color: var(--text-muted);
+}
+.pl-busy__tag--possible { background: var(--warning-soft); color: var(--warning-text); }
+.pl-busy__alt { display: block; font-size: 11px; font-style: italic; color: var(--text-faint); }
+.pl-busy__note { font-size: 11px; color: var(--text-faint); }
