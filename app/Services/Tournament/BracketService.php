@@ -47,9 +47,12 @@ class BracketService
         $auto = [];
         $pool = []; // boundary finishers competing for extra slots
 
-        foreach ($groups as $group) {
+        foreach ($groups->values() as $gi => $group) {
             $standing = $this->standings->forGroup($group);
-            $n = $category->advance_per_group;
+            // Per-group override when set, else the global advance_per_group.
+            $n = method_exists($category, 'winnersForGroupPosition')
+                ? $category->winnersForGroupPosition($gi)
+                : (int) $category->advance_per_group;
 
             // Auto qualifiers: top N.
             foreach ($standing->take($n) as $row) {
@@ -57,7 +60,7 @@ class BracketService
             }
             // Boundary finisher: the (N+1)-th place → extra-qualifier pool.
             if ($category->extra_qualifiers > 0 && $standing->count() > $n) {
-                $pool[] = $standing->get($n); // the row just below the line
+                $pool[] = $standing->get($n);
             }
         }
 
@@ -223,9 +226,14 @@ class BracketService
             throw new \RuntimeException('Configura los grupos y cuántos avanzan antes de generar la llave.');
         }
 
-        // Ordered seed-LABEL list (strongest first), then standard fold to a
-        // power-of-2 bracket with byes. Always crash-safe for any count.
-        $seedLabels = $this->positionalSeedLabels($groupCount, $adv, $extra);
+        $orderedGroups = $groups->values();
+        $perGroup = [];
+        foreach ($orderedGroups as $gi => $g) {
+            $perGroup[$gi] = method_exists($category, 'winnersForGroupPosition')
+                ? $category->winnersForGroupPosition($gi)
+                : $adv;
+        }
+        $seedLabels = $this->positionalSeedLabels($groupCount, $adv, $extra, $perGroup);
 
         // Minimum bracket size is 2: a single qualifier (one group, advance=1)
         // yields a valid bye-final (A1 vs BYE) rather than an error. Guard against
@@ -302,20 +310,31 @@ class BracketService
      *
      * @return array<int,string>
      */
-    private function positionalSeedLabels(int $groupCount, int $adv, int $extra): array
+    private function positionalSeedLabels(int $groupCount, int $adv, int $extra, ?array $perGroup = null): array
     {
         $letters = [];
         for ($i = 0; $i < $groupCount; $i++) $letters[] = chr(ord('A') + $i);
 
+        // Winners each group contributes (override or global).
+        $winners = [];
+        $maxPlace = 0;
+        for ($i = 0; $i < $groupCount; $i++) {
+            $w = $perGroup[$i] ?? $adv;
+            $winners[$i] = max(1, (int) $w);
+            $maxPlace = max($maxPlace, $winners[$i]);
+        }
+
+        // Tier by placement (all 1st, then all 2nd, …). A group only contributes
+        // a place if it advances that many — so a group advancing 1 emits only
+        // its A1, while a group advancing 2 also emits its X2.
         $seeds = [];
-        // Tier by placement: all 1st places, then all 2nd, etc. Within a tier,
-        // group order (A, B, C…) is the strength order.
-        for ($place = 1; $place <= $adv; $place++) {
-            foreach ($letters as $L) {
-                $seeds[] = $L . $place;
+        for ($place = 1; $place <= $maxPlace; $place++) {
+            for ($i = 0; $i < $groupCount; $i++) {
+                if ($winners[$i] >= $place) {
+                    $seeds[] = $letters[$i] . $place;
+                }
             }
         }
-        // Extra cross-group qualifiers come last (weakest seeds).
         for ($k = 1; $k <= $extra; $k++) {
             $seeds[] = 'Q' . $k;
         }
@@ -511,5 +530,147 @@ class BracketService
             $seeds = $next;
         }
         return $seeds;
+    }
+    /**
+     * Preview the bracket shape for a category's CURRENT config, WITHOUT building.
+     * Accounts for per-group winner overrides + extra_qualifiers, and caps each
+     * group's winners at its pair count.
+     *
+     * @return array{
+     *   qualifiers:int, size:int, byes:int, rounds:int,
+     *   first_round:string, real_first_round_matches:int,
+     *   per_group:array<int,array{group:string,winners:int,size:int}>,
+     *   clean:bool, hint:?string
+     * }
+     */
+    public function bracketPreview(Category $category): array
+    {
+        $groups = $category->groups()->withCount('pairs')->orderBy('position')->orderBy('id')->get();
+        $groupCount = $groups->count();
+        $extra = (int) ($category->extra_qualifiers ?? 0);
+
+        $perGroup = [];
+        $totalQ = 0;
+        foreach ($groups->values() as $i => $group) {
+            $want = method_exists($category, 'winnersForGroupPosition')
+                ? $category->winnersForGroupPosition($i)
+                : (int) $category->advance_per_group;
+            $cap = max(0, (int) $group->pairs_count);
+            $winners = $cap > 0 ? min($want, $cap) : $want;
+            $totalQ += $winners;
+            $perGroup[] = [
+                'group' => $group->name,
+                'winners' => $winners,
+                'size' => (int) $group->pairs_count,
+            ];
+        }
+        $totalQ += $extra;
+
+        $size = $totalQ >= 1 ? max(2, $this->nextPowerOfTwo($totalQ)) : 0;
+        $byes = max(0, $size - $totalQ);
+        $rounds = $size >= 2 ? (int) log($size, 2) : 0;
+
+        $roundName = match ($rounds) {
+            1 => 'Final',
+            2 => 'Semifinal',
+            3 => 'Cuartos de final',
+            4 => 'Octavos de final',
+            5 => 'Dieciseisavos',
+            default => $rounds > 0 ? ($rounds . ' rondas') : '—',
+        };
+
+        // R1 matches with two real pairs (byes never pair together under seeding).
+        $firstRoundMatches = $size >= 2 ? intdiv($size, 2) : 0;
+        $realFirstRoundMatches = max(0, $firstRoundMatches - $byes);
+
+        // Same-group R1 collision check: with uneven per-group counts, standard
+        // seeding can pair a group's #1 and #2 in round 1 (e.g. 5 qualifiers).
+        // We detect it here so the preview can warn — a clean count avoids it.
+        $sameGroupR1 = $this->previewSameGroupCollision($groups, $perGroup, $extra, $size);
+
+        $clean = ($byes === 0) && empty($sameGroupR1);
+
+        // Nudge toward a clean bracket when there are byes.
+        $hint = null;
+        if (! empty($sameGroupR1) && $groupCount > 0) {
+            $pairsTxt = implode(', ', array_map(fn($p) => $p[0] . ' vs ' . $p[1], $sameGroupR1));
+            $hint = "Con esta configuración, {$pairsTxt} podrían cruzarse en la 1ª ronda (mismo grupo). "
+                . "Un número parejo de clasificados lo evita.";
+        }
+        if ($hint === null && $byes > 0 && $groupCount > 0) {
+            // Would N winners/group (uniform) land cleanly?
+            $suggestion = null;
+            foreach ([1, 2, 3] as $u) {
+                $q = $u * $groupCount + $extra;
+                if ($q >= 2 && $this->nextPowerOfTwo($q) === $q) {
+                    $suggestion = $u;
+                    break;
+                }
+            }
+            if ($suggestion !== null) {
+                $hint = "Con {$suggestion} por grupo"
+                    . ($extra ? " (+{$extra} extra)" : '')
+                    . " serían " . ($suggestion * $groupCount + $extra) . " clasificados, llave exacta sin byes.";
+            } else {
+                $hint = "Hay {$byes} byes. Ajusta ganadores por grupo o los clasificados extra para una llave más pareja.";
+            }
+        }
+
+        return [
+            'qualifiers' => $totalQ,
+            'size' => $size,
+            'byes' => $byes,
+            'rounds' => $rounds,
+            'first_round' => $roundName,
+            'real_first_round_matches' => $realFirstRoundMatches,
+            'per_group' => $perGroup,
+            'same_group_r1' => $sameGroupR1,
+            'clean' => $clean,
+            'hint' => $hint,
+        ];
+    }
+
+    /**
+     * Return same-group first-round collisions (["A1","A2"], …) for the current
+     * config, by replaying the same label + seeding the builder uses. Empty when
+     * the bracket separates all same-group qualifiers correctly.
+     *
+     * @param  \Illuminate\Support\Collection  $groups  position-ordered
+     * @return array<int, array{0:string,1:string}>
+     */
+    private function previewSameGroupCollision($groups, array $perGroupRows, int $extra, int $size): array
+    {
+        if ($size < 2) return [];
+
+        $groupCount = count($perGroupRows);
+        $winners = array_map(fn($r) => (int) $r['winners'], $perGroupRows);
+
+        // Build labels exactly like positionalSeedLabels().
+        $letters = [];
+        for ($i = 0; $i < $groupCount; $i++) $letters[] = chr(ord('A') + $i);
+        $maxPlace = $winners ? max($winners) : 0;
+        $seeds = [];
+        for ($place = 1; $place <= $maxPlace; $place++) {
+            for ($i = 0; $i < $groupCount; $i++) {
+                if (($winners[$i] ?? 0) >= $place) $seeds[] = $letters[$i] . $place;
+            }
+        }
+        for ($k = 1; $k <= $extra; $k++) $seeds[] = 'Q' . $k;
+
+        $padded = array_pad($seeds, $size, 'BYE');
+        $order = $this->standardSeedOrder($size); // 1-based seed per slot
+        $slots = array_map(fn($s) => $padded[$s - 1], $order);
+
+        $collisions = [];
+        for ($i = 0; $i < $size; $i += 2) {
+            $a = $slots[$i];
+            $b = $slots[$i + 1];
+            if ($a === 'BYE' || $b === 'BYE') continue;
+            // Same group iff first char matches and both are group seeds (letter+digit).
+            if (isset($a[0], $b[0]) && $a[0] === $b[0] && ctype_alpha($a[0]) && $a[0] !== 'Q') {
+                $collisions[] = [$a, $b];
+            }
+        }
+        return $collisions;
     }
 }

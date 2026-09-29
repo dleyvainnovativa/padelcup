@@ -269,4 +269,46 @@ class DrawController extends Controller
         ));
         return array_merge($auto, $chosen);
     }
+    /** Live bracket-shape preview for the current config (JSON). */
+    public function bracketPreview(Tournament $tournament, Category $category)
+    {
+        $this->authorize('update', $category);
+        abort_unless($category->tournament_id === $tournament->id, 404);
+
+        return response()->json($this->brackets->bracketPreview($category));
+    }
+
+    /**
+     * Save per-group winner overrides. Body: winners[<groupPosition>] = <n>.
+     * A value equal to the global advance_per_group is dropped (kept sparse),
+     * so the map only stores true overrides. Empty map → null (all global).
+     */
+    public function savePerGroupWinners(Request $request, Tournament $tournament, Category $category)
+    {
+        $this->authorize('update', $category);
+        abort_unless($category->tournament_id === $tournament->id, 404);
+
+        $data = $request->validate([
+            'winners' => ['nullable', 'array'],
+            'winners.*' => ['nullable', 'integer', 'min:1', 'max:8'],
+        ]);
+
+        $global = (int) $category->advance_per_group;
+        $map = [];
+        foreach (($data['winners'] ?? []) as $pos => $n) {
+            $n = (int) $n;
+            if ($n >= 1 && $n !== $global) {
+                $map[(string) (int) $pos] = $n; // keep only real overrides
+            }
+        }
+
+        $category->winners_per_group = empty($map) ? null : $map;
+        $category->save();
+
+        // Return the fresh preview so the UI can update in one round-trip.
+        return response()->json([
+            'ok' => true,
+            'preview' => $this->brackets->bracketPreview($category->fresh()),
+        ]);
+    }
 }

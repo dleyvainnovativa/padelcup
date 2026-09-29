@@ -3439,3 +3439,45 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
 .pc-change__match { font-size: 13px; font-weight: 600; color: var(--text); }
 .pc-change__ago { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
 .pc-change__summary { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+
+/* Bracket preview panel (manager groups page) ---------------------------- */
+.bp-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: var(--surface);
+  border-left: 4px solid var(--accent);
+}
+.bp-panel.is-warn { border-left-color: var(--warning, #b45309); }
+.bp-panel.is-clean { border-left-color: var(--success, #30a46c); }
+
+.bp-head { display: flex; align-items: center; justify-content: space-between; }
+.bp-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.bp-summary { font-size: 14px; color: var(--text); margin-top: 6px; }
+.bp-summary strong { font-weight: 700; }
+
+.bp-hint { font-size: 12px; margin-top: 6px; }
+.bp-hint.is-ok { color: var(--success-text, #30a46c); }
+.bp-hint.is-warn { color: var(--warning-text, #8f4208); }
+
+.bp-advanced { margin-top: 12px; }
+.bp-advanced > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 6px 0;
+  list-style: none;
+}
+.bp-advanced > summary::-webkit-details-marker { display: none; }
+.bp-advanced > summary::before { content: '▸ '; color: var(--text-faint); }
+.bp-advanced[open] > summary::before { content: '▾ '; }
+
+.bp-groups { display: flex; flex-direction: column; gap: 8px; padding: 8px 0 2px; }
+.bp-groups__note { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.bp-group-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bp-group-row__name { font-size: 13px; color: var(--text); }
+.bp-group-row__size { font-size: 11px; color: var(--text-faint); }
+.bp-group-row__input { width: 72px; border-radius: var(--radius); }

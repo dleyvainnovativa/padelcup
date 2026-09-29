@@ -26,7 +26,7 @@
         </a>
         @endunless
         @if($category->format->hasBracket())
-        <form method="POST" action="{{ route('draw.bracket.build', [$tournament, $category]) }}">
+        <form method="POST" action="{{ route('draw.bracket.build', [$tournament, $category]) }}" data-bracket-build-form>
             @csrf
             <button class="btn btn-accent"><i class="fa-solid fa-sitemap me-1"></i> Generar llave</button>
         </form>
@@ -56,6 +56,40 @@
             <i class="fa-solid fa-ranking-star me-1"></i> Posiciones
         </button>
     </div>
+
+    @if($category->format->hasBracket() && $groups->isNotEmpty())
+    <div class="bp-panel" data-bracket-preview
+        data-preview-url="{{ route('draw.bracket.preview', [$tournament, $category]) }}"
+        data-save-url="{{ route('draw.winnersPerGroup', [$tournament, $category]) }}"
+        data-clean="0">
+        <div class="bp-head">
+            <span class="bp-title"><i class="fa-solid fa-sitemap me-1"></i> Vista previa de la llave</span>
+        </div>
+        <div class="bp-summary" data-bp-summary>—</div>
+        <div class="bp-hint" data-bp-hint></div>
+
+        <details class="bp-advanced">
+            <summary>Ganadores por grupo (opcional)</summary>
+            <div class="bp-groups">
+                <div class="bp-groups__note">
+                    Por defecto avanzan <strong>{{ $category->advance_per_group }}</strong> por grupo.
+                    Ajusta un grupo puntual (p. ej. un grupo empatado) sin cambiar el global.
+                </div>
+                @foreach($groups->values() as $i => $group)
+                <label class="bp-group-row">
+                    <span class="bp-group-row__name">{{ $group->name }}
+                        <span class="bp-group-row__size">({{ $group->pairs->count() }} parejas)</span>
+                    </span>
+                    <input type="number" min="1" max="8"
+                        data-winners-input data-group-pos="{{ $i }}"
+                        value="{{ $category->winnersForGroupPosition($i) }}"
+                        class="form-control form-control-sm bp-group-row__input">
+                </label>
+                @endforeach
+            </div>
+        </details>
+    </div>
+    @endif
 
     @if($canEdit)
     {{-- Acomodar (drag/tap) --}}

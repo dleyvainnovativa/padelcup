@@ -32,7 +32,8 @@ class Category extends Model
         'tint',
         'has_third_place',
         'whatsapp_group_url',
-        'category_key'
+        'category_key',
+        'winners_per_group',
     ];
 
     protected static function booted(): void
@@ -72,6 +73,7 @@ class Category extends Model
             'registration_opens_at' => 'datetime',
             'registration_closes_at' => 'datetime',
             'has_third_place' => 'boolean',
+            'winners_per_group' => 'array',
         ];
     }
 
@@ -168,5 +170,22 @@ class Category extends Model
     public function isSingles(): bool
     {
         return $this->play_format === \App\Enums\CategoryPlayFormat::Singles;
+    }
+    public function winnersForGroupPosition(int $position): int
+    {
+        $map = $this->winners_per_group ?? [];
+        // JSON keys come back as strings.
+        $override = $map[(string) $position] ?? ($map[$position] ?? null);
+        $n = is_numeric($override) ? (int) $override : (int) $this->advance_per_group;
+        return max(1, $n);
+    }
+
+    /** True if any per-group override differs from the global count. */
+    public function hasPerGroupWinners(): bool
+    {
+        foreach (($this->winners_per_group ?? []) as $n) {
+            if ((int) $n !== (int) $this->advance_per_group) return true;
+        }
+        return false;
     }
 }

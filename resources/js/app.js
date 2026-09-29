@@ -85,6 +85,9 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
     import('./modules/groupBuilder').then((m) => m.initGroupBuilder());
     import('./modules/groupReorder').then((m) => m.initGroupReorder());
   }
+  if (document.querySelector('[data-bracket-preview]')) {
+    import('./modules/bracketPreview').then((m) => m.initBracketPreview());
+  }
 
   // Feature module: scheduling board (only on the calendar page).
   if (document.querySelector('[data-sched-board]')) {

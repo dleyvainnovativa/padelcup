@@ -103,7 +103,8 @@ Route::middleware(['auth'])->group(function () {
             Route::post('llave/generar', [\App\Http\Controllers\Dashboard\DrawController::class, 'buildBracket'])->name('draw.bracket.build');
             Route::post('llave/intercambiar', [\App\Http\Controllers\Dashboard\DrawController::class, 'swapBracket'])->name('draw.bracket.swap');
             Route::get('llave', [\App\Http\Controllers\Dashboard\DrawController::class, 'bracket'])->name('draw.bracket');
-
+            Route::get('llave/preview', [\App\Http\Controllers\Dashboard\DrawController::class, 'bracketPreview'])->name('draw.bracket.preview');
+            Route::post('ganadores-por-grupo', [\App\Http\Controllers\Dashboard\DrawController::class, 'savePerGroupWinners'])->name('draw.winnersPerGroup');
             // Results (Phase 6)
             Route::get('resultados', [\App\Http\Controllers\Dashboard\ResultController::class, 'index'])->name('results.index');
             Route::post('partidos/{match}/confirmar', [\App\Http\Controllers\Dashboard\ResultController::class, 'confirm'])->name('results.confirm');
