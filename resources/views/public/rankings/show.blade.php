@@ -12,7 +12,10 @@
     @endif
 
     <div class="pub-rank__head">
-        <div class="pub-rank__eyebrow">Ranking@if($system->owner_label) · {{ $system->owner_label }}@endif</div>
+        <div class="pub-rank__eyebrow">Ranking
+            @if($system->owner_label) · {{ $system->owner_label }}
+            @endif
+        </div>
         <h1 class="pub-rank__title">{{ $system->name }}</h1>
         <div class="pub-rank__sub">
             @if($activeTourLabel){{ $activeTourLabel }}@else Puntos acumulados de todos los torneos @endif
