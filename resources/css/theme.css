@@ -1964,7 +1964,7 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
 .rk-board__medal--3 { background: #cd7f32; }
 
 /* --- Public leaderboard -------------------------------------------------- */
-.pub-rank { max-width: 640px; margin: 0 auto; padding: 8px 0 48px; }
+.pub-rank { max-width: 640px; margin: 0 auto; padding:8px 20px 56px}
 
 .pub-rank__head { text-align: center; margin-bottom: 28px; }
 .pub-rank__eyebrow {
