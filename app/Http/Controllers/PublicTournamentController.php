@@ -192,17 +192,18 @@ class PublicTournamentController extends Controller
             ];
         });
 
-        // Combined "general" ranking.
+        // Combined "general" ranking — a true overall table ordered by the
+        // tournament's configured tiebreak criteria (same cross-group logic the
+        // qualifier binder uses), not by group position. Head-to-head is skipped
+        // across groups. pair_name/group_name are preserved through the sort.
         $combined = collect();
         foreach ($groups as $g) {
             foreach ($g['rows'] as $pos => $r) {
                 $combined->push(array_merge($r, ['group_name' => $g['name'], 'group_pos' => $pos + 1]));
             }
         }
-        $combined = $combined->sort(
-            fn($a, $b) =>
-            [$a['group_pos'], -$a['points'], -$a['game_diff']] <=> [$b['group_pos'], -$b['points'], -$b['game_diff']]
-        )->values();
+        $tbOrder = \App\Support\TiebreakCriteria::sanitize($tournament->tiebreak_order ?? null);
+        $combined = collect($this->brackets->rankRowsCrossGroup($combined, $tbOrder))->values();
 
         // Qualifier ids.
         $qualifierIds = [];

@@ -31,6 +31,20 @@ class BracketService
 
     public function __construct(private StandingsService $standings) {}
 
+    /**
+     * Public cross-group ranking of arbitrary standing rows, using the same logic
+     * the qualifier binder uses. Lets the public "general" leaderboard order its
+     * rows by the tournament's configured tiebreak criteria, in lockstep with how
+     * qualifiers are chosen. Pass the sanitized tiebreak order (null = legacy).
+     *
+     * @param  Collection<int,array>  $rows
+     * @return array<int,array>
+     */
+    public function rankRowsCrossGroup(\Illuminate\Support\Collection $rows, ?array $order = null): array
+    {
+        return $this->rankCrossGroup($rows, $order);
+    }
+
     // --- Qualification (hybrid) ---------------------------------------
 
     /**
@@ -68,7 +82,8 @@ class BracketService
         $tie = null;
 
         if ($category->extra_qualifiers > 0 && ! empty($pool)) {
-            $rankedPool = $this->rankCrossGroup(collect($pool));
+            $order = \App\Support\TiebreakCriteria::sanitize($category->tournament->tiebreak_order ?? null);
+            $rankedPool = $this->rankCrossGroup(collect($pool), $order);
             $need = $category->extra_qualifiers;
 
             // Detect an unbreakable tie on the boundary (more tied than slots).

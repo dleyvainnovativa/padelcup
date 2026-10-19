@@ -22,7 +22,7 @@ final class TiebreakCriteria
     ];
 
     /** Default order when a tournament hasn't customized it. */
-    public const DEFAULT_ORDER = ['matches_won', 'head_to_head', 'sets_won', 'games_won'];
+    public const DEFAULT_ORDER = ['matches_won', 'set_diff', 'game_diff', 'sets_won', 'games_won', 'head_to_head'];
 
     /** All valid criterion keys. */
     public static function keys(): array

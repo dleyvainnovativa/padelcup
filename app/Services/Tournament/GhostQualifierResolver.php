@@ -165,7 +165,8 @@ class GhostQualifierResolver
                 }
             }
             if (! empty($pool)) {
-                $ranked = $this->rankCrossGroup(collect($pool));
+                $order = \App\Support\TiebreakCriteria::sanitize($category->tournament->tiebreak_order ?? null);
+                $ranked = $this->rankCrossGroup(collect($pool), $order);
                 $k = 1;
                 foreach (collect($ranked)->take($extra) as $row) {
                     $name = $this->pairName($row['pair_id']);
