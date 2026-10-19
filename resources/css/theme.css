@@ -3711,3 +3711,73 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
   padding: 10px 14px;
   margin-bottom: 14px;
 }
+
+
+/* --- Manager calendar: "Fase:" chips (client-side dim, like cat-chips) ----- */
+.phase-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.phase-chips__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-faint);
+  margin-right: 2px;
+}
+.phase-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 3px 11px;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.phase-chip:hover { border-color: var(--border-strong); }
+.phase-chip.is-on {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+/* --- Public pages: group/phase filter chips (links, like pub-day-chip) ----- */
+.pub-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.pub-filter-chips__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-faint);
+  margin-right: 2px;
+}
+.pub-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px 13px;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.pub-filter-chip:hover { border-color: var(--border-strong); color: var(--text); }
+.pub-filter-chip.is-active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}

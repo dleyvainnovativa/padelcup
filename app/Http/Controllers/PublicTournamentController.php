@@ -93,6 +93,8 @@ class PublicTournamentController extends Controller
         // into a "Sin programar" bucket shown at the end.
         $calSearch = trim((string) $request->query('q', ''));
         $calDay = $request->query('day'); // Y-m-d
+        $calGroup = $request->query('group'); // group name, e.g. "Grupo A"
+        $calPhase = $request->query('phase'); // publicPhase key, e.g. "groups", "final"
 
         $calMatches = $category->matches()
             ->with([
@@ -114,6 +116,11 @@ class PublicTournamentController extends Controller
             ->orderBy('starts_at')
             ->orderBy('round')->orderBy('slot')->orderBy('id')
             ->get();
+
+        // Chip options (computed from the full set, before any narrowing): the
+        // group names present and the phases present in this category.
+        $calGroupNames = $category->groups->pluck('name')->values();
+        $calPhasesPresent = \App\Support\SchedulePhase::presentIn($calMatches);
 
         // Day options come from scheduled matches (before narrowing by day).
         $calAllDays = $calMatches
@@ -148,6 +155,14 @@ class PublicTournamentController extends Controller
                 }
             }
             $calMatchedPlayers = $calMatchedPlayers->values();
+        }
+
+        // Group + phase filters (compose with search and day).
+        if ($calGroup) {
+            $calMatches = $calMatches->filter(fn($m) => $m->group && $m->group->name === $calGroup)->values();
+        }
+        if ($calPhase) {
+            $calMatches = $calMatches->filter(fn($m) => $m->publicPhase()['key'] === $calPhase)->values();
         }
 
         // Split scheduled vs unscheduled; apply the day filter to scheduled ones.
@@ -341,6 +356,10 @@ class PublicTournamentController extends Controller
             'calAllDays' => $calAllDays,
             'calSearch' => $calSearch,
             'calDay' => $calDay,
+            'calGroup' => $calGroup,
+            'calPhase' => $calPhase,
+            'calGroupNames' => $calGroupNames,
+            'calPhasesPresent' => $calPhasesPresent,
             'calMatchedPlayers' => $calMatchedPlayers,
             'calTotal' => $calTotal,
             'ghostQualifiers' => $ghostQualifiers,
@@ -357,6 +376,7 @@ class PublicTournamentController extends Controller
         $search = trim((string) $request->query('q', ''));
         $categoryFilter = $request->query('cat'); // category id
         $dayFilter = $request->query('day');      // Y-m-d
+        $phaseFilter = $request->query('phase');  // publicPhase key
 
         $matches = $tournament->categories()
             ->with(['matches' => function ($q) {
@@ -390,6 +410,7 @@ class PublicTournamentController extends Controller
         // Filter options (before narrowing).
         $allCategories = $tournament->categories()->orderBy('name')->get(['id', 'name']);
         $allDays = $matches->map(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'))->unique()->values();
+        $allPhases = \App\Support\SchedulePhase::presentIn($matches);
 
         // Apply category filter.
         if ($categoryFilter) {
@@ -398,6 +419,10 @@ class PublicTournamentController extends Controller
         // Apply day filter.
         if ($dayFilter) {
             $matches = $matches->filter(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d') === $dayFilter)->values();
+        }
+        // Apply phase filter.
+        if ($phaseFilter) {
+            $matches = $matches->filter(fn($m) => $m->publicPhase()['key'] === $phaseFilter)->values();
         }
 
         // Ghost/qualifier map [category_id => [seedLabel => pairName]] — built
@@ -452,8 +477,10 @@ class PublicTournamentController extends Controller
             'matchedPlayers' => $matchedPlayers,
             'allCategories' => $allCategories,
             'allDays' => $allDays,
+            'allPhases' => $allPhases,
             'categoryFilter' => $categoryFilter,
             'dayFilter' => $dayFilter,
+            'phaseFilter' => $phaseFilter,
             'ghostQualifiers' => $ghostQualifiers,
         ]);
     }

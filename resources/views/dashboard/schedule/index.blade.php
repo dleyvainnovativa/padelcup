@@ -411,6 +411,14 @@
         </span>
         @endforeach
     </div>
+    @if(count($presentPhases) > 1)
+    <div class="phase-chips">
+        <span class="phase-chips__label">Fase:</span>
+        @foreach($presentPhases as $phaseKey)
+        <span class="phase-chip" data-phase-chip="{{ $phaseKey }}">{{ \App\Support\SchedulePhase::label($phaseKey) }}</span>
+        @endforeach
+    </div>
+    @endif
 </div>
 
 {{-- Player-search badges: up to 5 matching players; click to highlight, ⓘ for their matches --}}
@@ -651,6 +659,7 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
                                             data-ready="{{ $m->isReadyForResult() ? '1' : '0' }}"
                                             data-status="{{ $status }}"
                                             data-match-cat="{{ $m->category_id }}"
+                                            data-match-phase="{{ $m->publicPhase()['key'] }}"
                                             data-match-players="{{ $m->searchableNames($ghostQualifiers ?? []) }}"
                                             data-match-projected="{{ $m->isProjected($ghostQualifiers ?? []) ? '1' : '0' }}"
                                             draggable="true">

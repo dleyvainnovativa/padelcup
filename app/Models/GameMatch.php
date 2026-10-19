@@ -327,6 +327,27 @@ class GameMatch extends Model
     }
 
     /**
+     * Public-facing phase descriptor for the group/phase filters:
+     *   ['key' => <phaseKey>, 'sortIndex' => <chronological index>, 'label' => <Spanish>]
+     *
+     * Reuses phaseKey() + App\Support\SchedulePhase so the chips, the scheduling
+     * windows and the audit all agree on what a "phase" is. sortIndex orders the
+     * chips chronologically (Grupos first, Final last).
+     */
+    public function publicPhase(): array
+    {
+        $key = $this->phaseKey();
+        $order = \App\Support\SchedulePhase::keys();
+        $idx = array_search($key, $order, true);
+
+        return [
+            'key' => $key,
+            'sortIndex' => $idx === false ? 99 : $idx,
+            'label' => \App\Support\SchedulePhase::label($key),
+        ];
+    }
+
+    /**
      * Schedule status for board coloring:
      *  - 'played'    : has a confirmed result
      *  - 'playing'   : now is within the match's time window, no result yet

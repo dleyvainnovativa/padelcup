@@ -36,6 +36,7 @@
         <form method="GET" action="{{ route('public.schedule', $tournament) }}" class="pub-filter-cat">
             @if($search)<input type="hidden" name="q" value="{{ $search }}">@endif
             @if($dayFilter)<input type="hidden" name="day" value="{{ $dayFilter }}">@endif
+            @if($phaseFilter)<input type="hidden" name="phase" value="{{ $phaseFilter }}">@endif
             <select name="cat" onchange="this.form.submit()" class="pub-select">
                 <option value="">Todas las categorías</option>
                 @foreach($allCategories as $c)
@@ -45,12 +46,23 @@
         </form>
         @if($allDays->count() > 1)
         <div class="pub-day-chips">
-            <a href="{{ route('public.schedule', ['tournament' => $tournament, 'q' => $search ?: null, 'cat' => $categoryFilter ?: null]) }}"
+            <a href="{{ route('public.schedule', ['tournament' => $tournament, 'q' => $search ?: null, 'cat' => $categoryFilter ?: null, 'phase' => $phaseFilter ?: null]) }}"
                 class="pub-day-chip {{ !$dayFilter ? 'is-active' : '' }}">Todos</a>
             @foreach($allDays as $day)
             @php $d = \Carbon\Carbon::parse($day, 'America/Mexico_City'); @endphp
-            <a href="{{ route('public.schedule', ['tournament' => $tournament, 'q' => $search ?: null, 'cat' => $categoryFilter ?: null, 'day' => $day]) }}"
+            <a href="{{ route('public.schedule', ['tournament' => $tournament, 'q' => $search ?: null, 'cat' => $categoryFilter ?: null, 'phase' => $phaseFilter ?: null, 'day' => $day]) }}"
                 class="pub-day-chip {{ $dayFilter === $day ? 'is-active' : '' }}">{{ $d->translatedFormat('D d M') }}</a>
+            @endforeach
+        </div>
+        @endif
+        @if(count($allPhases) > 1)
+        <div class="pub-filter-chips">
+            <span class="pub-filter-chips__label">Fase:</span>
+            <a href="{{ route('public.schedule', ['tournament' => $tournament, 'q' => $search ?: null, 'cat' => $categoryFilter ?: null, 'day' => $dayFilter ?: null]) }}"
+                class="pub-filter-chip {{ !$phaseFilter ? 'is-active' : '' }}">Todas</a>
+            @foreach($allPhases as $phaseKey)
+            <a href="{{ route('public.schedule', ['tournament' => $tournament, 'q' => $search ?: null, 'cat' => $categoryFilter ?: null, 'day' => $dayFilter ?: null, 'phase' => $phaseKey]) }}"
+                class="pub-filter-chip {{ $phaseFilter === $phaseKey ? 'is-active' : '' }}">{{ \App\Support\SchedulePhase::label($phaseKey) }}</a>
             @endforeach
         </div>
         @endif

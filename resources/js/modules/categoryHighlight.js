@@ -12,22 +12,31 @@ export function initCategoryHighlight() {
   if (!board) return;
 
   const chips = document.querySelectorAll('[data-cat-chip]');
+  const phaseChips = document.querySelectorAll('[data-phase-chip]');
   const search = document.querySelector('[data-player-highlight]');
   const clearBtn = document.querySelector('[data-player-highlight-clear]');
 
   const selectedCats = new Set();
+  const selectedPhases = new Set();
   let nameQuery = '';
 
   // --- Restore state from the URL ----------------------------------
   (function restore() {
     const params = new URLSearchParams(window.location.search);
     const cats = params.get('cats');
+    const phases = params.get('phases');
     const player = params.get('player');
 
     if (cats) {
       cats.split(',').filter(Boolean).forEach((id) => selectedCats.add(id));
       chips.forEach((chip) => {
         if (selectedCats.has(chip.dataset.catChip)) chip.classList.add('is-on');
+      });
+    }
+    if (phases) {
+      phases.split(',').filter(Boolean).forEach((k) => selectedPhases.add(k));
+      phaseChips.forEach((chip) => {
+        if (selectedPhases.has(chip.dataset.phaseChip)) chip.classList.add('is-on');
       });
     }
     if (player) {
@@ -44,6 +53,9 @@ export function initCategoryHighlight() {
     if (selectedCats.size > 0) params.set('cats', [...selectedCats].join(','));
     else params.delete('cats');
 
+    if (selectedPhases.size > 0) params.set('phases', [...selectedPhases].join(','));
+    else params.delete('phases');
+
     if (nameQuery.length > 0) params.set('player', search ? search.value.trim() : nameQuery);
     else params.delete('player');
 
@@ -57,6 +69,16 @@ export function initCategoryHighlight() {
       const id = chip.dataset.catChip;
       if (selectedCats.has(id)) { selectedCats.delete(id); chip.classList.remove('is-on'); }
       else { selectedCats.add(id); chip.classList.add('is-on'); }
+      apply();
+      syncUrl();
+    });
+  });
+
+  phaseChips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const k = chip.dataset.phaseChip;
+      if (selectedPhases.has(k)) { selectedPhases.delete(k); chip.classList.remove('is-on'); }
+      else { selectedPhases.add(k); chip.classList.add('is-on'); }
       apply();
       syncUrl();
     });
@@ -82,9 +104,10 @@ export function initCategoryHighlight() {
 
   function apply() {
     const catActive = selectedCats.size > 0;
+    const phaseActive = selectedPhases.size > 0;
     const nameActive = nameQuery.length > 0;
 
-    if (!catActive && !nameActive) {
+    if (!catActive && !phaseActive && !nameActive) {
       board.classList.remove('is-highlighting');
       board.querySelectorAll('[data-match-cat]').forEach((el) => {
         el.classList.remove('is-dimmed');
@@ -96,9 +119,10 @@ export function initCategoryHighlight() {
     board.classList.add('is-highlighting');
     board.querySelectorAll('[data-match-cat]').forEach((el) => {
       const catOk = !catActive || selectedCats.has(el.dataset.matchCat);
+      const phaseOk = !phaseActive || selectedPhases.has(el.dataset.matchPhase);
       const players = el.dataset.matchPlayers || '';
       const nameOk = !nameActive || players.includes(nameQuery);
-      const shown = catOk && nameOk;
+      const shown = catOk && phaseOk && nameOk;
       el.classList.toggle('is-dimmed', !shown);
 
       // A name search can match a match whose players are only PROJECTED (a
