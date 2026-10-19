@@ -83,6 +83,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('pairs', [PairController::class, 'store'])->name('pairs.store');
             Route::patch('pairs/{pair}/payment', [PairController::class, 'setPayment'])->name('pairs.payment');
             Route::post('pairs/{pair}/pago-jugador', [PairController::class, 'setPlayerPayment'])->name('pairs.playerPayment');
+            Route::post('pairs/{pair}/lider', [PairController::class, 'toggleLeader'])->name('pairs.leader');
             Route::delete('pairs/{pair}', [PairController::class, 'destroy'])->name('pairs.destroy');
             Route::patch('pairs/{pair}/nombres', [\App\Http\Controllers\Dashboard\PairController::class, 'updateNames'])->name('pairs.names');
             Route::patch(
@@ -124,6 +125,7 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('canchas/{court}', [\App\Http\Controllers\Dashboard\VenueController::class, 'destroyCourt'])->name('courts.destroy');
         Route::patch('canchas/{court}', [\App\Http\Controllers\Dashboard\VenueController::class, 'updateCourt'])->name('courts.update');
         Route::post('canchas/{court}/duplicar', [\App\Http\Controllers\Dashboard\VenueController::class, 'duplicateCourt'])->name('courts.duplicate');
+        Route::post('canchas/{court}/horarios/aplicar-a-todas', [\App\Http\Controllers\Dashboard\VenueController::class, 'applyAvailabilityToVenue'])->name('availability.applyToVenue');
         Route::post('canchas/{court}/horarios/eliminar-varios', [\App\Http\Controllers\Dashboard\VenueController::class, 'bulkDestroyAvailability'])->name('availability.bulkDestroy');
 
 

@@ -178,6 +178,14 @@ $belowMin = $occupied < $category->min_pairs;
                                     data-switch-player="{{ $pair->id }}">
                                     <i class="fa-solid fa-right-left"></i>
                                 </button>
+                                @php $isLeader = (int) ($pair->seed ?? 0) > 0; @endphp
+                                <form method="POST" action="{{ route('pairs.leader', [$tournament, $category, $pair]) }}" class="d-inline">
+                                    @csrf
+                                    <button class="btn btn-soft btn-sm pair-leader-btn {{ $isLeader ? 'is-leader' : '' }}"
+                                        title="{{ $isLeader ? 'Quitar líder' : 'Marcar como líder (se separan en grupos distintos al regenerar)' }}">
+                                        <i class="fa-{{ $isLeader ? 'solid' : 'regular' }} fa-star"></i>
+                                    </button>
+                                </form>
                                 @if($reg && $reg->payment_status->value !== 'paid')
                                 <form method="POST" action="{{ route('pairs.payment', [$tournament, $category, $pair]) }}">
                                     @csrf @method('PATCH')

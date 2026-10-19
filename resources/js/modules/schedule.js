@@ -151,6 +151,10 @@ export function initSchedule() {
   // --- Desktop drag (bonus; sheet still available) ------------------
   if (!isTouch) initDrag(board, place, switchCourt, swap, selection);
 
+  // --- Clear menu: cancelar / limpiar día / limpiar todo ------------
+  const clearBtn = document.querySelector('[data-sched-clear]');
+  if (clearBtn) initClearMenu(clearBtn);
+
   // --- Bottom sheet -------------------------------------------------
   function openSheetFor(cell) {
     const court = cell.dataset.court;
@@ -549,6 +553,69 @@ function buildSheet() {
 }
 
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// --- Clear menu (cancelar / limpiar día / limpiar todo) -------------
+function initClearMenu(btn) {
+  const url = btn.dataset.clearUrl;
+  const tid = btn.dataset.tournament;
+
+  btn.addEventListener('click', () => {
+    const activeDay = currentSchedDay(tid);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'sched-clear-overlay';
+    overlay.innerHTML = `
+      <div class="sched-clear-menu" role="dialog" aria-modal="true">
+        <div class="sched-clear-menu__title">Limpiar calendario</div>
+        <div class="sched-clear-menu__sub">Los resultados se conservan; solo se quitan los horarios.</div>
+        <button type="button" class="sched-clear-menu__opt" data-clear-day ${activeDay ? '' : 'disabled'}>
+          <i class="fa-solid fa-calendar-day"></i> Limpiar día${activeDay ? ` · ${fmtSchedDay(activeDay)}` : ''}
+        </button>
+        <button type="button" class="sched-clear-menu__opt sched-clear-menu__opt--danger" data-clear-all>
+          <i class="fa-solid fa-trash-can"></i> Limpiar todo
+        </button>
+        <button type="button" class="sched-clear-menu__opt sched-clear-menu__cancel" data-clear-cancel>Cancelar</button>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('[data-clear-cancel]').addEventListener('click', close);
+    overlay.querySelector('[data-clear-all]').addEventListener('click', () => submitClear(url, 'all', null));
+    const dayBtn = overlay.querySelector('[data-clear-day]');
+    if (dayBtn && activeDay) dayBtn.addEventListener('click', () => submitClear(url, 'day', activeDay));
+    document.addEventListener('keydown', function esc(e) {
+      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+    });
+  });
+}
+
+function currentSchedDay(tid) {
+  const active = document.querySelector('.sched-day.is-active');
+  if (active?.dataset.day) return active.dataset.day;
+  try { return sessionStorage.getItem('sched_day_' + tid) || null; } catch (_) { return null; }
+}
+
+function fmtSchedDay(ymd) {
+  const d = new Date(ymd + 'T00:00:00');
+  return `${cap(DOW[d.getDay()])} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+function submitClear(url, scope, day) {
+  const f = document.createElement('form');
+  f.method = 'POST';
+  f.action = url;
+  const add = (n, v) => {
+    const i = document.createElement('input');
+    i.type = 'hidden'; i.name = n; i.value = v;
+    f.appendChild(i);
+  };
+  add('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '');
+  add('scope', scope);
+  if (day) add('day', day);
+  document.body.appendChild(f);
+  f.submit();
+}
 
 // --- Match-control sheet (scores + unschedule) ----------------------
 function buildControlSheet({ onUnplace, onSaveResult }) {

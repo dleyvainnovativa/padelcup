@@ -485,9 +485,35 @@ class ScheduleController extends Controller
     {
         $this->authorize('update', $tournament);
 
-        $count = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
-            ->whereNotNull('starts_at')
-            ->update(['court_id' => null, 'starts_at' => null]);
+        $data = $request->validate([
+            'scope' => ['nullable', 'in:all,day'],
+            'day' => ['nullable', 'date'],
+        ]);
+        $scope = $data['scope'] ?? 'all';
+
+        $scheduled = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->whereNotNull('starts_at');
+
+        // Day scope: only the matches on the given calendar day (CDMX). The
+        // tz-local day can't be filtered in SQL reliably, so resolve ids first.
+        if ($scope === 'day') {
+            $day = $data['day'] ?? null;
+            if (! $day) {
+                return back()->withErrors(['schedule' => 'Falta el día a limpiar.']);
+            }
+            $tz = 'America/Mexico_City';
+            $ids = $scheduled->get(['id', 'starts_at'])
+                ->filter(fn($m) => $m->starts_at->timezone($tz)->format('Y-m-d') === $day)
+                ->pluck('id');
+
+            $count = $ids->isEmpty()
+                ? 0
+                : GameMatch::whereIn('id', $ids)->update(['court_id' => null, 'starts_at' => null]);
+
+            return back()->with('status', "{$count} partidos del día quitados del calendario.");
+        }
+
+        $count = $scheduled->update(['court_id' => null, 'starts_at' => null]);
 
         return back()->with('status', "{$count} partidos quitados del calendario.");
     }

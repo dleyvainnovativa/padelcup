@@ -12,6 +12,10 @@ export function initBracketResults() {
 
   board.querySelectorAll('[data-bracket-match]').forEach((el) => {
     el.addEventListener('click', () => {
+      // In "editar posiciones" mode (bracketSwap sets .is-swapping on the board),
+      // a tap selects the slot to swap — never open the score sheet, even for a
+      // match that already has a result.
+      if (board.classList.contains('is-swapping')) return;
       sheet.show({
         context: el.dataset.ctx,
         a: el.dataset.a,

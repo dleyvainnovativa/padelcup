@@ -13,18 +13,31 @@ export function initGroupBuilder() {
   if (!board) return;
 
   const moveUrl = board.dataset.moveUrl;
+  const reorderUrl = board.dataset.reorderUrl;
 
-  // Shared move routine used by both interaction modes.
-  async function movePair(pairEl, toGroupEl) {
+  // Shared move routine used by both interaction modes. `beforeRef` (optional) is
+  // the list child to insert BEFORE — desktop drag passes it so the pair lands at
+  // the drop position instead of always at the end; null/append = bottom.
+  async function movePair(pairEl, toGroupEl, beforeRef = null) {
     const pairId = pairEl.dataset.pairId;
     const fromGroupId = pairEl.closest('[data-group]').dataset.groupId;
     const toGroupId = toGroupEl.dataset.groupId;
 
     if (fromGroupId === toGroupId) return;
 
-    // Optimistic move in the DOM.
+    // Optimistic move in the DOM, at the chosen position when given.
     const list = toGroupEl.querySelector('[data-group-list]');
-    list.appendChild(pairEl);
+    if (beforeRef && beforeRef !== pairEl && beforeRef.parentElement === list) {
+      list.insertBefore(pairEl, beforeRef);
+    } else {
+      list.appendChild(pairEl);
+    }
+
+    // Desired order for the destination group (not the "Sin asignar" pool, id 0),
+    // read from the DOM after the optimistic insert.
+    const desiredOrder = toGroupId !== '0'
+      ? [...list.querySelectorAll('[data-pair]')].map((el) => el.dataset.pairId)
+      : null;
 
     try {
       const res = await post(moveUrl, {
@@ -37,6 +50,18 @@ export function initGroupBuilder() {
       } else {
         toast.success('Pareja movida.');
       }
+
+      // Persist the chosen position within the destination group. The move above
+      // already attached the pair, so the reorder set matches the group's pairs.
+      if (desiredOrder && desiredOrder.length > 1) {
+        try {
+          await post(reorderUrl, { group_id: toGroupId, pair_ids: desiredOrder });
+        } catch (_) {
+          // Position couldn't be persisted (e.g. a Mexicano group needing confirm);
+          // the move still succeeded — the reload shows the server's order.
+        }
+      }
+
       // Resync standings (server-rendered) after the match rebuild.
       setTimeout(() => window.location.reload(), 700);
     } catch (e) {
@@ -74,9 +99,26 @@ function initDragMode(board, movePair) {
       e.preventDefault();
       group.classList.remove('drop-target');
       const dragging = board.querySelector('.dragging');
-      if (dragging) movePair(dragging, group);
+      if (!dragging) return;
+      const list = group.querySelector('[data-group-list]');
+      const beforeRef = list ? insertRefAt(list, e.clientY) : null;
+      movePair(dragging, group, beforeRef);
     });
   });
+}
+
+// The list child to insert the dragged pair BEFORE, given a drop Y. Returns null
+// to append at the end. Works whether list children are bare chips (pool) or
+// [data-pair-row] wrappers (real groups) — it maps each chip to its own child.
+function insertRefAt(list, y) {
+  const chips = [...list.querySelectorAll('[data-pair]')];
+  for (const chip of chips) {
+    const box = chip.getBoundingClientRect();
+    if (y < box.top + box.height / 2) {
+      return chip.closest('[data-pair-row]') || chip;
+    }
+  }
+  return null;
 }
 
 // --- Mobile: tap-to-pick, tap-to-drop ------------------------------

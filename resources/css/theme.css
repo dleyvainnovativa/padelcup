@@ -3781,3 +3781,66 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
   color: var(--on-accent);
   border-color: var(--accent);
 }
+
+
+/* --- #4 Leader (star) button on the players table ------------------------- */
+.pair-leader-btn.is-leader {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.pair-leader-btn.is-leader:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* --- #3 Clear menu (cancelar / limpiar día / limpiar todo) ---------------- */
+.sched-clear-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1080;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(16 24 40 / 0.45);
+  padding: 16px;
+}
+.sched-clear-menu {
+  width: 100%;
+  max-width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sched-clear-menu__title { font-size: 16px; font-weight: 700; color: var(--text); }
+.sched-clear-menu__sub { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.sched-clear-menu__opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.sched-clear-menu__opt:hover:not(:disabled) { border-color: var(--border-strong); }
+.sched-clear-menu__opt:disabled { opacity: .5; cursor: default; }
+.sched-clear-menu__opt--danger { color: var(--danger-text); }
+.sched-clear-menu__opt--danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+}
+.sched-clear-menu__cancel {
+  background: transparent;
+  justify-content: center;
+  color: var(--text-muted);
+  font-weight: 500;
+}

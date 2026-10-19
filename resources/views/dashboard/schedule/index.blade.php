@@ -59,12 +59,11 @@
                 data-validate-schedule="{{ route('schedule.validation', $tournament) }}">
                 <i class="fa-solid fa-clipboard-check me-1"></i><span class="btn-label">Validar horarios</span>
             </button>
-            <form method="POST" action="{{ route('schedule.clear', $tournament) }}"
-                data-confirm="Se quitarán TODOS los partidos del calendario (los resultados se conservan). ¿Continuar?"
-                data-confirm-title="Limpiar calendario" data-confirm-ok="Limpiar" data-confirm-variant="danger">
-                @csrf
-                <button class="btn btn-danger"><i class="fa-solid fa-trash-can me-1"></i><span class="btn-label">Limpiar</span></button>
-            </form>
+            <button type="button" class="btn btn-danger" data-sched-clear
+                data-clear-url="{{ route('schedule.clear', $tournament) }}"
+                data-tournament="{{ $tournament->id }}">
+                <i class="fa-solid fa-trash-can me-1"></i><span class="btn-label">Limpiar</span>
+            </button>
 
         </div>
     </div>

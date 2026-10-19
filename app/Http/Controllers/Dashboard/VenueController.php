@@ -223,6 +223,35 @@ class VenueController extends Controller
 
         return back()->with('status', "Cancha duplicada como «{$copy->name}».");
     }
+
+    /**
+     * Copy THIS court's availability windows to every OTHER court in its venue,
+     * replacing theirs. Saves adding the same schedule to each court by hand.
+     */
+    public function applyAvailabilityToVenue(Tournament $tournament, Court $court)
+    {
+        $this->authorize('update', $tournament);
+        abort_unless($court->venue->tournament_id === $tournament->id, 404);
+
+        $windows = $court->availabilities()->get(['starts_at', 'ends_at']);
+        $others = $court->venue->courts()->where('id', '!=', $court->id)->get();
+
+        foreach ($others as $other) {
+            $other->availabilities()->delete();
+            foreach ($windows as $w) {
+                $other->availabilities()->create([
+                    'starts_at' => $w->starts_at,
+                    'ends_at' => $w->ends_at,
+                ]);
+            }
+        }
+
+        $n = $others->count();
+        return back()->with('status', $n === 0
+            ? 'No hay otras canchas en esta sede.'
+            : "Horario aplicado a {$n} " . ($n === 1 ? 'cancha' : 'canchas') . ' de la sede.');
+    }
+
     /** Edit one availability window's start/end (same day). */
     public function updateAvailability(Request $request, Tournament $tournament, CourtAvailability $availability)
     {

@@ -72,6 +72,25 @@ class PairController extends Controller
         return back()->with('status', 'Pago actualizado.');
     }
 
+    /**
+     * Toggle a pair's "leader" flag (stored in `seed`). The group engine seats
+     * pairs with seed > 0 one-per-group in distinct groups on regenerate
+     * (GroupGenerationService::assign), so marking leaders keeps them apart
+     * without manual reordering. On → seed = 1; off → seed = null.
+     */
+    public function toggleLeader(Request $request, Tournament $tournament, Category $category, Pair $pair)
+    {
+        $this->authorize('update', $category);
+        abort_unless($pair->category_id === $category->id, 404);
+
+        $makeLeader = (int) ($pair->seed ?? 0) <= 0;
+        $pair->update(['seed' => $makeLeader ? 1 : null]);
+
+        return back()->with('status', $makeLeader
+            ? "«{$pair->name()}» marcada como líder."
+            : "Se quitó el líder de «{$pair->name()}».");
+    }
+
     public function destroy(Tournament $tournament, Category $category, Pair $pair)
     {
         $this->authorize('update', $category);

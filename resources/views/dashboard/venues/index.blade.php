@@ -118,6 +118,15 @@
                             </button>
                         </form>
 
+                        <form method="POST" action="{{ route('availability.applyToVenue', [$tournament, $court]) }}" class="d-inline"
+                            data-confirm="Se copiará el horario de «{{ $court->name }}» a las demás canchas de esta sede, reemplazando el suyo. ¿Continuar?"
+                            data-confirm-title="Aplicar a todas" data-confirm-ok="Aplicar">
+                            @csrf
+                            <button class="btn btn-soft btn-sm court-icon-btn" title="Aplicar este horario a todas las canchas de la sede" aria-label="Aplicar a todas">
+                                <i class="fa-solid fa-clone"></i>
+                            </button>
+                        </form>
+
                         <form method="POST" action="{{ route('courts.destroy', [$tournament, $court]) }}"
                             data-confirm="¿Eliminar «{{ $court->name }}»? Se quitará del calendario."
                             data-confirm-title="Eliminar cancha" data-confirm-variant="danger" data-confirm-ok="Eliminar">
