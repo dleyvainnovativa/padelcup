@@ -69,6 +69,10 @@
                     <label class="form-label" style="font-size:13px;font-weight:500;">Duración partido (min)</label>
                     <input type="number" name="match_duration_minutes" min="30" max="240" step="5" value="{{ old('match_duration_minutes', $tournament->match_duration_minutes) }}" class="form-control" style="border-radius:var(--radius);">
                 </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label" style="font-size:13px;font-weight:500;">Máx. partidos/día (jugador)</label>
+                    <input type="number" name="max_matches_per_day" min="1" max="10" step="1" value="{{ old('max_matches_per_day', $tournament->max_matches_per_day) }}" placeholder="2" class="form-control" style="border-radius:var(--radius);">
+                </div>
             </div>
             <div style="font-size:12px;color:var(--text-faint);margin-top:6px;">
                 El calendario usa estos valores para crear los espacios (slots) y el horario disponible de todas las canchas.

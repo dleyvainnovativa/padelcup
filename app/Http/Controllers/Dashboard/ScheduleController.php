@@ -83,7 +83,7 @@ class ScheduleController extends Controller
             'categories' => $categories,
             'multiCategoryPlayers' => $multiCategoryPlayers,
             'preferredSchedulePlayers' => $this->preferredSchedulePlayers($tournament),
-            'busyDayPlayers' => $this->busyDayPlayers($tournament, 3),
+            'busyDayPlayers' => $this->busyDayPlayers($tournament, $tournament->maxMatchesPerDay() + 1),
             'ghostQualifiers' => $ghostQualifiers,
             'playerMatchIndex' => $this->playerMatchIndex($tournament),
         ]);
@@ -362,13 +362,15 @@ class ScheduleController extends Controller
         // "Máx. 2 partidos por día por jugador" switch (on by default). Hidden
         // input sends 0 when unchecked; missing entirely → on.
         $limitPerDay = $request->boolean('limit_per_day', true);
-        $result = $this->scheduler->autoSchedule($tournament, $courts, $duration, $duration, $limitPerDay, 2);
+        $maxPerDay = $tournament->maxMatchesPerDay();
+        $result = $this->scheduler->autoSchedule($tournament, $courts, $duration, $duration, $limitPerDay, $maxPerDay);
 
         $msg = "{$result['scheduled']} partidos programados.";
         if (! empty($result['over_limit_players'])) {
             $n = $result['over_limit_players'];
+            $over = $maxPerDay + 1;
             $msg .= ' ' . ($n === 1 ? '1 jugador quedó' : "{$n} jugadores quedaron")
-                . ' con 3+ partidos en un día (no había espacio). Revisa conflictos para ver quién.';
+                . " con {$over}+ partidos en un día (no había espacio). Revisa conflictos para ver quién.";
         }
         if ($result['unplaced'] > 0) {
             $msg .= " {$result['unplaced']} no cupieron.";
@@ -416,7 +418,14 @@ class ScheduleController extends Controller
         $restWarnings = $this->scheduler->restWarningsFor($match, $startsAt, $duration);
         $conflicts = array_merge($conflicts, $restWarnings);
 
-        // Conflicts (incl. rest-gap) block unless explicitly forced (manager override).
+        // Live placement warnings: starts before a feeder / source group finishes
+        // (or those aren't scheduled), or a player would exceed the daily limit.
+        $placementWarnings = $this->scheduler->placementWarnings(
+            $match, $startsAt, $duration, $tournament->maxMatchesPerDay()
+        );
+        $conflicts = array_merge($conflicts, $placementWarnings);
+
+        // Conflicts (incl. rest-gap + placement) block unless explicitly forced.
         if (! empty($conflicts) && ! $request->boolean('force')) {
             return response()->json(['ok' => false, 'conflicts' => $conflicts], 422);
         }
@@ -489,8 +498,9 @@ class ScheduleController extends Controller
         $this->authorize('update', $tournament);
 
         // One pass builds all three reports (player conflicts incl. possible R2,
-        // players with 3+ matches in a day, per-category play order).
-        $audit = $this->scheduler->audit($tournament);
+        // players over the daily limit, per-category play order). The "busy day"
+        // threshold is the per-tournament limit + 1 (e.g. max 2/day → flag 3+).
+        $audit = $this->scheduler->audit($tournament, $tournament->maxMatchesPerDay() + 1);
 
         return back()
             ->with('conflicts', $audit['conflicts'])
@@ -1106,11 +1116,13 @@ class ScheduleController extends Controller
 
             $conflicts = [];
 
+            $maxPerDay = $tournament->maxMatchesPerDay();
             if ($aCourt) {
                 $conflicts = array_merge(
                     $conflicts,
                     $this->prefixConflicts($a, $this->scheduler->conflictsFor($a, $aCourt, $a->starts_at, $duration)),
                     $this->prefixConflicts($a, $this->scheduler->restWarningsFor($a, $a->starts_at, $duration)),
+                    $this->prefixConflicts($a, $this->scheduler->placementWarnings($a, $a->starts_at, $duration, $maxPerDay)),
                 );
             }
             if ($bCourt) {
@@ -1118,6 +1130,7 @@ class ScheduleController extends Controller
                     $conflicts,
                     $this->prefixConflicts($b, $this->scheduler->conflictsFor($b, $bCourt, $b->starts_at, $duration)),
                     $this->prefixConflicts($b, $this->scheduler->restWarningsFor($b, $b->starts_at, $duration)),
+                    $this->prefixConflicts($b, $this->scheduler->placementWarnings($b, $b->starts_at, $duration, $maxPerDay)),
                 );
             }
 

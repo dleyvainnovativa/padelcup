@@ -1145,4 +1145,153 @@ class SchedulingService
 
         return $messages;
     }
+
+    /**
+     * Live placement warnings for putting $match at $startsAt: it starts before a
+     * feeder / source group finishes (or those aren't scheduled yet), or a player
+     * would exceed the per-day match limit. Gathers context (feeders, source
+     * groups, per-day load) and delegates the decision to PlacementEvaluator.
+     * Pass $maxPerDay = null to skip the per-day check.
+     *
+     * @return string[] warning lines (block-unless-forced, merged with conflicts)
+     */
+    public function placementWarnings(GameMatch $match, Carbon $startsAt, int $duration, ?int $maxPerDay = null): array
+    {
+        $match->loadMissing([
+            'category',
+            'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2',
+            'feederA.pairA', 'feederA.pairB', 'feederB.pairA', 'feederB.pairB',
+        ]);
+
+        $ctx = [
+            'startsTs' => $startsAt->timestamp,
+            'feeders' => $this->feederInfo($match),
+            'sourceGroups' => $this->sourceGroupInfo($match),
+            'dayLoad' => $this->dayLoadFor($match, $startsAt),
+            'maxPerDay' => $maxPerDay,
+        ];
+
+        return PlacementEvaluator::evaluate($ctx);
+    }
+
+    /**
+     * Feeder dependencies for a side that isn't a bound pair yet: whether the
+     * feeder match is scheduled and when it ends. [['label','scheduled','endsTs'], ...]
+     */
+    private function feederInfo(GameMatch $match): array
+    {
+        $out = [];
+        $sides = [
+            'a' => ['feederA', 'pair_a_id', 'feeder_a_source'],
+            'b' => ['feederB', 'pair_b_id', 'feeder_b_source'],
+        ];
+        foreach ($sides as [$rel, $pairCol, $srcCol]) {
+            if ($match->$pairCol) continue;     // side already bound — not waiting
+            $f = $match->$rel;
+            if (! $f) continue;
+
+            $word = ($match->$srcCol === 'loser') ? 'Perdedor' : 'Ganador';
+            $fa = $f->pairA?->name();
+            $fb = $f->pairB?->name();
+            $of = ($fa && $fb) ? " ({$fa} / {$fb})" : '';
+
+            $scheduled = $f->starts_at !== null;
+            $endsTs = $scheduled
+                ? $f->starts_at->timestamp + (((int) ($f->duration_minutes ?: 60)) * 60)
+                : null;
+
+            $out[] = ['label' => $word . $of, 'scheduled' => $scheduled, 'endsTs' => $endsTs];
+        }
+        return $out;
+    }
+
+    /**
+     * Source groups gating a bracket match seeded from group positions:
+     * "A1"/"B2" → that group; "Q#" → every group. For each, the last-match end
+     * time and how many of its matches are still unscheduled.
+     * [['name','endsTs','unscheduled'], ...]
+     */
+    private function sourceGroupInfo(GameMatch $match): array
+    {
+        $labels = array_filter(
+            [$match->seed_label_a, $match->seed_label_b],
+            fn($l) => $l && $l !== 'BYE'
+        );
+        if (empty($labels)) return [];
+
+        $groups = \App\Models\Group::where('category_id', $match->category_id)->get();
+        if ($groups->isEmpty()) return [];
+
+        $letterToGroup = [];
+        foreach ($groups as $g) {
+            if (preg_match('/([A-Z])$/u', $g->name, $mm)) {
+                $letterToGroup[$mm[1]] = $g;
+            }
+        }
+
+        // Resolve which groups gate this match (keyed by id to de-dupe).
+        $targets = [];
+        foreach ($labels as $label) {
+            if (preg_match('/^Q\d+$/', $label)) {
+                foreach ($groups as $g) $targets[$g->id] = $g;
+            } elseif (preg_match('/^([A-Z])\d+$/', $label, $mm) && isset($letterToGroup[$mm[1]])) {
+                $g = $letterToGroup[$mm[1]];
+                $targets[$g->id] = $g;
+            }
+        }
+        if (empty($targets)) return [];
+
+        $out = [];
+        foreach ($targets as $g) {
+            $gm = GameMatch::where('group_id', $g->id)->get();
+            $endsTs = null;
+            $unscheduled = 0;
+            foreach ($gm as $m) {
+                if ($m->starts_at) {
+                    $end = $m->starts_at->timestamp + (((int) ($m->duration_minutes ?: 60)) * 60);
+                    $endsTs = max($endsTs ?? 0, $end);
+                } else {
+                    $unscheduled++;
+                }
+            }
+            $out[] = ['name' => $g->name, 'endsTs' => $endsTs, 'unscheduled' => $unscheduled];
+        }
+        return $out;
+    }
+
+    /**
+     * Per-day match load for the placed match's KNOWN players: how many OTHER
+     * scheduled matches each already has on the target day. Each other match is
+     * counted once per player (so a Mexicano R2 with two feeder options counts
+     * once). [['name','count'], ...]
+     */
+    private function dayLoadFor(GameMatch $match, Carbon $startsAt): array
+    {
+        $keys = $this->playerKeys($match);
+        if (empty($keys)) return [];
+
+        $tz = 'America/Mexico_City';
+        $day = $startsAt->timezone($tz)->format('Y-m-d');
+        $tid = $match->category->tournament_id;
+
+        $sameDay = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tid))
+            ->where('id', '!=', $match->id)
+            ->whereNotNull('starts_at')
+            ->with(['pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+            ->get()
+            ->filter(fn($m) => $m->starts_at->timezone($tz)->format('Y-m-d') === $day);
+
+        $counts = array_fill_keys($keys, 0);
+        foreach ($sameDay as $other) {
+            foreach (array_intersect($keys, $this->playerKeys($other)) as $k) {
+                $counts[$k]++;
+            }
+        }
+
+        $out = [];
+        foreach ($keys as $k) {
+            $out[] = ['name' => $this->playerNameByKey($match, $k) ?? 'Un jugador', 'count' => $counts[$k]];
+        }
+        return $out;
+    }
 }

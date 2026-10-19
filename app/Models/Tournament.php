@@ -32,6 +32,7 @@ class Tournament extends Model
         'play_end',
         'match_duration_minutes',
         'min_rest_minutes',
+        'max_matches_per_day',
         'registration_opens_at',
         'registration_closes_at',
         'phase',
@@ -191,6 +192,12 @@ class Tournament extends Model
      *
      * @return array<string,int>
      */
+    /** Max matches per player per day (defaults to 2 when unset). */
+    public function maxMatchesPerDay(): int
+    {
+        return (int) ($this->max_matches_per_day ?? 2);
+    }
+
     public function dayDurationMap(): array
     {
         $map = [];

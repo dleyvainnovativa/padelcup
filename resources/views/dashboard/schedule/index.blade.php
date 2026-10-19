@@ -32,9 +32,9 @@
                     <button class="btn btn-accent"><i class="fa-solid fa-wand-magic-sparkles me-1"></i><span class="btn-label">Auto-programar</span></button>
                     {{-- Preference: nobody over 2 matches/day when there's room (falls back when there isn't). --}}
                     <input type="hidden" name="limit_per_day" value="0">
-                    <label class="sched-auto__opt" title="Prioriza que ningún jugador tenga más de 2 partidos en un día. Si no hay espacio, programa igual y te avisa.">
+                    <label class="sched-auto__opt" title="Prioriza que ningún jugador tenga más de {{ $tournament->maxMatchesPerDay() }} partidos en un día. Si no hay espacio, programa igual y te avisa.">
                         <input type="checkbox" name="limit_per_day" value="1" checked>
-                        Máx. 2/día
+                        Máx. {{ $tournament->maxMatchesPerDay() }}/día
                     </label>
                 </div>
             </form>
@@ -114,7 +114,7 @@
                 $plTabs = [];
                 if ($mcCount) $plTabs['multi'] = ['label' => 'En 2+ categorías', 'icon' => 'fa-user-group', 'count' => $mcCount];
                 if ($prefCount) $plTabs['pref'] = ['label' => 'Horario preferido', 'icon' => 'fa-user-clock', 'count' => $prefCount];
-                if ($busyCount) $plTabs['busy'] = ['label' => '3+ en un día', 'icon' => 'fa-gauge-high', 'count' => $busyCount];
+                if ($busyCount) $plTabs['busy'] = ['label' => ($tournament->maxMatchesPerDay() + 1) . '+ en un día', 'icon' => 'fa-gauge-high', 'count' => $busyCount];
                 $firstTab = array_key_first($plTabs);
                 @endphp
                 @if(count($plTabs) > 1)
@@ -158,7 +158,7 @@
 
                 @if($busyCount)
                 <div class="pl-sheet__section" data-pl-section data-pl-tab="busy" x-show="!plTab || plTab === 'busy'" x-cloak>
-                    <div class="pl-sheet__section-title"><i class="fa-solid fa-gauge-high me-1"></i> Con 3+ partidos en un día ({{ $busyCount }})</div>
+                    <div class="pl-sheet__section-title"><i class="fa-solid fa-gauge-high me-1"></i> Con {{ $tournament->maxMatchesPerDay() + 1 }}+ partidos en un día ({{ $busyCount }})</div>
                     @foreach($busyDayPlayers as $row)
                     {{-- One expandable row per player (the old duplicate plain row was removed). --}}
                     <div class="pl-busy" data-pl-name="{{ Str::lower($row['name']) }}" x-data="{ open: false }">
