@@ -34,6 +34,7 @@
             <a href="{{ route('venues.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-location-dot me-1"></i> Sedes</a>
             <a href="{{ route('tournament.players', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-users me-1"></i> Jugadores</a>
             <a href="{{ route('schedule.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-calendar-days me-1"></i> Calendario</a>
+            <a href="{{ route('control.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-table-list me-1"></i> Mesa de control</a>
             <a href="{{ route('tournaments.edit', $tournament) }}" class="btn btn-soft dash-edit-caution"><i class="fa-solid fa-pen me-1"></i> Editar</a>
             <a href="{{ route('categories.create', $tournament) }}" class="btn btn-accent"><i class="fa-solid fa-plus me-1"></i> Nueva categoría</a>
             <form method="POST" action="{{ route('tournaments.backup', $tournament) }}" class="d-inline">

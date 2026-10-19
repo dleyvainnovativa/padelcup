@@ -27,6 +27,9 @@ class GameMatch extends Model
         'is_third_place',
         'court_id',
         'starts_at',
+        'called_at',
+        'started_at',
+        'ended_at',
         'duration_minutes',
         'state',
         'result_type',
@@ -44,6 +47,9 @@ class GameMatch extends Model
             'sets' => 'array',
             'is_third_place' => 'boolean',
             'starts_at' => 'datetime',
+            'called_at' => 'datetime',
+            'started_at' => 'datetime',
+            'ended_at' => 'datetime',
             'confirmed_at' => 'datetime',
             'state' => MatchState::class,
             'result_type' => MatchResultType::class,
@@ -341,6 +347,72 @@ class GameMatch extends Model
             }
         }
         return 'scheduled';
+    }
+
+    /**
+     * Mesa de control status, independent of the competition `state`:
+     *   'pending'  : not called yet (no timestamps)
+     *   'called'   : the pair was called to court (called_at)
+     *   'playing'  : the match physically started (started_at)
+     *   'finished' : the match physically ended (ended_at) OR a result exists
+     *
+     * The result/confirmation always wins for "finished": a confirmed match is
+     * done at the mesa even if ended_at was never stamped explicitly.
+     */
+    public function controlStatus(): string
+    {
+        if ($this->ended_at || $this->state === MatchState::Confirmed || $this->winner_pair_id) {
+            return 'finished';
+        }
+        if ($this->started_at) {
+            return 'playing';
+        }
+        if ($this->called_at) {
+            return 'called';
+        }
+        return 'pending';
+    }
+
+    /** Spanish label for the mesa status. */
+    public function controlStatusLabel(): string
+    {
+        return match ($this->controlStatus()) {
+            'called' => 'Llamado',
+            'playing' => 'En juego',
+            'finished' => 'Terminado',
+            default => 'Pendiente',
+        };
+    }
+
+    /**
+     * Minutes this match ran late vs its scheduled time: the signed difference
+     * between starts_at and the first real event (started_at, else called_at).
+     * Positive = started/called after the scheduled time (late); negative =
+     * early; null when there is nothing to compare (no schedule or not started).
+     */
+    public function delayMinutes(): ?int
+    {
+        if (! $this->starts_at) {
+            return null;
+        }
+        $actual = $this->started_at ?? $this->called_at;
+        if (! $actual) {
+            return null;
+        }
+        return (int) round($this->starts_at->diffInMinutes($actual, false));
+    }
+
+    /**
+     * Minutes elapsed since the match physically started, up to ended_at (or now
+     * if still running). Null until the match has started.
+     */
+    public function elapsedMinutes(): ?int
+    {
+        if (! $this->started_at) {
+            return null;
+        }
+        $end = $this->ended_at ?? now();
+        return (int) round($this->started_at->diffInMinutes($end, false));
     }
 
     /** Both pairs known → results can be entered. */

@@ -3538,3 +3538,176 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
   cursor: pointer; white-space: nowrap; user-select: none;
 }
 .sched-auto__opt input { accent-color: var(--accent); margin: 0; }
+
+
+/* --- Calendar control sheet: status steps + per-player payments ----------- */
+.sched-ctrl-steps {
+  margin: 10px 0 2px;
+}
+.sched-ctrl-steps__label,
+.sched-ctrl-pagos__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.sched-ctrl-steps__row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.sched-step,
+.mesa-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.sched-step i,
+.mesa-step i { font-size: 14px; }
+.sched-step:disabled,
+.mesa-step:disabled { opacity: .55; cursor: default; }
+.sched-step.is-active,
+.mesa-step.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+.sched-step.is-current,
+.mesa-step.is-current {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+/* Payment rows (shared by the calendar sheet and the mesa page). */
+.sched-ctrl-pagos { margin: 12px 0 2px; }
+.sched-pago {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.sched-pago input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--success); }
+.sched-pago__name { flex: 1; font-size: 13px; color: var(--text); }
+.sched-pago__state {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--warning-text);
+  background: var(--warning-soft);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+.sched-pago.is-paid { border-color: color-mix(in srgb, var(--success) 35%, var(--border)); }
+.sched-pago.is-paid .sched-pago__state {
+  color: var(--success-text);
+  background: var(--success-soft);
+}
+
+/* --- Mesa page header: delay + counts ------------------------------------- */
+.mesa-delay {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warning-text);
+  background: var(--warning-soft);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+}
+.mesa-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mesa-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+}
+.mesa-count strong { color: var(--text); }
+.mesa-count--called { border-color: color-mix(in srgb, var(--warning) 30%, var(--border)); }
+.mesa-count--playing { border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); }
+.mesa-count--finished { border-color: color-mix(in srgb, var(--success) 30%, var(--border)); }
+
+/* --- Mesa rows ------------------------------------------------------------ */
+.mesa-list { display: flex; flex-direction: column; gap: 10px; }
+.mesa-row {
+  display: grid;
+  grid-template-columns: 78px 1fr minmax(180px, 260px);
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.mesa-row--called { border-left-color: var(--warning); }
+.mesa-row--playing { border-left-color: var(--accent); }
+.mesa-row--finished { border-left-color: var(--success); }
+
+.mesa-row__when { text-align: left; }
+.mesa-row__time { font-size: 18px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.mesa-row__court { font-size: 12px; color: var(--text-muted); }
+.mesa-row__delay {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--warning-text);
+  background: var(--warning-soft);
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+}
+.mesa-row__ctx { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .03em; }
+.mesa-row__pairs { font-size: 14px; font-weight: 600; color: var(--text); margin: 2px 0 10px; }
+.mesa-row__pairs .vs { color: var(--text-faint); font-weight: 400; margin: 0 4px; }
+.mesa-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  max-width: 440px;
+}
+.mesa-pagos__label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--text-faint); margin-bottom: 6px;
+}
+
+@media (max-width: 720px) {
+  .mesa-row { grid-template-columns: 1fr; }
+  .mesa-row__when { display: flex; align-items: baseline; gap: 10px; }
+  .mesa-steps { max-width: none; }
+}
+
+/* --- Public delay notice -------------------------------------------------- */
+.pub-delay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--warning-text);
+  background: var(--warning-soft);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}

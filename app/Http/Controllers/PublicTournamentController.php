@@ -67,11 +67,15 @@ class PublicTournamentController extends Controller
         $categories = $tournament->categories()->withCount('pairs')->orderBy('name')->get();
         $sponsors = \App\Models\Sponsor::forTournament($tournament);
 
+        // Mesa de control: tournament-wide running delay (minutes), if any.
+        $scheduleDelay = app(\App\Services\Tournament\ControlTableService::class)->delay($tournament);
+
         return view('public.tournament', [
             'tournament' => $tournament,
             'categories' => $categories,
             'sponsors' => $sponsors,
             'ads' => \App\Models\Ad::forTournament($tournament),
+            'scheduleDelay' => $scheduleDelay,
         ]);
     }
 

@@ -566,6 +566,8 @@ function buildControlSheet({ onUnplace, onSaveResult }) {
       </div>
       <div class="sched-ctrl-proposal" data-ctrl-proposal hidden></div>
       <div class="sched-ctrl-status" data-ctrl-status></div>
+      <div class="sched-ctrl-steps" data-ctrl-steps></div>
+      <div class="sched-ctrl-pagos" data-ctrl-pagos></div>
       <div class="sched-ctrl-scoring" data-ctrl-scoring></div>
       <button class="sched-ctrl-action" data-ctrl-unplace>
         <span class="sched-ctrl-action__icon"><i class="fa-solid fa-eraser"></i></span>
@@ -582,6 +584,8 @@ function buildControlSheet({ onUnplace, onSaveResult }) {
   const pairsEl = overlay.querySelector('[data-ctrl-pairs]');
   const proposalEl = overlay.querySelector('[data-ctrl-proposal]');
   const statusEl = overlay.querySelector('[data-ctrl-status]');
+  const stepsEl = overlay.querySelector('[data-ctrl-steps]');
+  const pagosEl = overlay.querySelector('[data-ctrl-pagos]');
   const scoringEl = overlay.querySelector('[data-ctrl-scoring]');
   const unplaceBtn = overlay.querySelector('[data-ctrl-unplace]');
 
@@ -689,11 +693,91 @@ function buildControlSheet({ onUnplace, onSaveResult }) {
     });
   }
 
+  // --- Mesa de control: status step-row (pendiente→llamado→jugando→terminado) ---
+  const CTRL_STEPS = [
+    ['pending', 'Pendiente', 'fa-regular fa-circle'],
+    ['called', 'Llamado', 'fa-solid fa-bullhorn'],
+    ['playing', 'En juego', 'fa-solid fa-circle-play'],
+    ['finished', 'Terminado', 'fa-solid fa-flag-checkered'],
+  ];
+
+  function renderSteps(data) {
+    if (!data.statusUrl) { stepsEl.innerHTML = ''; return; }
+    const order = CTRL_STEPS.map((s) => s[0]);
+    const curIdx = order.indexOf(data.controlStatus || 'pending');
+
+    stepsEl.innerHTML = `
+      <div class="sched-ctrl-steps__label">Estado en mesa</div>
+      <div class="sched-ctrl-steps__row">
+        ${CTRL_STEPS.map((s, i) => `
+          <button type="button" class="sched-step${i <= curIdx ? ' is-active' : ''}${i === curIdx ? ' is-current' : ''}" data-step="${s[0]}">
+            <i class="${s[2]}"></i><span>${s[1]}</span>
+          </button>`).join('')}
+      </div>`;
+
+    stepsEl.querySelectorAll('[data-step]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const status = btn.dataset.step;
+        stepsEl.querySelectorAll('[data-step]').forEach((b) => (b.disabled = true));
+        try {
+          const res = await post(data.statusUrl, { status });
+          data.controlStatus = res.status || status;
+          data.controlStatusLabel = res.label || data.controlStatusLabel;
+          renderSteps(data);
+          toast.success('Estado: ' + (res.label || status));
+        } catch (_) {
+          toast.error('No se pudo actualizar el estado.');
+          stepsEl.querySelectorAll('[data-step]').forEach((b) => (b.disabled = false));
+        }
+      });
+    });
+  }
+
+  // --- Mesa de control: per-player payment checkboxes ---
+  function renderPagos(data) {
+    const players = data.players || [];
+    if (!players.length) { pagosEl.innerHTML = ''; return; }
+
+    pagosEl.innerHTML = `
+      <div class="sched-ctrl-pagos__label"><i class="fa-solid fa-money-bill-wave"></i> Pagos</div>
+      ${players.map((p) => `
+        <label class="sched-pago${p.paid ? ' is-paid' : ''}" data-player="${p.player_id}">
+          <input type="checkbox" ${p.paid ? 'checked' : ''} data-pay>
+          <span class="sched-pago__name">${p.name}</span>
+          <span class="sched-pago__state">${p.paid ? 'Pagado' : 'Pendiente'}</span>
+        </label>`).join('')}`;
+
+    pagosEl.querySelectorAll('.sched-pago').forEach((row) => {
+      const cb = row.querySelector('[data-pay]');
+      const pid = parseInt(row.dataset.player, 10);
+      const pdata = players.find((x) => x.player_id === pid);
+      if (!pdata) return;
+      cb.addEventListener('change', async () => {
+        cb.disabled = true;
+        try {
+          const res = await post(pdata.payUrl, { player_id: pid, paid: cb.checked });
+          const states = res.states || {};
+          players.forEach((pl) => {
+            if (states[pl.player_id] !== undefined) pl.paid = !!states[pl.player_id];
+          });
+          renderPagos(data);
+          toast.success('Pago actualizado.');
+        } catch (_) {
+          toast.error('No se pudo actualizar el pago.');
+          cb.checked = !cb.checked;
+          cb.disabled = false;
+        }
+      });
+    });
+  }
+
   function show(data) {
     current = data;
     ctxEl.textContent = data.context || '';
     pairsEl.textContent = `${data.a} · ${data.b}`;
     statusEl.innerHTML = statusBadge(data.status);
+    renderSteps(data);
+    renderPagos(data);
     renderScoring(data);
     renderProposal(data);
     overlay.classList.add('is-open');

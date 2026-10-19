@@ -82,6 +82,7 @@ Route::middleware(['auth'])->group(function () {
         Route::prefix('categories/{category}')->group(function () {
             Route::post('pairs', [PairController::class, 'store'])->name('pairs.store');
             Route::patch('pairs/{pair}/payment', [PairController::class, 'setPayment'])->name('pairs.payment');
+            Route::post('pairs/{pair}/pago-jugador', [PairController::class, 'setPlayerPayment'])->name('pairs.playerPayment');
             Route::delete('pairs/{pair}', [PairController::class, 'destroy'])->name('pairs.destroy');
             Route::patch('pairs/{pair}/nombres', [\App\Http\Controllers\Dashboard\PairController::class, 'updateNames'])->name('pairs.names');
             Route::patch(
@@ -148,6 +149,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('calendario/fases', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'savePhaseWindows'])->name('schedule.phases');
         Route::post('calendario/switch-court', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'switchCourt'])->name('schedule.switchCourt');
         Route::post('calendario/intercambiar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'swapMatches'])->name('schedule.swap');
+
+        // Mesa de control (event-day: call/start/finish + per-player payments).
+        Route::get('mesa-control', [\App\Http\Controllers\Dashboard\ControlController::class, 'index'])->name('control.index');
+        Route::post('mesa-control/{match}/estado', [\App\Http\Controllers\Dashboard\ControlController::class, 'setStatus'])->name('control.setStatus');
 
         // Resumen (tournament summary / leaderboard)
         Route::get('resumen', [\App\Http\Controllers\Dashboard\SummaryController::class, 'show'])->name('tournaments.summary');

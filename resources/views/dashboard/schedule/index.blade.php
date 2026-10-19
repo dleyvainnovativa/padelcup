@@ -17,6 +17,7 @@
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a href="{{ route('venues.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-location-dot me-1"></i><span class="btn-label">Canchas</span></a>
+            <a href="{{ route('control.index', $tournament) }}" class="btn btn-soft"><i class="fa-solid fa-table-list me-1"></i><span class="btn-label">Mesa de control</span></a>
             <button type="button" class="btn btn-soft" @click="showCapacity = !showCapacity">
                 <i class="fa-solid fa-calculator me-1"></i><span class="btn-label">Capacidad</span>
             </button>
@@ -503,6 +504,28 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
     'acceptUrl' => route('results.proposal.accept', [$tournament, $m->category_id, $m->id]),
     'rejectUrl' => route('results.proposal.reject', [$tournament, $m->category_id, $m->id]),
     ] : null,
+    // Mesa de control: live status + per-player payments on the scheduled sheet.
+    'controlStatus' => $m->controlStatus(),
+    'controlStatusLabel' => $m->controlStatusLabel(),
+    'statusUrl' => route('control.setStatus', [$tournament, $m->id]),
+    'players' => collect(['a' => $m->pairA, 'b' => $m->pairB])
+    ->flatMap(function ($pair) use ($tournament, $m) {
+    if (! $pair) return [];
+    $states = $pair->paidPlayerStates();
+    $payUrl = route('pairs.playerPayment', [$tournament, $m->category_id, $pair->id]);
+    $out = [];
+    foreach ([$pair->player1, $pair->player2] as $pl) {
+    if (! $pl) continue;
+    $out[] = [
+    'pair_id' => $pair->id,
+    'player_id' => $pl->id,
+    'name' => $pl->name,
+    'paid' => (bool) ($states[$pl->id] ?? false),
+    'payUrl' => $payUrl,
+    ];
+    }
+    return $out;
+    })->values()->all(),
     ]])->all(),
     'unscheduled' => $unscheduled->map(fn ($m) => [
     'id' => $m->id,

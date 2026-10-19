@@ -126,6 +126,11 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
     import('./modules/courtSchedule').then((m) => m.initCourtSchedule());
   }
 
+  // Feature module: mesa de control (event-day board).
+  if (document.querySelector('[data-control-board]')) {
+    import('./modules/mesaControl').then((m) => m.initMesaControl());
+  }
+
   registerPlayersSheet(Alpine);
 
   registerTiebreakOrder(Alpine);

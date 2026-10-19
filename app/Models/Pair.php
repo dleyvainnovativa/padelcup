@@ -103,4 +103,46 @@ class Pair extends Model
         $p2 = $this->player2?->name ?? '(pendiente)';
         return "{$p1} / {$p2}";
     }
+
+    /**
+     * Per-player paid state for the mesa de control, as [player_id => bool].
+     *
+     * Source of truth is the payments table (one row per player). When the pair
+     * has NO per-player payment rows yet — the common case for manager pay-later
+     * pairs — it falls back to the registration's roll-up payment_status so a
+     * legacy "marcado pagado" pair still reads as paid for every player. Once the
+     * mesa marks any player, the per-player rows drive the state.
+     *
+     * Reads from the eager-loaded `registration.payments` relation when present,
+     * so the board can avoid N+1 by loading it up front.
+     */
+    public function paidPlayerStates(): array
+    {
+        $ids = $this->playerIds();
+        if (empty($ids)) {
+            return [];
+        }
+
+        $registration = $this->registration; // uses eager-loaded relation if present
+        $payments = $registration ? $registration->payments : collect();
+
+        $hasAnyRows = $payments->isNotEmpty();
+        $paidIds = $payments
+            ->filter(fn ($p) => $p->isPaid())
+            ->pluck('player_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $legacyPaid = $registration
+            && $registration->payment_status === \App\Enums\PaymentStatus::Paid;
+
+        $out = [];
+        foreach ($ids as $pid) {
+            $out[(int) $pid] = $hasAnyRows
+                ? in_array((int) $pid, $paidIds, true)
+                : (bool) $legacyPaid;
+        }
+
+        return $out;
+    }
 }

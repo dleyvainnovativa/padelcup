@@ -7,9 +7,11 @@ use App\Enums\RegistrationSource;
 use App\Enums\RegistrationStatus;
 use App\Models\Category;
 use App\Models\Pair;
+use App\Models\Payment;
 use App\Models\Player;
 use App\Models\Registration;
 use App\Models\User;
+use App\Services\Payment\PaymentReconciler;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -26,6 +28,8 @@ use Illuminate\Validation\ValidationException;
  */
 class RegistrationService
 {
+    public function __construct(private PaymentReconciler $reconciler) {}
+
     /**
      * Create a manager pair in a category from player definitions.
      *
@@ -139,6 +143,86 @@ class RegistrationService
         $registration->update(['payment_status' => $status]);
 
         return $registration;
+    }
+
+    /**
+     * Mesa de control — mark ONE player of a pair paid/unpaid (cash at the door).
+     *
+     * Per-player payment is tracked in the `payments` table (one row per player).
+     * Manager pay-later pairs usually have no rows yet, so the first mark creates
+     * a manual (cash) row. To avoid silently unpaying the other half of a pair
+     * that was already "marcado pagado" wholesale, the other players' paid rows
+     * are materialized first. The registration's roll-up payment_status is then
+     * recomputed by PaymentReconciler (Paid only when every expected fee is paid).
+     *
+     * @throws ValidationException when the player is not part of the pair.
+     */
+    public function setPlayerPaid(Pair $pair, int $playerId, bool $paid): void
+    {
+        if (! in_array($playerId, $pair->playerIds(), true)) {
+            throw ValidationException::withMessages([
+                'player_id' => 'El jugador no pertenece a esta pareja.',
+            ]);
+        }
+
+        $registration = $pair->registration;
+        if (! $registration) {
+            throw ValidationException::withMessages([
+                'registration' => 'La pareja no tiene registro de inscripción.',
+            ]);
+        }
+
+        DB::transaction(function () use ($registration, $pair, $playerId, $paid) {
+            $registration->loadMissing('payments');
+
+            // Preserve a legacy wholesale-paid registration: if there are no
+            // per-player rows yet and it is already fully paid, create paid rows
+            // for the OTHER players first, so toggling one doesn't drop them.
+            $hasRows = $registration->payments->isNotEmpty();
+            if (! $hasRows && $registration->payment_status === PaymentStatus::Paid) {
+                foreach ($pair->playerIds() as $pid) {
+                    if ((int) $pid === (int) $playerId) {
+                        continue;
+                    }
+                    $this->upsertManualPayment($registration, $pair, (int) $pid, true);
+                }
+            }
+
+            $this->upsertManualPayment($registration, $pair, (int) $playerId, $paid);
+
+            // Re-roll payment_status from the per-player rows.
+            $this->reconciler->rollUpRegistration($registration);
+        });
+    }
+
+    /**
+     * Find-or-create the (registration, player) payment row and set its status.
+     * A missing row is created as a manual/cash record at the category price with
+     * no platform fee; an existing row (manual or Stripe) is flipped in place.
+     */
+    private function upsertManualPayment(Registration $registration, Pair $pair, int $playerId, bool $paid): void
+    {
+        $payment = $registration->payments()
+            ->where('player_id', $playerId)
+            ->first();
+
+        if (! $payment) {
+            Payment::create([
+                'registration_id' => $registration->id,
+                'player_id' => $playerId,
+                'amount_centavos' => (int) ($pair->category?->price_centavos ?? 0),
+                'platform_fee_centavos' => 0, // manual/cash: no Stripe platform fee
+                'status' => $paid ? PaymentStatus::Paid : PaymentStatus::Unpaid,
+                'paid_at' => $paid ? now() : null,
+                'meta' => ['manual' => true, 'source' => 'mesa'],
+            ]);
+            return;
+        }
+
+        $payment->update([
+            'status' => $paid ? PaymentStatus::Paid : PaymentStatus::Unpaid,
+            'paid_at' => $paid ? ($payment->paid_at ?? now()) : null,
+        ]);
     }
 
     /** Remove a pair (and its registration) before the tournament locks. */

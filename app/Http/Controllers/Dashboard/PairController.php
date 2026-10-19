@@ -43,6 +43,35 @@ class PairController extends Controller
         return back()->with('status', 'Pago actualizado.');
     }
 
+    /**
+     * Mesa de control: mark ONE player of a pair paid/unpaid (cash at the door).
+     * Returns JSON (per-player states + roll-up status) for the calendar sheet;
+     * falls back to a redirect for a plain form post.
+     */
+    public function setPlayerPayment(Request $request, Tournament $tournament, Category $category, Pair $pair)
+    {
+        $this->authorize('update', $category);
+        abort_unless($pair->category_id === $category->id, 404);
+
+        $data = $request->validate([
+            'player_id' => ['required', 'integer'],
+            'paid' => ['required', 'boolean'],
+        ]);
+
+        $this->registrations->setPlayerPaid($pair, (int) $data['player_id'], (bool) $data['paid']);
+
+        if ($request->wantsJson()) {
+            $pair->load('registration.payments');
+            return response()->json([
+                'ok' => true,
+                'states' => $pair->paidPlayerStates(),
+                'payment_status' => $pair->registration?->payment_status?->value,
+            ]);
+        }
+
+        return back()->with('status', 'Pago actualizado.');
+    }
+
     public function destroy(Tournament $tournament, Category $category, Pair $pair)
     {
         $this->authorize('update', $category);

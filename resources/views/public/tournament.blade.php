@@ -37,6 +37,13 @@
         @endif
     </div>
 
+    @if(!empty($scheduleDelay) && $scheduleDelay > 0)
+    <div class="pub-delay">
+        <i class="fa-solid fa-hourglass-half"></i>
+        El torneo lleva aproximadamente <strong>{{ $scheduleDelay }} min</strong> de retraso. Los horarios pueden ajustarse.
+    </div>
+    @endif
+
     @include('public._ads')
 
     <div class="pub-actions row g-2">
