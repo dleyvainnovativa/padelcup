@@ -273,6 +273,15 @@ class BracketService
      */
     public function buildPositional(Category $category): void
     {
+        // Overall-seeded categories use rank labels (O1..ON → "1º, 2º…") instead
+        // of group-position labels (A1/B2). Delegating here means every caller of
+        // buildPositional (manual generate, import, structure regen) builds the
+        // right kind of bracket for the category automatically.
+        if ($category->usesOverallSeeding()) {
+            $this->buildOverallPositional($category);
+            return;
+        }
+
         $groups = $category->groups()->orderBy('position')->orderBy('id')->get();
         $groupCount = $groups->count();
         $adv = (int) $category->advance_per_group;
@@ -291,29 +300,57 @@ class BracketService
         }
         $seedLabels = $this->positionalSeedLabels($groupCount, $adv, $extra, $perGroup);
 
-        // Minimum bracket size is 2: a single qualifier (one group, advance=1)
-        // yields a valid bye-final (A1 vs BYE) rather than an error. Guard against
-        // the empty case, which genuinely can't form a bracket.
         if (count($seedLabels) < 1) {
             throw new \RuntimeException('No hay suficientes posiciones para una llave.');
         }
+
+        $this->buildFromSeedLabels($category, $seedLabels);
+    }
+
+    /**
+     * Overall-seeded positional bracket: rank labels O1..ON in strength order
+     * (O1 = projected best overall). Same structure as buildPositional, so the
+     * schedule is fixed; the OCCUPANT of each rank is projected live
+     * (GhostQualifierResolver) and bound at completion (seedLabelMap/overall).
+     */
+    public function buildOverallPositional(Category $category): void
+    {
+        $groups = $category->groups()->orderBy('position')->orderBy('id')->get();
+        $groupCount = $groups->count();
+        if ($groupCount < 1) {
+            throw new \RuntimeException('Configura los grupos antes de generar la llave.');
+        }
+
+        $n = $category->autoQualifiersTotal($groupCount) + (int) ($category->extra_qualifiers ?? 0);
+        if ($n < 1) {
+            throw new \RuntimeException('No hay suficientes clasificados para una llave.');
+        }
+
+        $labels = [];
+        for ($k = 1; $k <= $n; $k++) {
+            $labels[] = 'O' . $k;
+        }
+
+        $this->buildFromSeedLabels($category, $labels);
+    }
+
+    /**
+     * Build a labeled bracket (round 1 holds seed labels; later rounds feeders)
+     * from an ordered strength list of seed labels. Standard seeding puts seed 1
+     * vs seed N, 2 vs N-1, etc. Wipes existing bracket matches first.
+     *
+     * @param  array<int,string>  $seedLabels  strength order (strongest first)
+     */
+    private function buildFromSeedLabels(Category $category, array $seedLabels): void
+    {
         $size = max(2, $this->nextPowerOfTwo(count($seedLabels)));
         $padded = array_pad($seedLabels, $size, 'BYE');
 
         // Place seeds into bracket-slot order using STANDARD tournament seeding,
-        // then pair adjacent slots. This guarantees seed 1 & 2 land in opposite
-        // halves, 3 & 4 in opposite quarters, etc. — and because seedLabels are
-        // in strength order (all winners, then all runners-up by group), a
-        // group's #1 and #2 can only meet in the final, never in an early round.
-        //
-        // The old naive fold (seed[i] vs seed[size-1-i]) collapsed here: it
-        // paired A1 vs A2 whenever a group had 2+ qualifiers. See
-        // standardSeedOrder() for the slot-order construction.
+        // then pair adjacent slots (seed 1 & 2 in opposite halves, etc.).
         $order = $this->standardSeedOrder($size);   // 1-based seed per slot
         $slots = array_map(fn($seedNo) => $padded[$seedNo - 1], $order);
 
-        // Adjacent slots form the first-round matches.
-        // Size 2 → one match [A1, BYE] → the Final.
         $pairings = [];
         for ($i = 0; $i < $size; $i += 2) {
             $pairings[] = [$slots[$i], $slots[$i + 1]];
@@ -461,9 +498,20 @@ class BracketService
         });
     }
 
-    /** label (A1, B2…, Q1…) → pair id, from each group's final standings. */
+    /** label (A1, B2…, Q1… or O1..ON) → pair id, from final standings. */
     private function seedLabelMap(Category $category): array
     {
+        // Overall-seeded: O1..ON map to the qualifiers ranked by the overall
+        // (cross-group) table, using the tournament's tiebreak order.
+        if ($category->usesOverallSeeding()) {
+            $ids = $this->seedByOverall($category, $this->qualifiers($category)['qualifiers'] ?? []);
+            $map = [];
+            foreach ($ids as $k => $pairId) {
+                $map['O' . ($k + 1)] = $pairId;
+            }
+            return $map;
+        }
+
         $groups = $category->groups()->orderBy('position')->orderBy('id')->get();
         $letters = array_map(fn($i) => chr(ord('A') + $i), array_keys($groups->all()));
 

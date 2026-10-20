@@ -194,6 +194,9 @@ class GameMatch extends Model
     /** Turn "A1" into "Grupo A - 1", "Q1" into "Mejor tercero 1". */
     private function seedLabelText(string $label): string
     {
+        if (preg_match('/^O(\d+)$/', $label, $m)) {
+            return "{$m[1]}º"; // overall-table seed: 1º, 2º…
+        }
         if (preg_match('/^Q(\d+)$/', $label, $m)) {
             return "Mejor clasificado {$m[1]}";
         }

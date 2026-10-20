@@ -20,8 +20,12 @@
         </a>
         {{-- Editing positions stays available even when locked, so the manager
              can fix a bad draw (e.g. same-group first-round clash). It only
-             moves UNPLAYED slots, so it can't disturb recorded results. --}}
+             moves UNPLAYED slots, so it can't disturb recorded results.
+             Not shown for overall-table seeding: there the positions (1º, 2º…)
+             are derived from the table, so manual swaps don't apply. --}}
+        @unless($category->usesOverallSeeding())
         <button type="button" class="btn btn-soft" data-swap-toggle><i class="fa-solid fa-arrows-up-down-left-right me-1"></i> Editar posiciones</button>
+        @endunless
         @unless($tournament->isLocked())
         <form method="POST" action="{{ route('draw.bracket.build', [$tournament, $category]) }}"
             data-confirm="Se reemplazará la llave actual por una nueva. ¿Continuar?" data-confirm-title="Regenerar llave" data-confirm-ok="Regenerar">
@@ -59,7 +63,7 @@
             // played yet (a played match's result must not be disturbed). This
             // lets the manager fix a bad draw — e.g. an extra qualifier drawn
             // against their own group's winner — even after the tournament locks.
-            $swappable = $status !== 'played';
+            $swappable = $status !== 'played' && ! $category->usesOverallSeeding();
             @endphp
             <div class="sched-match is-{{ $status }} {{ $ready ? 'is-tappable' : '' }}"
                 @if($ready)

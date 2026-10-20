@@ -118,6 +118,13 @@ class GhostQualifierResolver
         $groups = $category->groups()->with(['pairs.player1', 'pairs.player2'])->orderBy('position')->orderBy('id')->get();
         if ($groups->isEmpty()) return [];
 
+        // Overall-seeded: project O1..ON from the LIVE overall table (updates with
+        // every result). The bracket structure/schedule is fixed; only who sits at
+        // each rank moves.
+        if ($category->usesOverallSeeding()) {
+            return $this->overallRankMap($category, $groups);
+        }
+
         // Letter (A, B, C…) → group, in the same order BracketService lettered them.
         $byLetter = [];
         $completeStandings = []; // letter => standings collection (only if complete)
@@ -176,6 +183,52 @@ class GhostQualifierResolver
             }
         }
 
+        return $out;
+    }
+
+    /**
+     * Live O1..ON → pair name projection for an overall-seeded category, from the
+     * CURRENT (possibly partial) standings. Mirrors how the qualifiers are chosen
+     * — top N per group + boundary extras — then ranks them across groups by the
+     * tournament's tiebreak order, so the preview updates with every result and
+     * matches the eventual binding.
+     *
+     * @return array<string,string>
+     */
+    private function overallRankMap(Category $category, $groups): array
+    {
+        $order = \App\Support\TiebreakCriteria::sanitize($category->tournament->tiebreak_order ?? null);
+        $extraNeeded = (int) ($category->extra_qualifiers ?? 0);
+
+        $auto = [];  // rows (top N per group)
+        $pool = [];  // boundary finisher rows (compete for the extra slots)
+        $i = 0;
+        foreach ($groups as $group) {
+            $standing = $this->standings->forGroup($group);
+            $n = $category->winnersForGroupPosition($i);
+            foreach ($standing->take($n) as $row) {
+                $auto[] = $row;
+            }
+            if ($extraNeeded > 0 && $standing->count() > $n) {
+                $pool[] = $standing->get($n);
+            }
+            $i++;
+        }
+
+        $extras = [];
+        if ($extraNeeded > 0 && ! empty($pool)) {
+            $extras = array_slice($this->rankCrossGroup(collect($pool), $order), 0, $extraNeeded);
+        }
+
+        $ranked = $this->rankCrossGroup(collect(array_merge($auto, $extras)), $order);
+
+        $out = [];
+        foreach ($ranked as $k => $row) {
+            $name = $this->pairName($row['pair_id']);
+            if ($name !== null) {
+                $out['O' . ($k + 1)] = $name;
+            }
+        }
         return $out;
     }
 

@@ -155,18 +155,24 @@ class DrawController extends Controller
         abort_unless($category->tournament_id === $tournament->id, 404);
 
         if ($category->format === CategoryFormat::Hybrid) {
-            $overall = $category->usesOverallSeeding();
+            // Overall-seeded: build the rank-labeled bracket (O1..ON → "1º, 2º…").
+            // The structure + schedule are fixed; occupants project live from the
+            // overall table and bind automatically when groups finish
+            // (ResultController::maybeBindBracket). No reseed that moves positions.
+            if ($category->usesOverallSeeding()) {
+                $this->brackets->buildPositional($category); // delegates to the overall builder
+                if ($this->brackets->groupsComplete($category)) {
+                    $this->brackets->bindQualifiers($category);
+                }
+                return redirect()->route('draw.bracket', [$tournament, $category])
+                    ->with('status', 'Llave por tabla general generada. Las posiciones (1º, 2º…) salen de la tabla general y se actualizan con cada resultado; se asignan solas al terminar los grupos.');
+            }
 
-            // If the group phase isn't finished, build a POSITIONAL bracket with
-            // seed labels (A1 vs B2…) — pairs bind automatically once groups end.
-            // Overall seeding needs the final table, so it only applies once the
-            // groups are complete and the manager regenerates the llave.
+            // Group-position seeding (A1/B2…): positional preview, bind at completion.
             if (! $this->brackets->groupsComplete($category)) {
                 $this->brackets->buildPositional($category);
                 return redirect()->route('draw.bracket', [$tournament, $category])
-                    ->with('status', $overall
-                        ? 'Llave preliminar generada con posiciones (A1, B2…). Al terminar los grupos, vuelve a generar la llave para sembrarla por la tabla general.'
-                        : 'Llave preliminar generada con posiciones (A1, B2…). Las parejas se asignarán al terminar los grupos. Puedes intercambiar posiciones antes de que inicien.');
+                    ->with('status', 'Llave preliminar generada con posiciones (A1, B2…). Las parejas se asignarán al terminar los grupos. Puedes intercambiar posiciones antes de que inicien.');
             }
 
             $result = $this->brackets->qualifiers($category);
@@ -176,9 +182,6 @@ class DrawController extends Controller
                 if ($request->filled('resolved')) {
                     $chosen = array_map('intval', $request->input('resolved', []));
                     $seeds = $this->mergeResolvedTie($result, $chosen);
-                    if ($overall) {
-                        $seeds = $this->brackets->seedByOverall($category, $seeds);
-                    }
                     $this->brackets->build($category, $seeds);
                     return redirect()->route('draw.bracket', [$tournament, $category])
                         ->with('status', 'Llave generada.');
@@ -191,11 +194,7 @@ class DrawController extends Controller
                 ]);
             }
 
-            $seeds = $result['qualifiers'];
-            if ($overall) {
-                $seeds = $this->brackets->seedByOverall($category, $seeds);
-            }
-            $this->brackets->build($category, $seeds);
+            $this->brackets->build($category, $result['qualifiers']);
         } else {
             // Pure elimination: seed by registration order (or manual seed later).
             $seedIds = $category->poolPairs()->orderBy('seed')->pluck('id')->all();
