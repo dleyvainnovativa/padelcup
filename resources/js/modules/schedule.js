@@ -107,6 +107,7 @@ export function initSchedule() {
   const ctrlSheet = buildControlSheet({
     onUnplace: unplace,
     onSaveResult: saveResult,
+    onClearResult: clearResult,
   });
 
   board.querySelectorAll('.sched-match').forEach((el) => {
@@ -134,6 +135,25 @@ export function initSchedule() {
       const errs = e?.body?.errors;
       const msg = errs ? Object.values(errs).flat().join('\n') : 'No se pudo guardar el resultado.';
       return { error: msg };
+    }
+  }
+
+  // Clear a result from the control sheet → the match becomes playable again.
+  async function clearResult(matchData) {
+    if (!matchData.clearUrl) return;
+    const ok = await confirm({
+      title: 'Borrar resultado',
+      body: 'Se borrará el resultado y el partido quedará disponible para jugarse. En la llave se revertirá el avance del ganador. ¿Continuar?',
+      confirmText: 'Borrar',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await post(matchData.clearUrl, {});
+      toast.success('Resultado borrado.');
+      setTimeout(() => window.location.reload(), 450);
+    } catch (_) {
+      toast.error('No se pudo borrar el resultado.');
     }
   }
 
@@ -633,7 +653,7 @@ function submitClear(url, scope, day) {
 }
 
 // --- Match-control sheet (scores + unschedule) ----------------------
-function buildControlSheet({ onUnplace, onSaveResult }) {
+function buildControlSheet({ onUnplace, onSaveResult, onClearResult }) {
   const overlay = document.createElement('div');
   overlay.className = 'sched-sheet-overlay';
   overlay.innerHTML = `
@@ -711,7 +731,11 @@ function buildControlSheet({ onUnplace, onSaveResult }) {
       </div>
       ${rows}
       <div class="sched-ctrl-err" data-ctrl-err></div>
-      <button class="sched-ctrl-save" data-ctrl-save>${played ? 'Guardar cambios' : 'Confirmar resultado'}</button>`;
+      <button class="sched-ctrl-save" data-ctrl-save>${played ? 'Guardar cambios' : 'Confirmar resultado'}</button>
+      ${played && data.clearUrl ? '<button class="sched-ctrl-clear" data-ctrl-clear><i class="fa-solid fa-eraser"></i> Borrar resultado</button>' : ''}`;
+
+    const clearBtn = scoringEl.querySelector('[data-ctrl-clear]');
+    if (clearBtn) clearBtn.addEventListener('click', () => onClearResult(data));
 
     scoringEl.querySelector('[data-ctrl-save]').addEventListener('click', async () => {
       const saveBtn = scoringEl.querySelector('[data-ctrl-save]');

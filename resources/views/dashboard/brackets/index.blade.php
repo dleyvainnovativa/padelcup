@@ -71,6 +71,7 @@
                 data-sets='@json($m->sets ?? [])'
                 data-confirm-url="{{ route('results.confirm', [$tournament, $category, $m]) }}"
                 data-edit-url="{{ route('results.edit', [$tournament, $category, $m]) }}"
+                data-clear-url="{{ route('results.clear', [$tournament, $category, $m]) }}"
                 @endif>
                 <div class="bmatch-side {{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? '' : 'is-dim' }}"
                     @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="a" @endif>{{ $m->sideLabel('a') }}@php $gtA = $m->groupTagFor('a', $groupTags ?? []); @endphp @if($gtA)<span class="bmatch-grp">Grupo {{ $gtA }}</span>@endif</div>

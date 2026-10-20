@@ -3844,3 +3844,24 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
   color: var(--text-muted);
   font-weight: 500;
 }
+
+/* ============================================================================
+   Borrar resultado — append snippet (voleo-clear-result)
+   Paste at the END of resources/css/theme.css (after the prior append snippets).
+   The danger "Borrar resultado" button in the bracket + calendar score sheets.
+   ========================================================================== */
+.sched-ctrl-clear {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+.sched-ctrl-clear:hover { border-color: var(--danger); }

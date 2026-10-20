@@ -168,6 +168,21 @@ class ResultController extends Controller
         return back()->with('status', 'Resultado registrado.');
     }
 
+    /** Clear a match's result → playable again (retracts bracket progression). */
+    public function clear(Request $request, Tournament $tournament, Category $category, GameMatch $match)
+    {
+        $this->authorize('update', $category);
+        $this->assertMatchInCategory($match, $category);
+
+        $this->results->clearResult($match, $request->user());
+
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back()->with('status', 'Resultado borrado. El partido quedó disponible para jugarse.');
+    }
+
     private function assertMatchInCategory(GameMatch $match, Category $category): void
     {
         abort_unless($match->category_id === $category->id, 404);

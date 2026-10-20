@@ -3,12 +3,13 @@
 
 import { post } from '../core/http';
 import toast from '../core/toast';
+import { confirm } from '../core/modal';
 
 export function initBracketResults() {
   const board = document.querySelector('[data-bracket-board]');
   if (!board) return;
 
-  const sheet = buildScoreSheet(saveResult);
+  const sheet = buildScoreSheet(saveResult, clearResult);
 
   board.querySelectorAll('[data-bracket-match]').forEach((el) => {
     el.addEventListener('click', () => {
@@ -24,6 +25,7 @@ export function initBracketResults() {
         sets: safeParse(el.dataset.sets),
         confirmUrl: el.dataset.confirmUrl,
         editUrl: el.dataset.editUrl,
+        clearUrl: el.dataset.clearUrl,
       });
     });
   });
@@ -40,11 +42,29 @@ export function initBracketResults() {
       return { error: errs ? Object.values(errs).flat().join('\n') : 'No se pudo guardar.' };
     }
   }
+
+  async function clearResult(data) {
+    if (!data.clearUrl) return;
+    const ok = await confirm({
+      title: 'Borrar resultado',
+      body: 'Se borrará el resultado y el partido quedará disponible para jugarse. En la llave se revertirá el avance del ganador. ¿Continuar?',
+      confirmText: 'Borrar',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await post(data.clearUrl, {});
+      toast.success('Resultado borrado.');
+      setTimeout(() => window.location.reload(), 450);
+    } catch (_) {
+      toast.error('No se pudo borrar el resultado.');
+    }
+  }
 }
 
 function safeParse(s) { try { return JSON.parse(s || '[]'); } catch { return []; } }
 
-function buildScoreSheet(onSave) {
+function buildScoreSheet(onSave, onClear) {
   const overlay = document.createElement('div');
   overlay.className = 'sched-sheet-overlay';
   overlay.innerHTML = `
@@ -101,10 +121,13 @@ function buildScoreSheet(onSave) {
       <div class="sched-ctrl-pairlabels"><span>${data.a}</span><span>${data.b}</span></div>
       ${rows}
       <div class="sched-ctrl-err" data-err></div>
-      <button class="sched-ctrl-save" data-save>${played ? 'Guardar cambios' : 'Confirmar resultado'}</button>`;
+      <button class="sched-ctrl-save" data-save>${played ? 'Guardar cambios' : 'Confirmar resultado'}</button>
+      ${played && data.clearUrl ? '<button class="sched-ctrl-clear" data-clear><i class="fa-solid fa-eraser"></i> Borrar resultado</button>' : ''}`;
 
     const saveBtn = scoringEl.querySelector('[data-save]');
     const errBox = scoringEl.querySelector('[data-err]');
+    const clearBtn = scoringEl.querySelector('[data-clear]');
+    if (clearBtn) clearBtn.addEventListener('click', () => onClear(data));
     saveBtn.addEventListener('click', async () => {
       errBox.textContent = '';
       const collected = [0,1,2].map((i) => [

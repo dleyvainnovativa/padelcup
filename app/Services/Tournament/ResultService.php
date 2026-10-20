@@ -250,6 +250,96 @@ class ResultService
         });
     }
 
+    /**
+     * Clear a match's result and set it back to playable (Scheduled). For a
+     * bracket match this retracts the winner we propagated downstream (nulls the
+     * fed slot and cascades through any descendants that had already been played).
+     * For a Mexicano group round-1 match it clears the fed round-2 participants +
+     * their now-stale results. Round-robin group matches just blank (standings
+     * recompute from confirmed matches). Does NOT unlock the tournament.
+     */
+    public function clearResult(GameMatch $match, User $by): GameMatch
+    {
+        return DB::transaction(function () use ($match, $by) {
+            $before = $match->only(['state', 'sets', 'winner_pair_id', 'result_type']);
+            $isBracket = $match->group_id === null;
+            $hadWinner = $match->winner_pair_id !== null;
+
+            $match->update([
+                'sets' => null,
+                'winner_pair_id' => null,
+                'result_type' => MatchResultType::Normal,
+                'state' => MatchState::Scheduled,
+                'confirmed_by' => null,
+                'confirmed_at' => null,
+                'incident_note' => null,
+            ]);
+
+            $this->audit($match, $by, 'cleared', $before);
+
+            if ($hadWinner) {
+                if ($isBracket) {
+                    $this->retract($match->fresh());
+                } else {
+                    // Mexicano R1 (feeder-linked group match): the fed R2 slots and
+                    // their results were derived from this winner → clear both.
+                    $this->clearFedResults($match);
+                    $this->clearFedParticipants($match);
+                }
+            }
+
+            return $match->fresh();
+        });
+    }
+
+    /**
+     * Retract a bracket winner we previously advanced: null the parent slot this
+     * match fed, invalidate the parent's result if it had one, and cascade to
+     * further descendants. The parent's OTHER slot (from its sibling feeder) is
+     * left intact.
+     */
+    private function retract(GameMatch $match): void
+    {
+        $parent = GameMatch::where('feeder_a_id', $match->id)->first();
+        $slot = 'pair_a_id';
+        if (! $parent) {
+            $parent = GameMatch::where('feeder_b_id', $match->id)->first();
+            $slot = 'pair_b_id';
+        }
+        if (! $parent) return;
+
+        $hadResult = $parent->winner_pair_id !== null;
+
+        $parent->update([
+            $slot => null,
+            'winner_pair_id' => null,
+            'sets' => null,
+            'state' => MatchState::Scheduled,
+            'result_type' => MatchResultType::Normal,
+            'confirmed_by' => null,
+            'confirmed_at' => null,
+        ]);
+
+        if ($hadResult) {
+            $this->retract($parent->fresh());
+        }
+    }
+
+    /** Null the participant slots that $match's result fed (Mexicano R2). */
+    private function clearFedParticipants(GameMatch $match): void
+    {
+        foreach (GameMatch::where('feeder_a_id', $match->id)->get() as $child) {
+            if ($child->pair_a_id !== null) {
+                $child->update(['pair_a_id' => null]);
+            }
+        }
+        foreach (GameMatch::where('feeder_b_id', $match->id)->get() as $child) {
+            if ($child->pair_b_id !== null) {
+                $child->update(['pair_b_id' => null]);
+            }
+        }
+    }
+
     /** Clear results of matches fed by $match (their participants will change). */
     private function clearFedResults(GameMatch $match): void
     {

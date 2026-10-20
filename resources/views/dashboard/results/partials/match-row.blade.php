@@ -123,6 +123,20 @@ $proposal = (!$confirmed && $ready) ? $match->pendingProposal()->with('proposer'
     </div>
     </form>
 
+    {{-- Borrar resultado (confirmed only) → match becomes playable again --}}
+    @if($confirmed)
+    <div class="mt-2">
+        <form method="POST" action="{{ route('results.clear', [$tournament, $category, $match]) }}"
+            data-confirm="Se borrará el resultado y el partido quedará disponible para jugarse de nuevo. En la llave se revertirá el avance del ganador. ¿Continuar?"
+            data-confirm-title="Borrar resultado" data-confirm-ok="Borrar" data-confirm-variant="danger">
+            @csrf
+            <button type="submit" class="link-btn" style="font-size:12px;color:var(--danger-text);background:none;border:0;cursor:pointer;padding:0;">
+                <i class="fa-solid fa-eraser me-1"></i> Borrar resultado
+            </button>
+        </form>
+    </div>
+    @endif
+
     {{-- Walkover / retirement / default --}}
     @unless($confirmed)
     <div class="mt-2">

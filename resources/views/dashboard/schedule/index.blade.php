@@ -506,6 +506,7 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
     'sets' => $m->sets ?? [],
     'confirmUrl' => route('results.confirm', [$tournament, $m->category_id, $m->id]),
     'editUrl' => route('results.edit', [$tournament, $m->category_id, $m->id]),
+    'clearUrl' => route('results.clear', [$tournament, $m->category_id, $m->id]),
     'courtName' => $courts->firstWhere('id', $m->court_id)?->name,
     'proposal' => ($p = $m->pendingProposal) ? [
     'by' => $p->proposer?->name ?? 'Un jugador',

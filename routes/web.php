@@ -111,6 +111,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('resultados', [\App\Http\Controllers\Dashboard\ResultController::class, 'index'])->name('results.index');
             Route::post('partidos/{match}/confirmar', [\App\Http\Controllers\Dashboard\ResultController::class, 'confirm'])->name('results.confirm');
             Route::post('partidos/{match}/editar', [\App\Http\Controllers\Dashboard\ResultController::class, 'edit'])->name('results.edit');
+            Route::post('partidos/{match}/borrar-resultado', [\App\Http\Controllers\Dashboard\ResultController::class, 'clear'])->name('results.clear');
             Route::post('partidos/{match}/especial', [\App\Http\Controllers\Dashboard\ResultController::class, 'special'])->name('results.special');
             Route::post('partidos/{match}/propuesta/aceptar', [\App\Http\Controllers\Dashboard\ResultController::class, 'acceptProposal'])->name('results.proposal.accept');
             Route::post('partidos/{match}/propuesta/rechazar', [\App\Http\Controllers\Dashboard\ResultController::class, 'rejectProposal'])->name('results.proposal.reject');
