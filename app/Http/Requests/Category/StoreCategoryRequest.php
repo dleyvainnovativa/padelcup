@@ -25,6 +25,7 @@ class StoreCategoryRequest extends FormRequest
             'preferred_group_size' => ['required', 'integer', 'in:3,4'],
             'advance_per_group' => ['nullable', 'integer', 'min:1', 'max:5'],
             'extra_qualifiers' => ['nullable', 'integer', 'min:0', 'max:16'],
+            'bracket_seeding' => ['nullable', new Enum(\App\Enums\BracketSeeding::class)],
             'min_pairs' => ['nullable', 'integer', 'min:0'],
             'max_pairs' => ['nullable', 'integer', 'min:1', 'gte:min_pairs'],
             'price_centavos' => ['required', 'integer', 'min:0'],

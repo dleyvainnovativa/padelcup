@@ -24,6 +24,7 @@ class Category extends Model
         'preferred_group_size',
         'advance_per_group',
         'extra_qualifiers',
+        'bracket_seeding',
         'min_pairs',
         'max_pairs',
         'price_centavos',
@@ -69,6 +70,7 @@ class Category extends Model
             'format' => CategoryFormat::class,
             'play_format' => CategoryPlayFormat::class,
             'group_format' => \App\Enums\GroupFormat::class,
+            'bracket_seeding' => \App\Enums\BracketSeeding::class,
             'mexicano_pairing' => \App\Enums\MexicanoPairing::class,
             'registration_opens_at' => 'datetime',
             'registration_closes_at' => 'datetime',
@@ -181,6 +183,12 @@ class Category extends Model
         $name = \Illuminate\Support\Str::ascii($name);   // strip accents
         return preg_replace('/\s+/', ' ', $name);
     }
+    /** True when this category's bracket is seeded from the overall table. */
+    public function usesOverallSeeding(): bool
+    {
+        return $this->bracket_seeding === \App\Enums\BracketSeeding::Overall;
+    }
+
     public function isSingles(): bool
     {
         return $this->play_format === \App\Enums\CategoryPlayFormat::Singles;

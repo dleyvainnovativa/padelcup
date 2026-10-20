@@ -45,6 +45,47 @@ class BracketService
         return $this->rankCrossGroup($rows, $order);
     }
 
+    /**
+     * Reorder a set of qualifier pair ids by the category's OVERALL cross-group
+     * ranking (best finisher = seed 1), using the tournament's tiebreak order.
+     * The SET is unchanged — only the seed order is. Any id not found in the
+     * standings is appended in its original order as a safety net.
+     *
+     * @param  array<int,int>  $qualifierIds  ordered qualifier ids (group-seeded)
+     * @return array<int,int>  reordered by overall rank
+     */
+    public function seedByOverall(Category $category, array $qualifierIds): array
+    {
+        if (count($qualifierIds) < 2) {
+            return $qualifierIds;
+        }
+
+        $wanted = array_flip(array_map('intval', $qualifierIds));
+
+        $rows = [];
+        foreach ($category->groups()->with('pairs')->get() as $group) {
+            foreach ($this->standings->forGroup($group) as $r) {
+                if (isset($wanted[(int) $r['pair_id']])) {
+                    $rows[] = $r;
+                }
+            }
+        }
+
+        $order = \App\Support\TiebreakCriteria::sanitize($category->tournament->tiebreak_order ?? null);
+        $rankedIds = array_map(
+            fn($r) => (int) $r['pair_id'],
+            $this->rankCrossGroup(collect($rows), $order)
+        );
+
+        foreach ($qualifierIds as $id) {
+            if (! in_array((int) $id, $rankedIds, true)) {
+                $rankedIds[] = (int) $id;
+            }
+        }
+
+        return $rankedIds;
+    }
+
     // --- Qualification (hybrid) ---------------------------------------
 
     /**

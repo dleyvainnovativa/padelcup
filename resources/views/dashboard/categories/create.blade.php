@@ -85,6 +85,16 @@
                         Mejores no clasificados (a través de los grupos) para completar la llave. Ej: 5 grupos × 1 + 1 extra = 6.
                     </div>
                 </div>
+                <div class="col-6 col-md-4">
+                    <label class="form-label" style="font-size:13px;font-weight:500;">Siembra de la llave</label>
+                    <select name="bracket_seeding" class="form-select" style="border-radius:var(--radius);">
+                        <option value="group" @selected(old('bracket_seeding','group')==='group')>Por posición de grupo (A1, B2…)</option>
+                        <option value="overall" @selected(old('bracket_seeding')==='overall')>Por tabla general</option>
+                    </select>
+                    <div style="font-size:12px;color:var(--text-faint);margin-top:4px;">
+                        Solo para «Grupos → eliminación». «Tabla general» siembra 1º vs último según la tabla general; se genera al terminar los grupos.
+                    </div>
+                </div>
             </div>
 
             <div class="row g-3 mt-0">
