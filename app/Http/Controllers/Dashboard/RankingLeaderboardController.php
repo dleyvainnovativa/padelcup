@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\RankingSystem;
+use App\Services\Ranking\RankingExport;
 use App\Services\Ranking\RankingLeaderboard;
 use Illuminate\Http\Request;
 
@@ -60,6 +61,22 @@ class RankingLeaderboardController extends Controller
             'activeCat'    => $cat,
             'activeLabel'  => $catLabel,
             'isPublic'     => false,
+        ]);
+    }
+
+    /** Download the full ranking as an Excel workbook (summary + per-tournament + points). */
+    public function export(Request $request, RankingSystem $rankingSystem, RankingExport $export)
+    {
+        abort_unless($rankingSystem->created_by === $request->user()->id, 403);
+
+        $spreadsheet = $export->build($rankingSystem);
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $filename = \Illuminate\Support\Str::slug($rankingSystem->name ?: 'ranking') . '-ranking.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
 

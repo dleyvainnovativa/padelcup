@@ -143,6 +143,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('calendario/limpiar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'clearAll'])->name('schedule.clear');
         Route::post('calendario/conflictos', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'conflicts'])->name('schedule.conflicts');
         Route::get('calendario/pdf', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportPdf'])->name('schedule.pdf');
+        Route::get('calendario/pdf-vista', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportGridPdf'])->name('schedule.gridPdf');
         Route::get('calendario/pdf-eliminacion', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportEliminationPdf'])->name('schedule.exportEliminationPdf');
         Route::get('calendario/pdf-cruces', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportCrucesPdf'])
             ->name('schedule.exportCrucesPdf');
@@ -201,6 +202,12 @@ Route::middleware(['auth'])->group(function () {
         [RankingLeaderboardController::class, 'show']
     )
         ->name('ranking-systems.leaderboard');
+
+    Route::get(
+        'ranking-systems/{rankingSystem}/export',
+        [RankingLeaderboardController::class, 'export']
+    )
+        ->name('ranking-systems.export');
 
     Route::get(
         'ranking-systems/{rankingSystem}/player/{key}',

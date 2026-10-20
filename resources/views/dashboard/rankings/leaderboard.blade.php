@@ -19,6 +19,9 @@
         </div>
     </div>
     <div class="d-flex gap-2">
+        <a href="{{ route('ranking-systems.export', $system) }}" class="btn btn-soft">
+            <i class="fa-solid fa-file-excel me-1"></i> Exportar Excel
+        </a>
         <a href="{{ route('public.rankings.show', $system) }}" class="btn btn-soft" target="_blank">
             <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Ver pública
         </a>

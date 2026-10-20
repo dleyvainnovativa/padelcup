@@ -172,8 +172,6 @@ class TournamentController extends Controller
         // window doesn't trim old windows here, but pruneInvalidSchedule() moves
         // off-grid matches to "unscheduled", so nothing invalid gets played.
         $tz = 'America/Mexico_City';
-        $start = \Illuminate\Support\Str::of($tournament->play_start)->substr(0, 5);
-        $end = \Illuminate\Support\Str::of($tournament->play_end)->substr(0, 5);
 
         $tournament->load('courts.availabilities');
 
@@ -188,6 +186,9 @@ class TournamentController extends Controller
                 if (isset($daysWithWindows[$d])) {
                     continue; // keep the custom schedule for this day
                 }
+                // Per-day window with sensible defaults (08:00–23:00) and per-day
+                // overrides — never a 00:00–00:00 window when hours are unset.
+                [$start, $end] = $tournament->hoursForDay($day);
                 $court->availabilities()->create([
                     'starts_at' => \Carbon\Carbon::parse("$d $start", $tz),
                     'ends_at' => \Carbon\Carbon::parse("$d $end", $tz),

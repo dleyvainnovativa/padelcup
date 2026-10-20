@@ -762,10 +762,10 @@ class SchedulingService
      *   load      → players with 3+ (sure + possible) matches in one day
      *   order     → per-category play-order errors / warnings
      */
-    public function audit(Tournament $tournament, int $dayThreshold = 3): array
+    public function audit(Tournament $tournament, int $dayThreshold = 3, ?string $fromDay = null): array
     {
         $restSec = ((int) ($tournament->min_rest_minutes ?? 30)) * 60;
-        [$rows, $groupsByCategory] = $this->auditRows($tournament);
+        [$rows, $groupsByCategory] = $this->auditRows($tournament, $fromDay);
 
         return (new ScheduleAudit($restSec, 'America/Mexico_City', $dayThreshold))
             ->run($rows, $groupsByCategory);
@@ -779,7 +779,7 @@ class SchedulingService
      *
      * @return array{0: array<int,array>, 1: array<int,array<string,int>>}
      */
-    public function auditRows(Tournament $tournament): array
+    public function auditRows(Tournament $tournament, ?string $fromDay = null): array
     {
         $defaultDuration = (int) ($tournament->match_duration_minutes ?: 60);
 
@@ -863,6 +863,23 @@ class SchedulingService
                     'time' => $m->starts_at?->timezone('America/Mexico_City')->translatedFormat('D d M · H:i'),
                 ],
             ];
+        }
+
+        // Day floor: drop SCHEDULED matches on a day before $fromDay (e.g. during a
+        // Thu–Sun tournament, on Friday we don't want Wed/Thu problems). Unscheduled
+        // matches (start = null) are kept — they're still pending. The feeder
+        // cleanup below then detaches any feeder that was dropped.
+        if ($fromDay !== null) {
+            $tz = new \DateTimeZone('America/Mexico_City');
+            foreach ($rows as $id => $r) {
+                if ($r['start'] === null) {
+                    continue;
+                }
+                $day = (new \DateTimeImmutable('@' . $r['start']))->setTimezone($tz)->format('Y-m-d');
+                if ($day < $fromDay) {
+                    unset($rows[$id]);
+                }
+            }
         }
 
         // Feeders pointing outside the loaded set (shouldn't happen) are dropped

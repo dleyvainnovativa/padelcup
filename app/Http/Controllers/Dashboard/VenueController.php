@@ -108,10 +108,14 @@ class VenueController extends Controller
         $court->availabilities()->delete();
 
         $tz = 'America/Mexico_City';
-        $start = \Illuminate\Support\Str::of($tournament->play_start)->substr(0, 5); // 'HH:MM'
-        $end = \Illuminate\Support\Str::of($tournament->play_end)->substr(0, 5);
 
+        // Derive each day's window from hoursForDay(), which falls back to a
+        // sensible default (08:00–23:00) when the tournament has no play hours set,
+        // and honors any per-day override. So a brand-new tournament with no
+        // Inicio/Fin hours still gets a usable court schedule automatically — the
+        // manager isn't forced to fill each court's windows by hand.
         foreach ($tournament->playDays() as $day) {
+            [$start, $end] = $tournament->hoursForDay($day);
             $d = $day->format('Y-m-d');
             $court->availabilities()->create([
                 'starts_at' => \Carbon\Carbon::parse("$d $start", $tz),

@@ -526,7 +526,16 @@ class ScheduleController extends Controller
         // One pass builds all three reports (player conflicts incl. possible R2,
         // players over the daily limit, per-category play order). The "busy day"
         // threshold is the per-tournament limit + 1 (e.g. max 2/day → flag 3+).
-        $audit = $this->scheduler->audit($tournament, $tournament->maxMatchesPerDay() + 1);
+        //
+        // Day floor: skip problems from days already past, so mid-tournament you
+        // only see today onward. Anchor = today (CDMX), but if the tournament
+        // hasn't started yet, anchor at its first day so nothing is hidden.
+        $tz = 'America/Mexico_City';
+        $today = \Carbon\Carbon::now($tz)->format('Y-m-d');
+        $firstDay = optional($tournament->playDays()->first())->format('Y-m-d');
+        $fromDay = ($firstDay && $today < $firstDay) ? $firstDay : $today;
+
+        $audit = $this->scheduler->audit($tournament, $tournament->maxMatchesPerDay() + 1, $fromDay);
 
         return back()
             ->with('conflicts', $audit['conflicts'])
@@ -640,6 +649,100 @@ class ScheduleController extends Controller
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-calendario.pdf');
+    }
+
+    /**
+     * Export the on-screen calendar GRID (courts × time slots) as a PDF, honoring
+     * the active category filter (?cats=1,2) and an optional single day (?day=).
+     * No filters → every category and every day.
+     */
+    public function exportGridPdf(Request $request, Tournament $tournament)
+    {
+        $this->authorize('view', $tournament);
+        $tz = 'America/Mexico_City';
+
+        $catIds = collect(explode(',', (string) $request->query('cats', '')))
+            ->filter(fn($v) => $v !== '')
+            ->map(fn($v) => (int) $v)
+            ->filter()
+            ->values()
+            ->all();
+        $dayFilter = $request->query('day'); // Y-m-d or null
+
+        $courts = $tournament->courts()->with('venue')->orderBy('id')->get();
+
+        $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->whereNotNull('starts_at')
+            ->when($catIds, fn($q) => $q->whereIn('category_id', $catIds))
+            ->with([
+                'category', 'court',
+                'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2',
+                'feederA', 'feederB',
+            ])
+            ->get();
+
+        // Global slot grid (labels + step). Matches snap to the slot window that
+        // contains their start, mirroring the on-screen board.
+        $slots = $tournament->timeSlots();
+        $step = (int) ($tournament->match_duration_minutes ?: 75);
+        $slotMins = [];
+        foreach ($slots as $s) {
+            [$h, $mi] = explode(':', $s);
+            $slotMins[$s] = (int) $h * 60 + (int) $mi;
+        }
+
+        $days = $matches->map(fn($m) => $m->starts_at->timezone($tz)->format('Y-m-d'))
+            ->unique()->sort()->values();
+        if ($dayFilter) {
+            $days = $days->filter(fn($d) => $d === $dayFilter)->values();
+        }
+        $dayset = $days->flip();
+
+        // Grid: [day => [slotLabel => [court_id => [GameMatch, ...]]]].
+        $grid = [];
+        foreach ($matches as $m) {
+            $local = $m->starts_at->timezone($tz);
+            $day = $local->format('Y-m-d');
+            if (! $dayset->has($day)) {
+                continue;
+            }
+            $startMin = $local->hour * 60 + $local->minute;
+
+            $slot = null;
+            foreach ($slotMins as $label => $min) {
+                if ($startMin >= $min && $startMin < $min + $step) {
+                    $slot = $label;
+                    break;
+                }
+            }
+            if ($slot === null && ! empty($slotMins)) {
+                $slot = $startMin < reset($slotMins) ? array_key_first($slotMins) : array_key_last($slotMins);
+            }
+            if ($slot === null) {
+                continue;
+            }
+            $grid[$day][$slot][$m->court_id][] = $m;
+        }
+
+        $catLabels = $catIds
+            ? $tournament->categories()->whereIn('id', $catIds)->orderBy('name')->pluck('name')->all()
+            : [];
+
+        $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
+            ->mapForTournament($tournament);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('dashboard.schedule.pdf-grid', [
+            'tournament' => $tournament,
+            'courts' => $courts,
+            'slots' => $slots,
+            'days' => $days,
+            'grid' => $grid,
+            'catLabels' => $catLabels,
+            'ghostQualifiers' => $ghostQualifiers,
+            'generatedAt' => now($tz),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-calendario-vista.pdf');
     }
 
     /**

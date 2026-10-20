@@ -155,6 +155,21 @@ export function initSchedule() {
   const clearBtn = document.querySelector('[data-sched-clear]');
   if (clearBtn) initClearMenu(clearBtn);
 
+  // --- Grid PDF: export the current view (active day + active category filter) ---
+  const gridPdfBtn = document.querySelector('[data-grid-pdf]');
+  if (gridPdfBtn) {
+    gridPdfBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const params = new URLSearchParams();
+      const cats = new URLSearchParams(window.location.search).get('cats');
+      if (cats) params.set('cats', cats);
+      const day = currentSchedDay(gridPdfBtn.dataset.tournament);
+      if (day) params.set('day', day);
+      const qs = params.toString();
+      window.location.href = gridPdfBtn.dataset.url + (qs ? '?' + qs : '');
+    });
+  }
+
   // --- Bottom sheet -------------------------------------------------
   function openSheetFor(cell) {
     const court = cell.dataset.court;
