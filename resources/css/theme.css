@@ -3865,3 +3865,97 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
   transition: border-color var(--t-fast), background var(--t-fast);
 }
 .sched-ctrl-clear:hover { border-color: var(--danger); }
+
+
+/* --- Calendar control sheet: manual HH:MM time row ------------------------ */
+.sched-ctrl-time {
+  margin: 12px 0 2px;
+}
+.sched-ctrl-time:empty { display: none; }
+
+.sched-ctrl-time__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.sched-ctrl-time__label i { margin-right: 4px; }
+
+.sched-ctrl-time__row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.sched-ctrl-time__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.sched-ctrl-time__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.sched-ctrl-time__input:disabled { opacity: .6; }
+
+.sched-ctrl-time__save {
+  flex: 0 0 auto;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+.sched-ctrl-time__save:hover { background: var(--accent-hover); }
+.sched-ctrl-time__save:disabled { opacity: .6; cursor: default; }
+
+.sched-ctrl-time__hint {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-faint);
+}
+
+.sched-ctrl-time__err { margin-top: 8px; }
+.sched-ctrl-time__err:empty { margin-top: 0; }
+
+.sched-ctrl-time__conflicts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.sched-ctrl-time__conflicts i { margin-right: 4px; }
+
+.sched-ctrl-time__force {
+  margin-top: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--danger-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.sched-ctrl-time__force:hover { background: var(--danger); color: var(--on-accent); }

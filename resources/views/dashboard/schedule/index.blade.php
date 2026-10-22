@@ -494,6 +494,7 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
     'unplaceManyUrl' => route('schedule.unplaceMany', $tournament),
     'switchCourtUrl' => route('schedule.switchCourt', $tournament),
     'swapUrl' => route('schedule.swap', $tournament),
+    'setTimeUrl' => route('schedule.setTime', $tournament),
     'duration' => $tournament->match_duration_minutes,
     'courts' => $courts->mapWithKeys(fn ($c) => [$c->id => $c->name])->all(),
     'scheduled' => $scheduled->mapWithKeys(fn ($m) => [$m->id => [
@@ -503,6 +504,7 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
     'b' => $m->sideLabel('b'),
     'ready' => $m->isReadyForResult(),
     'status' => $m->scheduleStatus(),
+    'time' => $m->starts_at->timezone('America/Mexico_City')->format('H:i'),
     'sets' => $m->sets ?? [],
     'confirmUrl' => route('results.confirm', [$tournament, $m->category_id, $m->id]),
     'editUrl' => route('results.edit', [$tournament, $m->category_id, $m->id]),

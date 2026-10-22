@@ -444,6 +444,59 @@ class ScheduleController extends Controller
         return response()->json(['ok' => true, 'warnings' => $conflicts]);
     }
 
+    /**
+     * Set a scheduled match to an exact HH:MM, keeping its day + court. Runs the
+     * same conflict / rest / placement checks as a drag-placement and blocks
+     * unless forced. A non-grid time simply renders in the nearest slot flagged
+     * off-grid — that's expected for a manual time.
+     */
+    public function setTime(Request $request, Tournament $tournament)
+    {
+        $this->authorize('update', $tournament);
+
+        $data = $request->validate([
+            'match_id' => ['required', 'integer'],
+            'time' => ['required', 'date_format:H:i'],
+            'force' => ['nullable', 'boolean'],
+        ]);
+
+        $match = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->findOrFail($data['match_id']);
+
+        if (! $match->starts_at || ! $match->court_id) {
+            return response()->json([
+                'ok' => false,
+                'conflicts' => ['El partido debe estar programado (con día y cancha) para ajustar la hora.'],
+            ], 422);
+        }
+
+        $court = Court::whereHas('venue', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->find($match->court_id);
+        if (! $court) {
+            return response()->json(['ok' => false, 'conflicts' => ['La cancha del partido ya no existe.']], 422);
+        }
+
+        $tz = 'America/Mexico_City';
+        $day = $match->starts_at->timezone($tz)->format('Y-m-d');
+        $startsAt = Carbon::parse("{$day} {$data['time']}", $tz);
+        $duration = $tournament->match_duration_minutes ?: ($match->duration_minutes ?: 60);
+
+        $conflicts = array_merge(
+            $this->scheduler->conflictsFor($match, $court, $startsAt, $duration),
+            $this->scheduler->restWarningsFor($match, $startsAt, $duration),
+            $this->scheduler->placementWarnings($match, $startsAt, $duration, $tournament->maxMatchesPerDay()),
+        );
+
+        if (! empty($conflicts) && ! $request->boolean('force')) {
+            return response()->json(['ok' => false, 'conflicts' => $conflicts], 422);
+        }
+
+        $before = $this->scheduleSnapshot($match);
+        $match->update(['starts_at' => $startsAt, 'duration_minutes' => $duration]);
+        $this->auditScheduleChange($match->fresh(), $before, $request, 'ajustar hora');
+
+        return response()->json(['ok' => true, 'warnings' => $conflicts]);
+    }
 
     /** Unschedule a match (back to the unplaced tray). */
     public function unplace(Request $request, Tournament $tournament)

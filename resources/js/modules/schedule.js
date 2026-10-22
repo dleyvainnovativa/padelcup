@@ -108,7 +108,24 @@ export function initSchedule() {
     onUnplace: unplace,
     onSaveResult: saveResult,
     onClearResult: clearResult,
+    onSetTime: setMatchTime,
   });
+
+  // Set an exact HH:MM for a scheduled match (keeps its day + court). Returns
+  // true on success, { conflicts } on a 422 (so the sheet can offer to force).
+  async function setMatchTime(matchData, time, force) {
+    try {
+      await post(cfg.setTimeUrl, { match_id: matchData.id, time, force: !!force });
+      toast.success('Hora actualizada.');
+      setTimeout(() => window.location.reload(), 450);
+      return true;
+    } catch (e) {
+      if (e && e.status === 422 && e.body && e.body.conflicts) {
+        return { conflicts: e.body.conflicts };
+      }
+      return { error: 'No se pudo ajustar la hora.' };
+    }
+  }
 
   board.querySelectorAll('.sched-match').forEach((el) => {
     el.addEventListener('click', (e) => {
@@ -653,7 +670,7 @@ function submitClear(url, scope, day) {
 }
 
 // --- Match-control sheet (scores + unschedule) ----------------------
-function buildControlSheet({ onUnplace, onSaveResult, onClearResult }) {
+function buildControlSheet({ onUnplace, onSaveResult, onClearResult, onSetTime }) {
   const overlay = document.createElement('div');
   overlay.className = 'sched-sheet-overlay';
   overlay.innerHTML = `
@@ -668,6 +685,7 @@ function buildControlSheet({ onUnplace, onSaveResult, onClearResult }) {
       </div>
       <div class="sched-ctrl-proposal" data-ctrl-proposal hidden></div>
       <div class="sched-ctrl-status" data-ctrl-status></div>
+      <div class="sched-ctrl-time" data-ctrl-time></div>
       <div class="sched-ctrl-steps" data-ctrl-steps></div>
       <div class="sched-ctrl-pagos" data-ctrl-pagos></div>
       <div class="sched-ctrl-scoring" data-ctrl-scoring></div>
@@ -686,6 +704,7 @@ function buildControlSheet({ onUnplace, onSaveResult, onClearResult }) {
   const pairsEl = overlay.querySelector('[data-ctrl-pairs]');
   const proposalEl = overlay.querySelector('[data-ctrl-proposal]');
   const statusEl = overlay.querySelector('[data-ctrl-status]');
+  const timeEl = overlay.querySelector('[data-ctrl-time]');
   const stepsEl = overlay.querySelector('[data-ctrl-steps]');
   const pagosEl = overlay.querySelector('[data-ctrl-pagos]');
   const scoringEl = overlay.querySelector('[data-ctrl-scoring]');
@@ -877,11 +896,58 @@ function buildControlSheet({ onUnplace, onSaveResult, onClearResult }) {
     });
   }
 
+  // --- Manual time: set an exact HH:MM, keeping day + court ---
+  function renderTime(data) {
+    // Only for matches already on the grid (day + court set). Unscheduled
+    // matches have no time; nothing to adjust.
+    if (!onSetTime || !data.time) { timeEl.innerHTML = ''; return; }
+
+    timeEl.innerHTML = `
+      <div class="sched-ctrl-time__label"><i class="fa-regular fa-clock"></i> Hora del partido</div>
+      <div class="sched-ctrl-time__row">
+        <input type="time" class="sched-ctrl-time__input" value="${data.time}" data-ctrl-time-input>
+        <button type="button" class="sched-ctrl-time__save" data-ctrl-time-save>Guardar hora</button>
+      </div>
+      <div class="sched-ctrl-time__hint">Mantiene el día y la cancha. Si la hora no cae en un espacio de la cuadrícula, se mostrará en el más cercano.</div>
+      <div class="sched-ctrl-time__err" data-ctrl-time-err></div>`;
+
+    const input = timeEl.querySelector('[data-ctrl-time-input]');
+    const saveBtn = timeEl.querySelector('[data-ctrl-time-save]');
+    const errBox = timeEl.querySelector('[data-ctrl-time-err]');
+
+    const run = async (force) => {
+      const time = input.value;
+      errBox.innerHTML = '';
+      if (!time) { errBox.textContent = 'Indica una hora.'; return; }
+      saveBtn.disabled = true;
+      input.disabled = true;
+      saveBtn.textContent = 'Guardando…';
+      const res = await onSetTime(data, time, force);
+      if (res === true) return; // success → onSetTime reloads the board
+      saveBtn.disabled = false;
+      input.disabled = false;
+      saveBtn.textContent = 'Guardar hora';
+      if (res && res.conflicts) {
+        errBox.innerHTML = `
+          <div class="sched-ctrl-time__conflicts">
+            ${res.conflicts.map((c) => `<div><i class="fa-solid fa-triangle-exclamation"></i> ${c}</div>`).join('')}
+          </div>
+          <button type="button" class="sched-ctrl-time__force" data-ctrl-time-force>Guardar de todos modos</button>`;
+        errBox.querySelector('[data-ctrl-time-force]').addEventListener('click', () => run(true));
+      } else {
+        errBox.textContent = (res && res.error) || 'No se pudo ajustar la hora.';
+      }
+    };
+
+    saveBtn.addEventListener('click', () => run(false));
+  }
+
   function show(data) {
     current = data;
     ctxEl.textContent = data.context || '';
     pairsEl.textContent = `${data.a} · ${data.b}`;
     statusEl.innerHTML = statusBadge(data.status);
+    renderTime(data);
     renderSteps(data);
     renderPagos(data);
     renderScoring(data);

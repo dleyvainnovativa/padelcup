@@ -139,6 +139,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('calendario', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'index'])->name('schedule.index');
         Route::post('calendario/auto', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'auto'])->name('schedule.auto');
         Route::post('calendario/colocar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'place'])->name('schedule.place');
+        Route::post('calendario/hora', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'setTime'])->name('schedule.setTime');
         Route::post('calendario/quitar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'unplace'])->name('schedule.unplace');
         Route::post('calendario/quitar-varios', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'unplaceMany'])->name('schedule.unplaceMany');
         Route::post('calendario/limpiar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'clearAll'])->name('schedule.clear');
