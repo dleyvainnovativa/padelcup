@@ -90,6 +90,7 @@
 
   --voleo-logo: var(--accent);
   --voleo-dot: var(--brand-lime-deep);
+  --img-filter: brightness(0);
 }
 
 [data-theme="dark"] {
@@ -137,6 +138,7 @@
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
   --voleo-logo: var(--text);
   --voleo-dot: #eaf89a;
+  --img-filter: brightness(1);
 }
 
 /* ---------------------------------------------------------------
@@ -2786,6 +2788,7 @@ thead .cruces__rank, thead .cruces__pair { z-index: 4; }
   width: auto;
   object-fit: contain;
   opacity: .95;
+  filter:var(--img-filter);  /* optional fade for logos that are too dark */
 }
 .pub-sponsors__track > .pub-sponsor:hover img { opacity: 1; }
 
