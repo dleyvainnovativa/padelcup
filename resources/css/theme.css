@@ -4106,3 +4106,5 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
 .pub-filter-form__label { display: block; font-size: 12px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: .03em; margin: 12px 0 5px; }
 .pub-filter-form__control { width: 100%; }
 .pub-filter-form__actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+
+.dash-grid__form { display: contents; }

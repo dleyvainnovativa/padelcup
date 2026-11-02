@@ -67,15 +67,27 @@
                 <a href="{{ route('tournaments.summary', $tournament) }}" class="dash-tile">
                     <i class="fa-solid fa-chart-simple"></i><span>Resumen</span>
                 </a>
+                <a href="{{ route('tournament.players', $tournament) }}" class="dash-tile">
+                    <i class="fa-solid fa-users"></i><span>Jugadores</span>
+                </a>
+                <a href="{{ route('control.index', $tournament) }}" class="dash-tile">
+                    <i class="fa-solid fa-table-list"></i><span>Mesa de control</span>
+                </a>
+                <a href="{{ route('winners.index', $tournament) }}" class="dash-tile">
+                    <i class="fa-solid fa-trophy"></i><span>Ganadores</span>
+                </a>
                 <a href="{{ route('venues.index', $tournament) }}" class="dash-tile">
                     <i class="fa-solid fa-location-dot"></i><span>Sedes</span>
                 </a>
                 <a href="{{ route('tournaments.import.form', $tournament) }}" class="dash-tile">
                     <i class="fa-solid fa-file-import"></i><span>Importar</span>
                 </a>
-                <!-- <a href="{{ route('sponsors.index', $tournament) }}" class="dash-tile">
+                <a href="{{ route('tournaments.transfer.export', $tournament) }}" class="dash-tile">
+                    <i class="fa-solid fa-file-export"></i><span>Exportar</span>
+                </a>
+                <a href="{{ route('sponsors.index', $tournament) }}" class="dash-tile">
                     <i class="fa-solid fa-handshake"></i><span>Patrocinadores</span>
-                </a> -->
+                </a>
                 @if($tournament->is_listed)
                 <a href="{{ route('public.tournament', $tournament) }}" target="_blank" class="dash-tile">
                     <i class="fa-solid fa-globe"></i><span>Página pública</span>
@@ -84,9 +96,25 @@
                     <i class="fa-solid fa-share-nodes"></i><span>Compartir / QR</span>
                 </button>
                 @endif
+                <form method="POST" action="{{ route('tournaments.backup', $tournament) }}" class="dash-grid__form">
+                    @csrf
+                    <button type="submit" class="dash-tile" title="Guardar respaldo JSON en el servidor">
+                        <i class="fa-solid fa-database"></i><span>Respaldar</span>
+                    </button>
+                </form>
                 <a href="{{ route('tournaments.edit', $tournament) }}" class="dash-tile dash-tile--caution">
                     <i class="fa-solid fa-pen"></i><span>Editar</span>
                 </a>
+                @if($tournament->isLocked())
+                <form method="POST" action="{{ route('tournaments.unlock', $tournament) }}" class="dash-grid__form"
+                    data-confirm="Desbloquear permite cambios de estructura (grupos, llaves) a mitad del torneo. Úsalo solo si lo necesitas y vuelve a bloquear al terminar. ¿Continuar?"
+                    data-confirm-title="Desbloquear torneo" data-confirm-variant="danger" data-confirm-ok="Desbloquear">
+                    @csrf
+                    <button type="submit" class="dash-tile dash-tile--caution">
+                        <i class="fa-solid fa-lock-open"></i><span>Desbloquear</span>
+                    </button>
+                </form>
+                @endif
             </div>
         </div>
     </div>
