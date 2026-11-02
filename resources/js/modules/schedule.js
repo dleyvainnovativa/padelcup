@@ -927,7 +927,9 @@ function buildControlSheet({ onUnplace, onSaveResult, onClearResult, onSetTime }
       ${players.map((p) => `
         <label class="sched-pago${p.paid ? ' is-paid' : ''}" data-player="${p.player_id}">
           <input type="checkbox" ${p.paid ? 'checked' : ''} data-pay>
-          <span class="sched-pago__name">${p.name}</span>
+          <span class="sched-pago__name">${p.name}${(p.otherCategories && p.otherCategories.length)
+            ? `<span class="sched-pago__cats">También en: ${p.otherCategories.join(', ')}</span>`
+            : ''}</span>
           <span class="sched-pago__state">${p.paid ? 'Pagado' : 'Pendiente'}</span>
         </label>`).join('')}`;
 

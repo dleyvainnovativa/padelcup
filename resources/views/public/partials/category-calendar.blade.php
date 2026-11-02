@@ -7,13 +7,14 @@ $catBase = ['tournament' => $tournament, 'category' => $category];
 
 // Compose a calendar URL preserving the active filters (tab/q/day/group/phase)
 // with the given overrides. Pass null to drop a filter (empties are stripped).
-$calUrl = function (array $overrides = []) use ($tournament, $category, $calSearch, $calDay, $calGroup, $calPhase) {
+$calUrl = function (array $overrides = []) use ($tournament, $category, $calSearch, $calDay, $calGroup, $calPhase, $calVenue) {
     $params = array_merge([
         'tab' => 'calendar',
         'q' => $calSearch ?: null,
         'day' => $calDay ?: null,
         'group' => $calGroup ?: null,
         'phase' => $calPhase ?: null,
+        'venue' => $calVenue ?: null,
     ], $overrides);
     $params = array_filter($params, fn ($v) => $v !== null && $v !== '');
     return route('public.category', ['tournament' => $tournament, 'category' => $category] + $params);
@@ -26,6 +27,7 @@ $calUrl = function (array $overrides = []) use ($tournament, $category, $calSear
     @if($calDay)<input type="hidden" name="day" value="{{ $calDay }}">@endif
     @if($calGroup)<input type="hidden" name="group" value="{{ $calGroup }}">@endif
     @if($calPhase)<input type="hidden" name="phase" value="{{ $calPhase }}">@endif
+    @if($calVenue)<input type="hidden" name="venue" value="{{ $calVenue }}">@endif
     <div class="pub-search__field">
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="text" name="q" value="{{ $calSearch }}" placeholder="Buscar mi partido (jugador o pareja)…" autocomplete="off">
@@ -54,6 +56,17 @@ $calUrl = function (array $overrides = []) use ($tournament, $category, $calSear
     <a href="{{ $calUrl(['phase' => null]) }}" class="pub-filter-chip {{ !$calPhase ? 'is-active' : '' }}">Todas</a>
     @foreach($calPhasesPresent as $phaseKey)
     <a href="{{ $calUrl(['phase' => $phaseKey]) }}" class="pub-filter-chip {{ $calPhase === $phaseKey ? 'is-active' : '' }}">{{ \App\Support\SchedulePhase::label($phaseKey) }}</a>
+    @endforeach
+</div>
+@endif
+
+{{-- Venue chips (only when the tournament spans 2+ venues) --}}
+@if($calVenuesPresent->count() > 1)
+<div class="pub-filter-chips">
+    <span class="pub-filter-chips__label">Sede:</span>
+    <a href="{{ $calUrl(['venue' => null]) }}" class="pub-filter-chip {{ !$calVenue ? 'is-active' : '' }}">Todas</a>
+    @foreach($calVenuesPresent as $v)
+    <a href="{{ $calUrl(['venue' => $v['id']]) }}" class="pub-filter-chip {{ (int) $calVenue === $v['id'] ? 'is-active' : '' }}">{{ $v['name'] }}</a>
     @endforeach
 </div>
 @endif

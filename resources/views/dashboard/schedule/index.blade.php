@@ -74,7 +74,8 @@
     $mcCount = $multiCategoryPlayers->count();
     $prefCount = (!empty($preferredSchedulePlayers)) ? $preferredSchedulePlayers->count() : 0;
     $busyCount = (!empty($busyDayPlayers)) ? $busyDayPlayers->count() : 0;
-    $playersTotal = $mcCount + $prefCount + $busyCount;
+    $unpaidCount = (!empty($unpaidPlayers)) ? $unpaidPlayers->count() : 0;
+    $playersTotal = $mcCount + $prefCount + $busyCount + $unpaidCount;
     @endphp
     @if($playersTotal > 0)
     <div x-data="{ playersSheet: false }" @close-players-sheet.window="playersSheet = false">
@@ -117,6 +118,7 @@
                 if ($mcCount) $plTabs['multi'] = ['label' => 'En 2+ categorías', 'icon' => 'fa-user-group', 'count' => $mcCount];
                 if ($prefCount) $plTabs['pref'] = ['label' => 'Horario preferido', 'icon' => 'fa-user-clock', 'count' => $prefCount];
                 if ($busyCount) $plTabs['busy'] = ['label' => ($tournament->maxMatchesPerDay() + 1) . '+ en un día', 'icon' => 'fa-gauge-high', 'count' => $busyCount];
+                if ($unpaidCount) $plTabs['unpaid'] = ['label' => 'Falta pago', 'icon' => 'fa-money-bill-wave', 'count' => $unpaidCount];
                 $firstTab = array_key_first($plTabs);
                 @endphp
                 @if(count($plTabs) > 1)
@@ -211,6 +213,19 @@
                             </div>
                         </div>
                     </div>
+                    @endforeach
+                </div>
+                @endif
+
+                @if($unpaidCount)
+                <div class="pl-sheet__section" data-pl-section data-pl-tab="unpaid" x-show="!plTab || plTab === 'unpaid'" x-cloak>
+                    <div class="pl-sheet__section-title"><i class="fa-solid fa-money-bill-wave me-1"></i> Falta pago ({{ $unpaidCount }})</div>
+                    @foreach($unpaidPlayers as $row)
+                    <button type="button" class="pl-row" data-pl-name="{{ Str::lower($row['name']) }}" @click="pick(@js($row['name']))">
+                        <span class="mc-player__count mc-player__count--warn">{{ count($row['categories']) }}</span>
+                        <span class="pl-row__name">{{ $row['name'] }}</span>
+                        <span class="pl-row__meta">{{ implode(', ', $row['categories']) }}</span>
+                    </button>
                     @endforeach
                 </div>
                 @endif
@@ -488,6 +503,14 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
     $byCell[$key][] = $m; // a cell can hold more than one match
     }
     }
+    // Lookup for the pagos subtitle (#9): normalized player name → every category
+    // they're registered in. $multiCategoryPlayers already holds only players in
+    // 2+ categories, so a lookup miss means the player is in exactly one.
+    $playerCategoryMap = [];
+    foreach ($multiCategoryPlayers as $__row) {
+        $playerCategoryMap[\App\Models\Player::normalize($__row['name'])] = $__row['categories'];
+    }
+
     $boardData = [
     'placeUrl' => route('schedule.place', $tournament),
     'unplaceUrl' => route('schedule.unplace', $tournament),
@@ -522,19 +545,24 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
     'controlStatusLabel' => $m->controlStatusLabel(),
     'statusUrl' => route('control.setStatus', [$tournament, $m->id]),
     'players' => collect(['a' => $m->pairA, 'b' => $m->pairB])
-    ->flatMap(function ($pair) use ($tournament, $m) {
+    ->flatMap(function ($pair) use ($tournament, $m, $playerCategoryMap) {
     if (! $pair) return [];
     $states = $pair->paidPlayerStates();
     $payUrl = route('pairs.playerPayment', [$tournament, $m->category_id, $pair->id]);
+    $currentCat = $m->category?->name;
     $out = [];
     foreach ([$pair->player1, $pair->player2] as $pl) {
     if (! $pl) continue;
+    // Other categories this player is in (empty unless they're in 2+).
+    $allCats = $playerCategoryMap[\App\Models\Player::normalize($pl->name)] ?? [];
+    $otherCats = array_values(array_filter($allCats, fn ($c) => $c !== $currentCat));
     $out[] = [
     'pair_id' => $pair->id,
     'player_id' => $pl->id,
     'name' => $pl->name,
     'paid' => (bool) ($states[$pl->id] ?? false),
     'payUrl' => $payUrl,
+    'otherCategories' => $otherCats,
     ];
     }
     return $out;

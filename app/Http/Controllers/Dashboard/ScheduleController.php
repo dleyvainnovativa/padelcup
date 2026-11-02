@@ -66,6 +66,8 @@ class ScheduleController extends Controller
 
         // Cheatsheet: players registered in 2+ categories (collision risk).
         $multiCategoryPlayers = $this->multiCategoryPlayers($tournament);
+        // Cheatsheet: players still missing payment (grouped by name, deduped).
+        $unpaidPlayers = $this->unpaidPlayers($tournament);
         $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
             ->mapForTournament($tournament);
         return view('dashboard.schedule.index', [
@@ -82,6 +84,7 @@ class ScheduleController extends Controller
             'proposalOverflow' => $proposalOverflow,
             'categories' => $categories,
             'multiCategoryPlayers' => $multiCategoryPlayers,
+            'unpaidPlayers' => $unpaidPlayers,
             'preferredSchedulePlayers' => $this->preferredSchedulePlayers($tournament),
             'busyDayPlayers' => $this->busyDayPlayers($tournament, $tournament->maxMatchesPerDay() + 1),
             'ghostQualifiers' => $ghostQualifiers,
@@ -345,6 +348,40 @@ class ScheduleController extends Controller
         return collect($byName)
             ->filter(fn($row) => count($row['categories']) >= 2)
             ->sortByDesc(fn($row) => count($row['categories']))
+            ->values();
+    }
+
+    /**
+     * Cheatsheet: players who still owe payment, grouped by NORMALIZED NAME (so
+     * the same person across categories is one row, not a duplicate). Each row
+     * lists the categories where they're still unpaid. A player fully paid in
+     * every category never appears; a player unpaid in only some categories
+     * shows only those. Uses Pair::paidPlayerStates() (per-player paid map with
+     * the legacy roll-up fallback), with registration.payments eager-loaded.
+     */
+    private function unpaidPlayers(Tournament $tournament): \Illuminate\Support\Collection
+    {
+        $pairs = \App\Models\Pair::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->with(['category:id,name', 'player1:id,name', 'player2:id,name', 'registration.payments'])
+            ->get();
+
+        $byName = [];
+        foreach ($pairs as $pair) {
+            $states = $pair->paidPlayerStates(); // [player_id => bool]
+            $catName = $pair->category?->name;
+            foreach ([$pair->player1, $pair->player2] as $p) {
+                if (! $p) continue;
+                if ($states[(int) $p->id] ?? false) continue; // already paid here
+                $key = \App\Models\Player::normalize($p->name);
+                $byName[$key] ??= ['name' => $p->name, 'categories' => []];
+                if ($catName && ! in_array($catName, $byName[$key]['categories'], true)) {
+                    $byName[$key]['categories'][] = $catName;
+                }
+            }
+        }
+
+        return collect($byName)
+            ->sortBy(fn($row) => strtolower($row['name']))
             ->values();
     }
 

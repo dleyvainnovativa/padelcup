@@ -3985,3 +3985,12 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
   margin-top: 1px;
   line-height: 1.2;
 }
+
+/* Stack the player name + its "También en:" subtitle in the pagos rows. */
+.sched-pago__name { display: flex; flex-direction: column; gap: 1px; }
+.sched-pago__cats {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text-faint);
+}

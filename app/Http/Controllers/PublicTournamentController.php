@@ -95,6 +95,7 @@ class PublicTournamentController extends Controller
         $calDay = $request->query('day'); // Y-m-d
         $calGroup = $request->query('group'); // group name, e.g. "Grupo A"
         $calPhase = $request->query('phase'); // publicPhase key, e.g. "groups", "final"
+        $calVenue = $request->query('venue'); // venue id (only relevant with 2+ venues)
 
         $calMatches = $category->matches()
             ->with([
@@ -121,6 +122,16 @@ class PublicTournamentController extends Controller
         // group names present and the phases present in this category.
         $calGroupNames = $category->groups->pluck('name')->values();
         $calPhasesPresent = \App\Support\SchedulePhase::presentIn($calMatches);
+
+        // Venues present in this category's matches (court → venue). Chips only
+        // render when there are 2+, so a single-venue tournament is unaffected.
+        $calVenuesPresent = $calMatches
+            ->map(fn($m) => $m->court?->venue)
+            ->filter()
+            ->unique('id')
+            ->sortBy('name')
+            ->map(fn($v) => ['id' => $v->id, 'name' => $v->name])
+            ->values();
 
         // Day options come from scheduled matches (before narrowing by day).
         $calAllDays = $calMatches
@@ -163,6 +174,9 @@ class PublicTournamentController extends Controller
         }
         if ($calPhase) {
             $calMatches = $calMatches->filter(fn($m) => $m->publicPhase()['key'] === $calPhase)->values();
+        }
+        if ($calVenue) {
+            $calMatches = $calMatches->filter(fn($m) => $m->court?->venue?->id === (int) $calVenue)->values();
         }
 
         // Split scheduled vs unscheduled; apply the day filter to scheduled ones.
@@ -361,6 +375,8 @@ class PublicTournamentController extends Controller
             'calPhase' => $calPhase,
             'calGroupNames' => $calGroupNames,
             'calPhasesPresent' => $calPhasesPresent,
+            'calVenue' => $calVenue,
+            'calVenuesPresent' => $calVenuesPresent,
             'calMatchedPlayers' => $calMatchedPlayers,
             'calTotal' => $calTotal,
             'ghostQualifiers' => $ghostQualifiers,
@@ -378,6 +394,7 @@ class PublicTournamentController extends Controller
         $categoryFilter = $request->query('cat'); // category id
         $dayFilter = $request->query('day');      // Y-m-d
         $phaseFilter = $request->query('phase');  // publicPhase key
+        $venueFilter = $request->query('venue');  // venue id (only relevant with 2+ venues)
 
         $matches = $tournament->categories()
             ->with(['matches' => function ($q) {
@@ -412,6 +429,14 @@ class PublicTournamentController extends Controller
         $allCategories = $tournament->categories()->orderBy('name')->get(['id', 'name']);
         $allDays = $matches->map(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'))->unique()->values();
         $allPhases = \App\Support\SchedulePhase::presentIn($matches);
+        // Venues present (court → venue). Chips render only when there are 2+.
+        $allVenues = $matches
+            ->map(fn($m) => $m->court?->venue)
+            ->filter()
+            ->unique('id')
+            ->sortBy('name')
+            ->map(fn($v) => ['id' => $v->id, 'name' => $v->name])
+            ->values();
 
         // Apply category filter.
         if ($categoryFilter) {
@@ -424,6 +449,10 @@ class PublicTournamentController extends Controller
         // Apply phase filter.
         if ($phaseFilter) {
             $matches = $matches->filter(fn($m) => $m->publicPhase()['key'] === $phaseFilter)->values();
+        }
+        // Apply venue filter.
+        if ($venueFilter) {
+            $matches = $matches->filter(fn($m) => $m->court?->venue?->id === (int) $venueFilter)->values();
         }
 
         // Ghost/qualifier map [category_id => [seedLabel => pairName]] — built
@@ -479,9 +508,11 @@ class PublicTournamentController extends Controller
             'allCategories' => $allCategories,
             'allDays' => $allDays,
             'allPhases' => $allPhases,
+            'allVenues' => $allVenues,
             'categoryFilter' => $categoryFilter,
             'dayFilter' => $dayFilter,
             'phaseFilter' => $phaseFilter,
+            'venueFilter' => $venueFilter,
             'ghostQualifiers' => $ghostQualifiers,
         ]);
     }
