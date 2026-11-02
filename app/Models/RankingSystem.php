@@ -34,7 +34,7 @@ class RankingSystem extends Model
     public function tournaments(): BelongsToMany
     {
         return $this->belongsToMany(Tournament::class, 'ranking_system_tournament')
-            ->withPivot('finalized_at')
+            ->withPivot('finalized_at', 'points_override', 'excluded_category_ids')
             ->withTimestamps();
     }
 

@@ -3994,3 +3994,58 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
   line-height: 1.3;
   color: var(--text-faint);
 }
+
+.win-count { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+
+.win-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.win-card__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px 8px; }
+.win-card__head h3 { margin: 0; font-size: 15px; font-weight: 700; }
+.win-card.is-decided { border-color: color-mix(in srgb, var(--success) 30%, var(--border)); }
+
+.win-badge { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: var(--radius-pill); white-space: nowrap; }
+.win-badge--ok { background: var(--success-soft); color: var(--success-text); }
+.win-badge--pending { background: var(--warning-soft); color: var(--warning-text); }
+.win-badge--muted { background: var(--surface-2, color-mix(in srgb, var(--text) 6%, transparent)); color: var(--text-faint); }
+
+.win-podium { list-style: none; margin: 0; padding: 4px 16px 6px; }
+.win-podium__row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.win-podium__row:last-child { border-bottom: 0; }
+.win-podium__pos { flex-shrink: 0; width: 42px; font-size: 12px; font-weight: 700; color: var(--text-faint); }
+.win-podium__row--1 .win-podium__pos { color: #b8860b; }
+.win-podium__row--1 .win-podium__name { font-weight: 700; }
+.win-podium__name { font-size: 14px; color: var(--text); }
+
+.win-card__score { padding: 6px 16px 14px; font-size: 12px; color: var(--text-muted); }
+.win-card__empty { padding: 4px 16px 16px; font-size: 13px; color: var(--text-faint); }
+
+
+.rk-cfg__intro { font-size: 13px; color: var(--text-muted); margin: 0 0 14px; }
+
+.rk-cfg {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 12px;
+  background: var(--surface);
+}
+.rk-cfg__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.rk-cfg__title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+
+.rk-cfg__label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--text-faint); margin-bottom: 6px; }
+
+.rk-cfg__cats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 12px; }
+.rk-cfg__cat { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text); cursor: pointer; }
+.rk-cfg__cat input { width: 15px; height: 15px; accent-color: var(--accent); }
+
+.rk-cfg__toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text); cursor: pointer; margin-top: 2px; }
+.rk-cfg__toggle input { width: 15px; height: 15px; accent-color: var(--accent); }
+
+.rk-cfg__points { margin-top: 10px; max-width: 360px; }
+.rk-cfg__points-table td, .rk-cfg__points-table th { padding: 4px 8px; }
+.rk-cfg__pts-input { width: 80px; text-align: right; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
+.rk-cfg__hint { font-size: 12px; color: var(--text-faint); margin: 4px 0 0; }

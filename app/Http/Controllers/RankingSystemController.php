@@ -78,11 +78,85 @@ class RankingSystemController extends Controller
 
         $rankingSystem->loadCount('tournaments');
 
+        // Per-tournament config (items #4 + #5): each linked tournament with its
+        // categories, which are excluded, and whether it uses an alternate points
+        // schedule. Pivot JSON columns aren't cast, so decode defensively.
+        $tournaments = $rankingSystem->tournaments()
+            ->with(['categories:id,tournament_id,name'])
+            ->orderBy('name')
+            ->get()
+            ->map(function ($t) {
+                $excluded = $this->decodePivotArray($t->pivot->excluded_category_ids) ?? [];
+                $override = $this->decodePivotArray($t->pivot->points_override);
+                return [
+                    'id'          => $t->id,
+                    'name'        => $t->name,
+                    'finalized'   => $t->pivot->finalized_at !== null,
+                    'categories'  => $t->categories->map(fn ($c) => [
+                        'id'       => $c->id,
+                        'name'     => $c->name,
+                        'included' => ! in_array((int) $c->id, array_map('intval', $excluded), true),
+                    ])->values(),
+                    'custom_points' => $override !== null,
+                    'points'        => $override, // null when using the default schedule
+                ];
+            });
+
         return view('ranking-systems.show', [
-            'system'       => $rankingSystem,
-            'achievements' => RankingAchievement::cases(),
-            'schedule'     => $rankingSystem->schedule(),
+            'system'          => $rankingSystem,
+            'achievements'    => RankingAchievement::cases(),
+            'schedule'        => $rankingSystem->schedule(),
+            'linkedTournaments' => $tournaments,
         ]);
+    }
+
+    /**
+     * Save a tournament's ranking config within this system (items #4 + #5):
+     *   - which categories are included (excluded = the rest)
+     *   - an optional alternate points schedule ("subranking") for this
+     *     tournament, stored on the pivot; null = use the system default.
+     * Nothing is recomputed here — the manager re-finalizes the tournament to
+     * apply the change to the shared ledger/leaderboard.
+     */
+    public function updateTournamentConfig(Request $request, RankingSystem $rankingSystem, \App\Models\Tournament $tournament)
+    {
+        $this->authorizeOwner($rankingSystem);
+        abort_unless(
+            $rankingSystem->tournaments()->whereKey($tournament->id)->exists(),
+            404,
+            'Ese torneo no está vinculado a este ranking.'
+        );
+
+        // Included category ids (checkboxes). Excluded = every category of the
+        // tournament NOT in this list.
+        $included = array_map('intval', (array) $request->input('categories', []));
+        $allIds = $tournament->categories()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $excluded = array_values(array_diff($allIds, $included));
+
+        // Alternate points schedule — only when the custom toggle is on.
+        $pointsOverride = null;
+        if ($request->boolean('custom_points')) {
+            $pointsOverride = [];
+            foreach (RankingAchievement::cases() as $a) {
+                $pointsOverride[$a->value] = (int) $request->input("points.{$a->value}", 0);
+            }
+        }
+
+        $rankingSystem->tournaments()->updateExistingPivot($tournament->id, [
+            'excluded_category_ids' => empty($excluded) ? null : json_encode($excluded),
+            'points_override'       => $pointsOverride === null ? null : json_encode($pointsOverride),
+        ]);
+
+        return back()->with('status', "Configuración de «{$tournament->name}» guardada. Vuelve a finalizar el torneo para aplicar los cambios al ranking.");
+    }
+
+    /** Decode a pivot JSON column to an array (pivot attrs aren't cast). */
+    private function decodePivotArray($raw): ?array
+    {
+        if (is_array($raw)) return $raw;
+        if (blank($raw)) return null;
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? $decoded : null;
     }
 
     public function edit(RankingSystem $rankingSystem)

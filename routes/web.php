@@ -159,6 +159,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('mesa-control', [\App\Http\Controllers\Dashboard\ControlController::class, 'index'])->name('control.index');
         Route::post('mesa-control/{match}/estado', [\App\Http\Controllers\Dashboard\ControlController::class, 'setStatus'])->name('control.setStatus');
 
+        // Ganadores (end-of-tournament champions/finalists + Excel export).
+        Route::get('ganadores', [\App\Http\Controllers\Dashboard\WinnersController::class, 'index'])->name('winners.index');
+        Route::get('ganadores/export', [\App\Http\Controllers\Dashboard\WinnersController::class, 'export'])->name('winners.export');
+
         // Resumen (tournament summary / leaderboard)
         Route::get('resumen', [\App\Http\Controllers\Dashboard\SummaryController::class, 'show'])->name('tournaments.summary');
 
@@ -192,6 +196,11 @@ Route::middleware(['auth'])->group(function () {
     });
     Route::resource('ranking-systems', RankingSystemController::class);
 
+    // Per-tournament ranking config (category toggles + alternate point table).
+    Route::post(
+        'ranking-systems/{rankingSystem}/tournaments/{tournament}/config',
+        [RankingSystemController::class, 'updateTournamentConfig']
+    )->name('ranking-systems.tournament-config');
     // Extra: duplicate an existing system (clone name + points schedule).
     Route::post(
         'ranking-systems/{rankingSystem}/duplicate',

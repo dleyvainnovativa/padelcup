@@ -53,13 +53,19 @@ class RankingFinalizer
     public function finalize(Tournament $tournament, RankingSystem $system): array
     {
         // Guard: the tournament must actually feed this system (pivot exists).
-        $linked = $tournament->rankingSystems()
+        $link = $tournament->rankingSystems()
             ->whereKey($system->id)
-            ->exists();
-        abort_unless($linked, 422, 'Este torneo no está vinculado a ese ranking.');
+            ->first();
+        abort_unless($link, 422, 'Este torneo no está vinculado a ese ranking.');
+
+        // Per-tournament overrides from the pivot (ranking config v2):
+        //   points_override       → alternate [achievement => points] schedule
+        //   excluded_category_ids → categories to skip for this tournament
+        $pointsOverride = $this->decodeArray($link->pivot->points_override);
+        $excludedCategoryIds = array_map('intval', $this->decodeArray($link->pivot->excluded_category_ids) ?? []);
 
         // Build every ledger row in memory first, then persist atomically.
-        $ledger = $this->buildLedger($tournament, $system);
+        $ledger = $this->buildLedger($tournament, $system, $pointsOverride, $excludedCategoryIds);
 
         return DB::transaction(function () use ($tournament, $system, $ledger) {
             // Wipe this system's slice for this tournament (idempotent rewrite).
@@ -95,13 +101,22 @@ class RankingFinalizer
      *
      * @return array<int,array<string,mixed>>  ranking_points insert rows
      */
-    private function buildLedger(Tournament $tournament, RankingSystem $system): array
-    {
+    private function buildLedger(
+        Tournament $tournament,
+        RankingSystem $system,
+        ?array $pointsOverride = null,
+        array $excludedCategoryIds = []
+    ): array {
         $rows = [];
 
         $categories = $tournament->categories()->with('groups.pairs')->get();
 
         foreach ($categories as $category) {
+            // Item #4: skip categories the manager excluded for this system.
+            if (in_array((int) $category->id, $excludedCategoryIds, true)) {
+                continue;
+            }
+
             // Only FINISHED categories count: the final must be confirmed.
             $final = $this->finalMatch($category);
             $categoryDecided = $final && $final->isConfirmed() && $final->winner_pair_id;
@@ -129,7 +144,7 @@ class RankingFinalizer
                 $playerIds = $pair->playerIds();
                 if (empty($playerIds)) continue;
 
-                $awarded = $this->applyStacking($achievements, $system);
+                $awarded = $this->applyStacking($achievements, $system, $pointsOverride);
 
                 foreach ($awarded as $achievement => $points) {
                     if ($points <= 0) continue;
@@ -259,12 +274,16 @@ class RankingFinalizer
      * @param  array<int,RankingAchievement>  $achievements
      * @return array<string,int>
      */
-    private function applyStacking(array $achievements, RankingSystem $system): array
+    private function applyStacking(array $achievements, RankingSystem $system, ?array $pointsOverride = null): array
     {
-        // Dedup + map to points.
+        // Dedup + map to points. When an alternate schedule is set for this
+        // tournament (item #5), read points from it instead of the system
+        // default; stacking mode still comes from the system.
         $unique = [];
         foreach ($achievements as $a) {
-            $unique[$a->value] = $system->pointsFor($a);
+            $unique[$a->value] = $pointsOverride !== null
+                ? (int) ($pointsOverride[$a->value] ?? 0)
+                : $system->pointsFor($a);
         }
 
         if ($system->isCumulative()) {
@@ -276,6 +295,19 @@ class RankingFinalizer
         arsort($unique); // highest points first
         $topKey = array_key_first($unique);
         return [$topKey => $unique[$topKey]];
+    }
+
+    /**
+     * Decode a pivot JSON column to an array. Pivot attributes aren't cast, so a
+     * raw string (or already-decoded array, defensively) may arrive; null/blank
+     * → null.
+     */
+    private function decodeArray($raw): ?array
+    {
+        if (is_array($raw)) return $raw;
+        if (blank($raw)) return null;
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? $decoded : null;
     }
 
     // ── helpers ───────────────────────────────────────────────────────────
