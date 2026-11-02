@@ -7,11 +7,11 @@ $catBase = ['tournament' => $tournament, 'category' => $category];
 
 // Compose a calendar URL preserving the active filters (tab/q/day/group/phase)
 // with the given overrides. Pass null to drop a filter (empties are stripped).
-$calUrl = function (array $overrides = []) use ($tournament, $category, $calSearch, $calDay, $calGroup, $calPhase, $calVenue) {
+$calUrl = function (array $overrides = []) use ($tournament, $category, $calSearch, $calDayParam, $calGroup, $calPhase, $calVenue) {
     $params = array_merge([
         'tab' => 'calendar',
         'q' => $calSearch ?: null,
-        'day' => $calDay ?: null,
+        'day' => $calDayParam ?: null,
         'group' => $calGroup ?: null,
         'phase' => $calPhase ?: null,
         'venue' => $calVenue ?: null,
@@ -24,7 +24,7 @@ $calUrl = function (array $overrides = []) use ($tournament, $category, $calSear
 {{-- Buscar mi partido --}}
 <form method="GET" action="{{ route('public.category', $catBase) }}" class="pub-search">
     <input type="hidden" name="tab" value="calendar">
-    @if($calDay)<input type="hidden" name="day" value="{{ $calDay }}">@endif
+    @if($calDayParam)<input type="hidden" name="day" value="{{ $calDayParam }}">@endif
     @if($calGroup)<input type="hidden" name="group" value="{{ $calGroup }}">@endif
     @if($calPhase)<input type="hidden" name="phase" value="{{ $calPhase }}">@endif
     @if($calVenue)<input type="hidden" name="venue" value="{{ $calVenue }}">@endif
@@ -74,7 +74,7 @@ $calUrl = function (array $overrides = []) use ($tournament, $category, $calSear
 {{-- Day chips --}}
 @if($calAllDays->count() > 1)
 <div class="pub-day-chips pb-3">
-    <a href="{{ $calUrl(['day' => null]) }}" class="pub-day-chip {{ !$calDay ? 'is-active' : '' }}">Todos</a>
+    <a href="{{ $calUrl(['day' => 'all']) }}" class="pub-day-chip {{ !$calDay ? 'is-active' : '' }}">Todos</a>
     @foreach($calAllDays as $day)
     @php $d = \Carbon\Carbon::parse($day, 'America/Mexico_City'); @endphp
     <a href="{{ $calUrl(['day' => $day]) }}" class="pub-day-chip {{ $calDay === $day ? 'is-active' : '' }}">{{ $d->translatedFormat('D d M') }}</a>

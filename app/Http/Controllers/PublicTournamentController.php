@@ -139,6 +139,17 @@ class PublicTournamentController extends Controller
             ->map(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'))
             ->unique()->values();
 
+        // #6: default to TODAY when no day is chosen and today has matches in this
+        // category. "all" is the explicit "Todos" sentinel → show every day.
+        // $calDayParam keeps the RAW value so URLs preserve the explicit choice.
+        $calDayParam = $calDay;
+        $calToday = \Carbon\Carbon::now('America/Mexico_City')->format('Y-m-d');
+        if ($calDay === 'all') {
+            $calDay = null;
+        } elseif (($calDay === null || $calDay === '') && $calAllDays->contains($calToday)) {
+            $calDay = $calToday;
+        }
+
         // Player search: keep matches whose pair/player names contain the needle,
         // INCLUDING projected participants (feeder "Ganador/Perdedor (…)" and
         // ghost qualifiers), so a player finds round-2 slots they may reach.
@@ -369,6 +380,7 @@ class PublicTournamentController extends Controller
             'calByDay' => $calByDay,
             'calUnscheduled' => $calUnscheduled,
             'calAllDays' => $calAllDays,
+            'calDayParam' => $calDayParam,
             'calSearch' => $calSearch,
             'calDay' => $calDay,
             'calGroup' => $calGroup,
@@ -437,6 +449,20 @@ class PublicTournamentController extends Controller
             ->sortBy('name')
             ->map(fn($v) => ['id' => $v->id, 'name' => $v->name])
             ->values();
+
+        // #6: default to TODAY when no day is chosen and today has matches, so a
+        // visitor opening the calendar mid-tournament lands on the live day. The
+        // "Todos" chip passes the explicit sentinel `day=all` to show every day.
+        // $dayParam keeps the RAW request value so generated URLs preserve the
+        // user's explicit choice (incl. the `all` sentinel); $dayFilter is the
+        // resolved value used for filtering + chip active states.
+        $dayParam = $dayFilter;
+        $today = \Carbon\Carbon::now('America/Mexico_City')->format('Y-m-d');
+        if ($dayFilter === 'all') {
+            $dayFilter = null;
+        } elseif (($dayFilter === null || $dayFilter === '') && $allDays->contains($today)) {
+            $dayFilter = $today;
+        }
 
         // Apply category filter.
         if ($categoryFilter) {
@@ -511,6 +537,7 @@ class PublicTournamentController extends Controller
             'allVenues' => $allVenues,
             'categoryFilter' => $categoryFilter,
             'dayFilter' => $dayFilter,
+            'dayParam' => $dayParam,
             'phaseFilter' => $phaseFilter,
             'venueFilter' => $venueFilter,
             'ghostQualifiers' => $ghostQualifiers,

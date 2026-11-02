@@ -659,10 +659,14 @@ if ($startMin >= $min && $startMin < $min + $dayStep) {
                     <div class="sched-grid-wrap">
                         <table class="sched-grid">
                             <thead>
+                                @php $multiVenue = $courts->pluck('venue')->filter()->unique('id')->count() > 1; @endphp
                                 <tr>
                                     <th class="sched-grid__timecol">Hora</th>
                                     @foreach($courts as $court)
-                                    <th>{{ $court->name }}</th>
+                                    <th>
+                                        @if($multiVenue && $court->venue)<span class="sched-grid__venue">{{ $court->venue->name }}</span>@endif
+                                        {{ $court->name }}
+                                    </th>
                                     @endforeach
                                 </tr>
                             </thead>

@@ -18,54 +18,55 @@
     </div>
 
     @php
-    // Compose a schedule URL preserving the active filters (q/cat/day/phase/venue)
-    // with the given overrides. Pass null to drop a filter (empties are stripped).
-    $schedUrl = function (array $overrides = []) use ($tournament, $search, $categoryFilter, $dayFilter, $phaseFilter, $venueFilter) {
+    // Compose a schedule URL preserving active filters (q/cat/day/phase/venue).
+    // `day` uses the RAW param ($dayParam) so the explicit `all` choice survives
+    // across non-day links (see #6); drop a filter by passing null.
+    $schedUrl = function (array $overrides = []) use ($tournament, $search, $categoryFilter, $dayParam, $phaseFilter, $venueFilter) {
         $params = array_merge([
             'q' => $search ?: null,
             'cat' => $categoryFilter ?: null,
-            'day' => $dayFilter ?: null,
+            'day' => $dayParam ?: null,
             'phase' => $phaseFilter ?: null,
             'venue' => $venueFilter ?: null,
         ], $overrides);
         $params = array_filter($params, fn ($v) => $v !== null && $v !== '');
         return route('public.schedule', ['tournament' => $tournament] + $params);
     };
+    // Secondary filters (categoría / fase / sede) → the Filtros badge + summary.
+    $activeFilters = collect([$categoryFilter, $phaseFilter, $venueFilter])->filter()->count();
+    $activeCatName = $categoryFilter ? optional($allCategories->firstWhere('id', (int) $categoryFilter))->name : null;
+    $activeVenueName = $venueFilter ? data_get($allVenues->firstWhere('id', (int) $venueFilter), 'name') : null;
     @endphp
 
-    {{-- Buscar mi partido --}}
-    <form method="GET" action="{{ route('public.schedule', $tournament) }}" class="pub-search">
-        <div class="pub-search__field">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" name="q" value="{{ $search }}" placeholder="Buscar mi partido (nombre del jugador o pareja)…" autocomplete="off">
-        </div>
-        @if($categoryFilter)<input type="hidden" name="cat" value="{{ $categoryFilter }}">@endif
-        @if($dayFilter)<input type="hidden" name="day" value="{{ $dayFilter }}">@endif
-        @if($phaseFilter)<input type="hidden" name="phase" value="{{ $phaseFilter }}">@endif
-        @if($venueFilter)<input type="hidden" name="venue" value="{{ $venueFilter }}">@endif
-        <button type="submit" class="pub-btn pub-btn--primary">Buscar</button>
-        @if($search !== '')
-        <a href="{{ $schedUrl(['q' => null]) }}" class="pub-btn">Limpiar</a>
-        @endif
-    </form>
+    <div x-data="{ filtersSheet: false }">
+        {{-- Toolbar: search + Filtros button --}}
+        <div class="pub-cal-toolbar">
+            <form method="GET" action="{{ route('public.schedule', $tournament) }}" class="pub-search pub-cal-toolbar__search">
+                <div class="pub-search__field">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" name="q" value="{{ $search }}" placeholder="Buscar mi partido…" autocomplete="off">
+                </div>
+                @if($categoryFilter)<input type="hidden" name="cat" value="{{ $categoryFilter }}">@endif
+                @if($dayParam)<input type="hidden" name="day" value="{{ $dayParam }}">@endif
+                @if($phaseFilter)<input type="hidden" name="phase" value="{{ $phaseFilter }}">@endif
+                @if($venueFilter)<input type="hidden" name="venue" value="{{ $venueFilter }}">@endif
+                <button type="submit" class="pub-btn pub-btn--primary">Buscar</button>
+                @if($search !== '')
+                <a href="{{ $schedUrl(['q' => null]) }}" class="pub-btn">Limpiar</a>
+                @endif
+            </form>
 
-    {{-- Filters: category + day --}}
-    <div class="pub-filters">
-        <form method="GET" action="{{ route('public.schedule', $tournament) }}" class="pub-filter-cat">
-            @if($search)<input type="hidden" name="q" value="{{ $search }}">@endif
-            @if($dayFilter)<input type="hidden" name="day" value="{{ $dayFilter }}">@endif
-            @if($phaseFilter)<input type="hidden" name="phase" value="{{ $phaseFilter }}">@endif
-            @if($venueFilter)<input type="hidden" name="venue" value="{{ $venueFilter }}">@endif
-            <select name="cat" onchange="this.form.submit()" class="pub-select">
-                <option value="">Todas las categorías</option>
-                @foreach($allCategories as $c)
-                <option value="{{ $c->id }}" @selected((string)$categoryFilter===(string)$c->id)>{{ $c->name }}</option>
-                @endforeach
-            </select>
-        </form>
+            <button type="button" class="pub-btn pub-filter-btn" @click="filtersSheet = true">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Filtros</span>
+                @if($activeFilters)<span class="pub-filter-btn__count">{{ $activeFilters }}</span>@endif
+            </button>
+        </div>
+
+        {{-- Day chips stay inline (the most-used filter) --}}
         @if($allDays->count() > 1)
         <div class="pub-day-chips">
-            <a href="{{ $schedUrl(['day' => null]) }}"
+            <a href="{{ $schedUrl(['day' => 'all']) }}"
                 class="pub-day-chip {{ !$dayFilter ? 'is-active' : '' }}">Todos</a>
             @foreach($allDays as $day)
             @php $d = \Carbon\Carbon::parse($day, 'America/Mexico_City'); @endphp
@@ -74,29 +75,63 @@
             @endforeach
         </div>
         @endif
-        @if(count($allPhases) > 1)
-        <div class="pub-filter-chips">
-            <span class="pub-filter-chips__label">Fase:</span>
-            <a href="{{ $schedUrl(['phase' => null]) }}"
-                class="pub-filter-chip {{ !$phaseFilter ? 'is-active' : '' }}">Todas</a>
-            @foreach($allPhases as $phaseKey)
-            <a href="{{ $schedUrl(['phase' => $phaseKey]) }}"
-                class="pub-filter-chip {{ $phaseFilter === $phaseKey ? 'is-active' : '' }}">{{ \App\Support\SchedulePhase::label($phaseKey) }}</a>
-            @endforeach
+
+        {{-- Active secondary filters summary (tap × to remove) --}}
+        @if($activeFilters)
+        <div class="pub-active-filters">
+            @if($activeCatName)<a href="{{ $schedUrl(['cat' => null]) }}" class="pub-active-chip">{{ $activeCatName }} <i class="fa-solid fa-xmark"></i></a>@endif
+            @if($phaseFilter)<a href="{{ $schedUrl(['phase' => null]) }}" class="pub-active-chip">{{ \App\Support\SchedulePhase::label($phaseFilter) }} <i class="fa-solid fa-xmark"></i></a>@endif
+            @if($activeVenueName)<a href="{{ $schedUrl(['venue' => null]) }}" class="pub-active-chip">{{ $activeVenueName }} <i class="fa-solid fa-xmark"></i></a>@endif
         </div>
         @endif
-        {{-- Venue chips (only when the tournament spans 2+ venues) --}}
-        @if($allVenues->count() > 1)
-        <div class="pub-filter-chips">
-            <span class="pub-filter-chips__label">Sede:</span>
-            <a href="{{ $schedUrl(['venue' => null]) }}"
-                class="pub-filter-chip {{ !$venueFilter ? 'is-active' : '' }}">Todas</a>
-            @foreach($allVenues as $v)
-            <a href="{{ $schedUrl(['venue' => $v['id']]) }}"
-                class="pub-filter-chip {{ (int) $venueFilter === $v['id'] ? 'is-active' : '' }}">{{ $v['name'] }}</a>
-            @endforeach
+
+        {{-- Filtros bottomsheet (categoría / fase / sede) --}}
+        <div class="sched-sheet-overlay" :class="{ 'is-open': filtersSheet }" x-show="filtersSheet" x-cloak @click.self="filtersSheet = false">
+            <div class="sched-sheet" role="dialog" aria-modal="true">
+                <div class="sched-sheet__handle"></div>
+                <div class="sched-sheet__head">
+                    <div><div class="sched-sheet__title">Filtros</div></div>
+                    <button type="button" class="sched-sheet__close" aria-label="Cerrar" @click="filtersSheet = false">&times;</button>
+                </div>
+                <form method="GET" action="{{ route('public.schedule', $tournament) }}" class="pub-filter-form">
+                    @if($search)<input type="hidden" name="q" value="{{ $search }}">@endif
+                    @if($dayParam)<input type="hidden" name="day" value="{{ $dayParam }}">@endif
+
+                    <label class="pub-filter-form__label">Categoría</label>
+                    <select name="cat" class="pub-select pub-filter-form__control">
+                        <option value="">Todas las categorías</option>
+                        @foreach($allCategories as $c)
+                        <option value="{{ $c->id }}" @selected((string)$categoryFilter===(string)$c->id)>{{ $c->name }}</option>
+                        @endforeach
+                    </select>
+
+                    @if(count($allPhases) > 1)
+                    <label class="pub-filter-form__label">Fase</label>
+                    <select name="phase" class="pub-select pub-filter-form__control">
+                        <option value="">Todas las fases</option>
+                        @foreach($allPhases as $phaseKey)
+                        <option value="{{ $phaseKey }}" @selected($phaseFilter===$phaseKey)>{{ \App\Support\SchedulePhase::label($phaseKey) }}</option>
+                        @endforeach
+                    </select>
+                    @endif
+
+                    @if($allVenues->count() > 1)
+                    <label class="pub-filter-form__label">Sede</label>
+                    <select name="venue" class="pub-select pub-filter-form__control">
+                        <option value="">Todas las sedes</option>
+                        @foreach($allVenues as $v)
+                        <option value="{{ $v['id'] }}" @selected((int)$venueFilter===$v['id'])>{{ $v['name'] }}</option>
+                        @endforeach
+                    </select>
+                    @endif
+
+                    <div class="pub-filter-form__actions">
+                        <a href="{{ $schedUrl(['cat' => null, 'phase' => null, 'venue' => null]) }}" class="pub-btn">Limpiar</a>
+                        <button type="submit" class="pub-btn pub-btn--primary">Aplicar</button>
+                    </div>
+                </form>
+            </div>
         </div>
-        @endif
     </div>
 
     @if($search !== '')

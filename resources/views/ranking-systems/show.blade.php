@@ -108,7 +108,8 @@
             </label>
 
             <div class="rk-cfg__points" x-show="custom" x-cloak>
-                <table class="table rk-cfg__points-table">
+                <div class="tc-table-wrap">
+                <table class="tc-table rk-cfg__points-table">
                     <thead><tr><th>Logro</th><th class="text-end">Puntos</th></tr></thead>
                     <tbody>
                         @foreach($achievements as $a)
@@ -123,6 +124,7 @@
                         @endforeach
                     </tbody>
                 </table>
+                </div>
                 <p class="rk-cfg__hint">Estos puntos se usan solo para este torneo; el resto siguen con la tabla general. Suman al mismo ranking.</p>
             </div>
         </form>

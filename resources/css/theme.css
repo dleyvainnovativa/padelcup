@@ -965,7 +965,7 @@ input:-webkit-autofill:focus {
 .pub-search-meta { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
 .pub-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
 .pub-select { padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: 13px; }
-.pub-day-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pub-day-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0; margin-bottom: 12px; }
 .pub-day-chip { padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--text-muted); text-decoration: none; text-transform: capitalize; }
 .pub-day-chip:hover { border-color: var(--accent); }
 .pub-day-chip.is-active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
@@ -4045,7 +4045,64 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
 .rk-cfg__toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text); cursor: pointer; margin-top: 2px; }
 .rk-cfg__toggle input { width: 15px; height: 15px; accent-color: var(--accent); }
 
-.rk-cfg__points { margin-top: 10px; max-width: 360px; }
+.rk-cfg__points { margin-top: 10px; }
 .rk-cfg__points-table td, .rk-cfg__points-table th { padding: 4px 8px; }
 .rk-cfg__pts-input { width: 80px; text-align: right; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
 .rk-cfg__hint { font-size: 12px; color: var(--text-faint); margin: 4px 0 0; }
+
+/* ---- #3 Jugadores tabs: icon + count only at ALL widths ------------------ */
+/* Each list already renders its own heading, so the tab labels are redundant
+   and make four tabs overflow. Promote the former mobile-only behavior. */
+.pl-sheet__tabs { flex-wrap: nowrap; }
+.pl-sheet__tabs .tc-tab { flex: 1 1 0; justify-content: center; }
+.pl-tab__label { display: none; }
+
+/* ---- #5 Manager grid: subtle venue name above the court name ------------- */
+.sched-grid__venue {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  line-height: 1.2;
+  color: var(--text-faint);
+  margin-bottom: 1px;
+}
+
+/* ---- #1 Ranking config points table now uses .tc-table (dark theme) ------ */
+/* Keep the number input tidy inside the themed cell. */
+.rk-cfg__points-table .rk-cfg__pts-input { vertical-align: middle; }
+.rk-cfg__points-table td, .rk-cfg__points-table th { vertical-align: middle; }
+
+
+/* Toolbar row: search grows, Filtros button sits at the end. */
+.pub-cal-toolbar { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 10px; }
+.pub-cal-toolbar__search { flex: 1 1 260px; margin-bottom: 0; }
+
+.pub-filter-btn { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.pub-filter-btn__count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  font-size: 11px; font-weight: 700; line-height: 1;
+  border-radius: 999px;
+  background: var(--accent); color: var(--on-accent);
+}
+
+/* Active secondary-filter summary chips (tap × to remove). */
+.pub-active-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 12px; }
+.pub-active-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; text-decoration: none;
+  padding: 3px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.pub-active-chip i { font-size: 10px; opacity: .8; }
+.pub-active-chip:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
+/* Filtros sheet form. */
+.pub-filter-form { padding: 4px 2px 8px; }
+.pub-filter-form__label { display: block; font-size: 12px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: .03em; margin: 12px 0 5px; }
+.pub-filter-form__control { width: 100%; }
+.pub-filter-form__actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }

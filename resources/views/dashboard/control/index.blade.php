@@ -14,6 +14,8 @@
     $today = \Carbon\Carbon::now($tz)->format('Y-m-d');
     $dayKeys = $days->map->format('Y-m-d')->values();
     $defaultDay = $dayKeys->contains($today) ? $today : ($dayKeys->first() ?? $today);
+    // Past the last day of the tournament → delays are historical, so hide them.
+    $ended = $tournament->ends_on && $tournament->ends_on->lt(\Carbon\Carbon::today($tz));
 @endphp
 
 <div data-control-board
@@ -32,7 +34,7 @@
             <div class="page-sub">{{ $tournament->name }}</div>
         </div>
         <div class="d-flex gap-2 flex-wrap align-items-center">
-            @if($delay !== null && $delay > 0)
+            @if(! $ended && $delay !== null && $delay > 0)
                 <span class="mesa-delay"><i class="fa-solid fa-hourglass-half me-1"></i> ~{{ $delay }} min de retraso</span>
             @endif
             <a href="{{ route('schedule.index', $tournament) }}" class="btn btn-soft">
@@ -76,7 +78,7 @@
                     <div class="mesa-row__when">
                         <div class="mesa-row__time">{{ $m->starts_at->timezone($tz)->format('H:i') }}</div>
                         <div class="mesa-row__court">{{ $m->court?->name ?? '—' }}</div>
-                        @if($delayM !== null && $delayM > 0)
+                        @if(! $ended && $delayM !== null && $delayM > 0)
                         <div class="mesa-row__delay">+{{ $delayM }}′</div>
                         @endif
                     </div>
