@@ -78,10 +78,10 @@
                 data-clear-url="{{ route('results.clear', [$tournament, $category, $m]) }}"
                 @endif>
                 <div class="bmatch-side {{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? '' : 'is-dim' }}"
-                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="a" @endif>{{ $m->sideLabel('a') }}@php $gtA = $m->groupTagFor('a', $groupTags ?? []); @endphp @if($gtA)<span class="bmatch-grp">Grupo {{ $gtA }}</span>@endif</div>
+                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="a" @endif>{{ $m->sideLabel('a') }}@php $gtA = $m->groupTagFor('a', $groupTags ?? []); @endphp @if($gtA)<span class="bmatch-grp">Grupo {{ $gtA }}</span>@endif@php $ghA = $m->ghostFor('a', $ghostQualifiers ?? []); @endphp @if($ghA)<span class="bmatch-ghost" title="Posible clasificado (grupo terminado)">{{ $ghA }}</span>@endif</div>
                 <div style="font-size:10px;color:var(--text-faint);">vs</div>
                 <div class="bmatch-side {{ $m->winner_pair_id === $m->pair_b_id && $m->pair_b_id ? '' : 'is-dim' }}"
-                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="b" @endif>{{ $m->sideLabel('b') }}@php $gtB = $m->groupTagFor('b', $groupTags ?? []); @endphp @if($gtB)<span class="bmatch-grp">Grupo {{ $gtB }}</span>@endif</div>
+                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="b" @endif>{{ $m->sideLabel('b') }}@php $gtB = $m->groupTagFor('b', $groupTags ?? []); @endphp @if($gtB)<span class="bmatch-grp">Grupo {{ $gtB }}</span>@endif@php $ghB = $m->ghostFor('b', $ghostQualifiers ?? []); @endphp @if($ghB)<span class="bmatch-ghost" title="Posible clasificado (grupo terminado)">{{ $ghB }}</span>@endif</div>
                 @if($status === 'played' && $m->sets)
                 <div class="sched-match__scores">
                     @foreach($m->sets as $s)

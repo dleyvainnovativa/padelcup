@@ -103,6 +103,9 @@ export function initCategoryHighlight() {
   }
 
   function apply() {
+    // The board node is swapped out on a live refresh, so resolve it live here.
+    const board = document.querySelector('[data-sched-board]');
+    if (!board) return;
     const catActive = selectedCats.size > 0;
     const phaseActive = selectedPhases.size > 0;
     const nameActive = nameQuery.length > 0;
@@ -136,4 +139,8 @@ export function initCategoryHighlight() {
 
   // Apply restored state on load (so a reload re-dims correctly).
   apply();
+
+  // After a live board refresh the matches are fresh DOM with no dim classes —
+  // re-apply the current filter state to the new nodes.
+  document.addEventListener('sched:board-refreshed', apply);
 }

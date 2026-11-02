@@ -261,9 +261,13 @@ class DrawController extends Controller
             ->get()
             ->groupBy('round');
 
-        $groupTags = app(\App\Services\Tournament\GhostQualifierResolver::class)
-            ->groupTagsFor($category);
-        return view('dashboard.brackets.index', compact('tournament', 'category', 'matches', 'groupTags'));
+        $resolver = app(\App\Services\Tournament\GhostQualifierResolver::class);
+        $groupTags = $resolver->groupTagsFor($category);
+        // Ghost qualifiers: [ seedLabel => pairName ] for slots whose source group
+        // has finished but whose pair isn't bound yet. Lets managers preview who
+        // would fill each llave slot. (Same map the public bracket uses.)
+        $ghostQualifiers = $resolver->mapFor($category);
+        return view('dashboard.brackets.index', compact('tournament', 'category', 'matches', 'groupTags', 'ghostQualifiers'));
     }
 
     /**

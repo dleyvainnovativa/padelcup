@@ -16,7 +16,7 @@ const MAX_BADGES = 5;
 export function initPlayerBadges() {
   const search = document.querySelector('[data-player-highlight]');
   const host = document.querySelector('[data-player-badges]');
-  const board = document.querySelector('[data-sched-board]');
+  let board = document.querySelector('[data-sched-board]');
   if (!search || !host || !board) return;
 
   let index = [];
@@ -69,6 +69,14 @@ export function initPlayerBadges() {
   search.addEventListener('input', render);
   // Render once on load (query may be restored from the URL by categoryHighlight).
   render();
+
+  // After a live board refresh, re-read the (updated) match index and re-point
+  // at the new board node so the badge counts + jump-to-match stay accurate.
+  document.addEventListener('sched:board-refreshed', () => {
+    try { index = JSON.parse(document.getElementById('player-match-index')?.textContent || '[]'); } catch (_) {}
+    board = document.querySelector('[data-sched-board]') || board;
+    render();
+  });
 }
 
 // --- Bottomsheet listing a player's matches --------------------------------
@@ -125,7 +133,7 @@ function buildBadgeSheet(board) {
 
       item.addEventListener('click', () => {
         hide();
-        jumpToMatch(board, m.match_id);
+        jumpToMatch(document.querySelector('[data-sched-board]') || board, m.match_id);
       });
       listEl.appendChild(item);
     });
@@ -162,7 +170,7 @@ function buildBadgeSheet(board) {
 
         item.addEventListener('click', () => {
           hide();
-          jumpToMatch(board, m.match_id);
+          jumpToMatch(document.querySelector('[data-sched-board]') || board, m.match_id);
         });
         listEl.appendChild(item);
       });

@@ -15,10 +15,10 @@ const MONTHS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov
 const DOW = ['dom','lun','mar','mié','jue','vie','sáb'];
 
 export function initSchedule() {
-  const board = document.querySelector('[data-sched-board]');
+  let board = document.querySelector('[data-sched-board]');
   if (!board) return;
 
-  const cfg = JSON.parse(board.dataset.schedConfig);
+  let cfg = JSON.parse(board.dataset.schedConfig);
   const sheet = buildSheet();
 
   // --- Core place/unplace ------------------------------------------
@@ -28,7 +28,7 @@ export function initSchedule() {
     try {
       await post(cfg.placeUrl, payload);
       toast.success('Partido programado.');
-      setTimeout(() => window.location.reload(), 450);
+      refreshBoard();
       return true;
     } catch (e) {
       const conflicts = e?.body?.conflicts;
@@ -44,7 +44,7 @@ export function initSchedule() {
     try {
       await post(cfg.unplaceUrl, { match_id: matchId });
       toast.success('Partido quitado.');
-      setTimeout(() => window.location.reload(), 400);
+      refreshBoard();
     } catch (_) { toast.error('No se pudo quitar.'); }
   }
 
@@ -57,7 +57,7 @@ export function initSchedule() {
     try {
       await post(cfg.swapUrl, payload);
       toast.success('Partidos intercambiados.');
-      setTimeout(() => window.location.reload(), 450);
+      refreshBoard();
       return true;
     } catch (e) {
       const conflicts = e?.body?.conflicts;
@@ -86,7 +86,7 @@ export function initSchedule() {
       } else {
         toast.success('Cancha actualizada.');
       }
-      setTimeout(() => window.location.reload(), 450);
+      refreshBoard();
       return true;
     } catch (e) {
       toast.error('No se pudo cambiar la cancha.');
@@ -94,14 +94,10 @@ export function initSchedule() {
     }
   }
 
-  board.querySelectorAll('[data-unplace]').forEach((btn) => {
-    btn.addEventListener('click', (e) => { e.stopPropagation(); unplace(btn.dataset.unplace); });
-  });
-
   // --- Multi-select unschedule -------------------------------------
   // A "selection mode" toggle turns match clicks into select/deselect instead of
   // opening the control sheet. A floating bar shows the count + the action.
-  const selection = initMultiSelect(board, cfg);
+  const selection = initMultiSelect(board, cfg, refreshBoard);
 
   // --- Scheduled match click → match-control sheet ------------------
   const ctrlSheet = buildControlSheet({
@@ -117,7 +113,7 @@ export function initSchedule() {
     try {
       await post(cfg.setTimeUrl, { match_id: matchData.id, time, force: !!force });
       toast.success('Hora actualizada.');
-      setTimeout(() => window.location.reload(), 450);
+      refreshBoard();
       return true;
     } catch (e) {
       if (e && e.status === 422 && e.body && e.body.conflicts) {
@@ -127,26 +123,13 @@ export function initSchedule() {
     }
   }
 
-  board.querySelectorAll('.sched-match').forEach((el) => {
-    el.addEventListener('click', (e) => {
-      // The × remove button has its own handler.
-      if (e.target.closest('[data-unplace]')) return;
-      e.stopPropagation();
-      // In selection mode, clicking toggles selection instead of opening the sheet.
-      if (selection.isActive()) { selection.toggle(el); return; }
-      const id = el.dataset.matchId;
-      const data = cfg.scheduled[id];
-      if (data) ctrlSheet.show(data);
-    });
-  });
-
   // POST a result (confirm new, or edit existing) from the control sheet.
   async function saveResult(matchData, sets, isEdit) {
     const url = isEdit ? matchData.editUrl : matchData.confirmUrl;
     try {
       await post(url, { sets });
       toast.success('Resultado guardado.');
-      setTimeout(() => window.location.reload(), 450);
+      refreshBoard();
       return true;
     } catch (e) {
       const errs = e?.body?.errors;
@@ -168,25 +151,92 @@ export function initSchedule() {
     try {
       await post(matchData.clearUrl, {});
       toast.success('Resultado borrado.');
-      setTimeout(() => window.location.reload(), 450);
+      refreshBoard();
     } catch (_) {
       toast.error('No se pudo borrar el resultado.');
     }
   }
 
-  // --- Empty-cell click → bottom sheet (all devices) ----------------
-  board.querySelectorAll('[data-cell]').forEach((cell) => {
-    cell.addEventListener('click', (e) => {
-      // Ignore clicks that land on an existing match block.
-      if (e.target.closest('.sched-match')) return;
-      if (selection.isActive()) return; // selection mode: cells are inert
-      if (!cellIsFree(cell)) return;
-      openSheetFor(cell);
+  // --- Bind all per-node handlers (unplace ×, match click, empty-cell click,
+  //     drag) on the CURRENT board DOM. Re-run after a live refresh swaps the
+  //     board node in place. Body-level pieces (sheets, multi-select bar, clear
+  //     menu, PDF) are bound once outside this and are not re-bound. ---------
+  function bindBoard() {
+    // × remove button on each scheduled card.
+    board.querySelectorAll('[data-unplace]').forEach((btn) => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); unplace(btn.dataset.unplace); });
     });
-  });
 
-  // --- Desktop drag (bonus; sheet still available) ------------------
-  if (!isTouch) initDrag(board, place, switchCourt, swap, selection);
+    // Scheduled match click → control sheet (or select, in selection mode).
+    board.querySelectorAll('.sched-match').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('[data-unplace]')) return; // × has its own handler
+        e.stopPropagation();
+        if (selection.isActive()) { selection.toggle(el); return; }
+        const id = el.dataset.matchId;
+        const data = cfg.scheduled[id];
+        if (data) ctrlSheet.show(data);
+      });
+    });
+
+    // Empty-cell click → assignment bottom sheet (all devices).
+    board.querySelectorAll('[data-cell]').forEach((cell) => {
+      cell.addEventListener('click', (e) => {
+        if (e.target.closest('.sched-match')) return; // landed on a match block
+        if (selection.isActive()) return;             // selection mode: cells inert
+        if (!cellIsFree(cell)) return;
+        openSheetFor(cell);
+      });
+    });
+
+    // Desktop drag (bonus; the sheet still works without it).
+    if (!isTouch) initDrag(board, place, switchCourt, swap, selection);
+  }
+
+  // --- Live board refresh --------------------------------------------
+  // Re-fetch the page, pull out the fresh board node, swap it in and re-bind —
+  // no full-page reload, so scroll position + active day survive. Board-scoped
+  // helpers (highlight dimming, player badges) re-apply via the dispatched
+  // event. Anything unexpected falls back to a hard reload so state is never
+  // left wrong.
+  let refreshing = false;
+  async function refreshBoard() {
+    if (refreshing) return;
+    refreshing = true;
+    const scrollY = window.scrollY;
+    selection.reset(); // leave selection mode; clears stale selected nodes
+    try {
+      const res = await fetch(window.location.href, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+        credentials: 'same-origin',
+      });
+      if (!res.ok) throw new Error('bad status ' + res.status);
+      const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+      const fresh = doc.querySelector('[data-sched-board]');
+      if (!fresh) throw new Error('board node missing from response');
+
+      // Tear down Alpine on the old node, swap, re-scan the new one.
+      window.Alpine?.destroyTree?.(board);
+      board.replaceWith(fresh);
+      board = fresh;
+      window.Alpine?.initTree?.(board);
+
+      // Refresh config + the out-of-board player index (counts/times changed).
+      cfg = JSON.parse(board.dataset.schedConfig);
+      const freshIdx = doc.getElementById('player-match-index');
+      const curIdx = document.getElementById('player-match-index');
+      if (freshIdx && curIdx) curIdx.textContent = freshIdx.textContent;
+
+      bindBoard();
+      document.dispatchEvent(new CustomEvent('sched:board-refreshed', { detail: { board } }));
+      window.scrollTo(0, scrollY);
+    } catch (_) {
+      window.location.reload();
+      return;
+    } finally {
+      refreshing = false;
+    }
+  }
 
   // --- Clear menu: cancelar / limpiar día / limpiar todo ------------
   const clearBtn = document.querySelector('[data-sched-clear]');
@@ -206,6 +256,9 @@ export function initSchedule() {
       window.location.href = gridPdfBtn.dataset.url + (qs ? '?' + qs : '');
     });
   }
+
+  // Bind the current board DOM (re-run by refreshBoard after each live swap).
+  bindBoard();
 
   // --- Bottom sheet -------------------------------------------------
   function openSheetFor(cell) {
@@ -258,9 +311,11 @@ export function initSchedule() {
 // --- Multi-select unschedule -----------------------------------------
 // Adds a "Seleccionar" toggle. While active, clicking scheduled matches selects
 // them; a floating bar shows the count and unschedules them in one request.
-function initMultiSelect(board, cfg) {
+function initMultiSelect(board, cfg, onDone) {
   const selected = new Set();
   let active = false;
+  // The board node is swapped out on a live refresh, so always resolve it live.
+  const getBoard = () => document.querySelector('[data-sched-board]') || board;
 
   // Toggle button — placed next to the board if a host exists, else floated.
   const toggle = document.createElement('button');
@@ -302,7 +357,7 @@ function initMultiSelect(board, cfg) {
 
   function clear() {
     selected.forEach((id) => {
-      const el = board.querySelector(`.sched-match[data-match-id="${id}"]`);
+      const el = getBoard().querySelector(`.sched-match[data-match-id="${id}"]`);
       if (el) el.classList.remove('is-selected');
     });
     selected.clear();
@@ -311,7 +366,7 @@ function initMultiSelect(board, cfg) {
 
   function setActive(on) {
     active = on;
-    board.classList.toggle('is-selecting', on);
+    getBoard().classList.toggle('is-selecting', on);
     toggle.classList.toggle('is-on', on);
     toggle.innerHTML = on
       ? '<i class="fa-solid fa-xmark"></i> Salir de selección'
@@ -324,7 +379,7 @@ function initMultiSelect(board, cfg) {
 
   // Select every VISIBLE scheduled match (i.e. the current day).
   bar.querySelector('[data-sel-all]').addEventListener('click', () => {
-    board.querySelectorAll('.sched-match').forEach((el) => {
+    getBoard().querySelectorAll('.sched-match').forEach((el) => {
       if (el.offsetParent === null) return; // hidden day
       const id = el.dataset.matchId;
       if (id && !selected.has(id)) { selected.add(id); el.classList.add('is-selected'); }
@@ -350,7 +405,8 @@ function initMultiSelect(board, cfg) {
     try {
       await post(cfg.unplaceManyUrl, { match_ids: [...selected] });
       toast.success(`${n} ${n === 1 ? 'partido quitado' : 'partidos quitados'}.`);
-      setTimeout(() => window.location.reload(), 450);
+      clear();
+      if (onDone) onDone(); else window.location.reload();
     } catch (_) {
       toast.error('No se pudieron quitar.');
       goBtn.disabled = false;
@@ -364,7 +420,7 @@ function initMultiSelect(board, cfg) {
   });
 
   render();
-  return { isActive: () => active, toggle: toggleMatch, clear };
+  return { isActive: () => active, toggle: toggleMatch, clear, reset: () => setActive(false) };
 }
 
 // --- Desktop drag ---------------------------------------------------
@@ -776,6 +832,9 @@ function buildControlSheet({ onUnplace, onSaveResult, onClearResult, onSetTime }
         errBox.textContent = res.error;
         saveBtn.disabled = false;
         saveBtn.textContent = played ? 'Guardar cambios' : 'Confirmar resultado';
+      } else {
+        // Result saved OK → close the control sheet (lock is kept as-is).
+        hide();
       }
     });
   }

@@ -62,6 +62,13 @@
                 <button class="pub-subtab" :class="{ 'is-active': view === 'general' }" @click="view = 'general'">General</button>
             </div>
 
+            {{-- Column legend (shared across Grupos / General) --}}
+            <p class="pub-legend" x-show="view !== 'cruces'" x-cloak>
+                <strong>PJ</strong> jugados · <strong>PG</strong> ganados · <strong>PP</strong> perdidos ·
+                <strong>Pts</strong> puntos (victoria 2, derrota jugada 1, no-show 0) ·
+                <strong>G+/G-</strong> games a favor/en contra · <strong>Dif</strong> diferencia de games
+            </p>
+
             {{-- Per group --}}
             <div x-show="view === 'groups'" x-cloak class="pub-groups">
                 @foreach($groups as $group)
@@ -73,8 +80,10 @@
                                 <tr>
                                     <th>#</th>
                                     <th>Pareja</th>
-                                    <th>PJ</th>
-                                    <th>Pts</th>
+                                    <th title="Partidos jugados">PJ</th>
+                                    <th title="Partidos ganados">PG</th>
+                                    <th title="Partidos perdidos">PP</th>
+                                    <th title="Puntos: victoria 2, derrota jugada 1, no-show 0">Pts</th>
                                     <th title="Sets ganados–perdidos">Sets</th>
                                     <th>G+</th>
                                     <th>G-</th>
@@ -91,6 +100,8 @@
                                         @if($q)<i class="fa-solid fa-circle-up pub-q" title="Clasifica"></i>@endif
                                     </td>
                                     <td>{{ $row['played'] }}</td>
+                                    <td class="pub-pg">{{ $row['won'] }}</td>
+                                    <td class="pub-pp">{{ $row['lost'] }}</td>
                                     <td><strong>{{ $row['points'] }}</strong></td>
                                     <td class="pub-mono">{{ $row['sets_for'] }}–{{ $row['sets_against'] }}</td>
                                     <td><strong>{{ $row['games_for'] }}</strong></td>
@@ -120,8 +131,10 @@
                                     <th>#</th>
                                     <th>Pareja</th>
                                     <th>Grupo</th>
-                                    <th>PJ</th>
-                                    <th>Pts</th>
+                                    <th title="Partidos jugados">PJ</th>
+                                    <th title="Partidos ganados">PG</th>
+                                    <th title="Partidos perdidos">PP</th>
+                                    <th title="Puntos: victoria 2, derrota jugada 1, no-show 0">Pts</th>
                                     <th title="Sets ganados–perdidos">Sets</th>
                                     <th>G+</th>
                                     <th>G-</th>
@@ -136,6 +149,8 @@
                                     <td>{{ $row['pair_name'] }} @if($q)<i class="fa-solid fa-circle-up pub-q"></i>@endif</td>
                                     <td class="pub-muted">{{ $row['group_name'] }}</td>
                                     <td>{{ $row['played'] }}</td>
+                                    <td class="pub-pg">{{ $row['won'] }}</td>
+                                    <td class="pub-pp">{{ $row['lost'] }}</td>
                                     <td><strong>{{ $row['points'] }}</strong></td>
                                     <td class="pub-mono">{{ $row['sets_for'] }}–{{ $row['sets_against'] }}</td>
                                     <td><strong>{{ $row['games_for'] }}</strong></td>
