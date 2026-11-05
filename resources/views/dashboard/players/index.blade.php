@@ -32,6 +32,7 @@
         'tournament' => $tournament,
         'linkPlayers' => $linkPlayers,
         'rowClass' => 'pl-dir__row--dash',
+        'raffle' => true,
         ])
     </div>
 </div>
