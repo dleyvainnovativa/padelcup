@@ -82,7 +82,7 @@ class RankingSystemController extends Controller
         // categories, which are excluded, and whether it uses an alternate points
         // schedule. Pivot JSON columns aren't cast, so decode defensively.
         $tournaments = $rankingSystem->tournaments()
-            ->with(['categories:id,tournament_id,name'])
+            ->with(['categories:id,tournament_id,name,slug'])
             ->orderBy('name')
             ->get()
             ->map(function ($t) {
@@ -91,8 +91,9 @@ class RankingSystemController extends Controller
                 return [
                     'id'          => $t->id,
                     'name'        => $t->name,
+                    'slug'        => $t->slug,
                     'finalized'   => $t->pivot->finalized_at !== null,
-                    'categories'  => $t->categories->map(fn ($c) => [
+                    'categories'  => $t->categories->map(fn($c) => [
                         'id'       => $c->id,
                         'name'     => $c->name,
                         'included' => ! in_array((int) $c->id, array_map('intval', $excluded), true),
@@ -130,7 +131,7 @@ class RankingSystemController extends Controller
         // Included category ids (checkboxes). Excluded = every category of the
         // tournament NOT in this list.
         $included = array_map('intval', (array) $request->input('categories', []));
-        $allIds = $tournament->categories()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $allIds = $tournament->categories()->pluck('id')->map(fn($id) => (int) $id)->all();
         $excluded = array_values(array_diff($allIds, $included));
 
         // Alternate points schedule — only when the custom toggle is on.

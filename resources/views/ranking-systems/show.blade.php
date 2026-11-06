@@ -66,7 +66,7 @@
     </div>
     <div class="tc-card__body">
         @if($linkedTournaments->isEmpty())
-            <p class="text-muted mb-0">Aún no hay torneos vinculados a este ranking. Vincula un torneo desde su pantalla de edición.</p>
+        <p class="text-muted mb-0">Aún no hay torneos vinculados a este ranking. Vincula un torneo desde su pantalla de edición.</p>
         @else
         <p class="rk-cfg__intro">
             Elige qué categorías de cada torneo cuentan para el ranking y, si hace falta,
@@ -75,7 +75,7 @@
         </p>
 
         @foreach($linkedTournaments as $t)
-        <form method="POST" action="{{ route('ranking-systems.tournament-config', [$system, $t['id']]) }}"
+        <form method="POST" action="{{ route('ranking-systems.tournament-config', [$system, $t['slug']]) }}"
             class="rk-cfg" x-data="{ custom: {{ $t['custom_points'] ? 'true' : 'false' }} }">
             @csrf
             <div class="rk-cfg__head">
@@ -89,7 +89,7 @@
             {{-- #4 category toggles --}}
             <div class="rk-cfg__label">Categorías que cuentan</div>
             @if($t['categories']->isEmpty())
-                <div class="text-muted" style="font-size:13px;">Este torneo no tiene categorías.</div>
+            <div class="text-muted" style="font-size:13px;">Este torneo no tiene categorías.</div>
             @else
             <div class="rk-cfg__cats">
                 @foreach($t['categories'] as $c)
@@ -109,21 +109,26 @@
 
             <div class="rk-cfg__points" x-show="custom" x-cloak>
                 <div class="tc-table-wrap">
-                <table class="tc-table rk-cfg__points-table">
-                    <thead><tr><th>Logro</th><th class="text-end">Puntos</th></tr></thead>
-                    <tbody>
-                        @foreach($achievements as $a)
-                        <tr>
-                            <td>{{ $a->label() }}</td>
-                            <td class="text-end">
-                                <input type="number" min="0" class="rk-cfg__pts-input"
-                                    name="points[{{ $a->value }}]"
-                                    value="{{ $t['custom_points'] ? ($t['points'][$a->value] ?? 0) : ($schedule[$a->value] ?? 0) }}">
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                    <table class="tc-table rk-cfg__points-table">
+                        <thead>
+                            <tr>
+                                <th>Logro</th>
+                                <th class="text-end">Puntos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($achievements as $a)
+                            <tr>
+                                <td>{{ $a->label() }}</td>
+                                <td class="text-end">
+                                    <input type="number" min="0" class="rk-cfg__pts-input"
+                                        name="points[{{ $a->value }}]"
+                                        value="{{ $t['custom_points'] ? ($t['points'][$a->value] ?? 0) : ($schedule[$a->value] ?? 0) }}">
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
                 <p class="rk-cfg__hint">Estos puntos se usan solo para este torneo; el resto siguen con la tabla general. Suman al mismo ranking.</p>
             </div>
