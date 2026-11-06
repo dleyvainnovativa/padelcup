@@ -984,7 +984,7 @@ function buildControlSheet({ onUnplace, onSaveResult, onClearResult, onSetTime }
       input.disabled = true;
       saveBtn.textContent = 'Guardando…';
       const res = await onSetTime(data, time, force);
-      if (res === true) return; // success → onSetTime reloads the board
+      if (res === true) { hide(); return; } // success → close sheet; board refreshes
       saveBtn.disabled = false;
       input.disabled = false;
       saveBtn.textContent = 'Guardar hora';

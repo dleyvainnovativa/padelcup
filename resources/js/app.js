@@ -122,6 +122,9 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
   if (document.querySelector('[data-validate-schedule]')) {
     initScheduleValidation();
   }
+  if (document.querySelector('[data-conflicts-url]')) {
+    import('./modules/scheduleConflicts').then((m) => m.initScheduleConflicts());
+  }
   if (document.querySelector('[data-venues-root]')) {
     import('./modules/courtSchedule').then((m) => m.initCourtSchedule());
   }

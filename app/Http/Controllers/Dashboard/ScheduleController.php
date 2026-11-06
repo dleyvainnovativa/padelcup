@@ -634,6 +634,30 @@ class ScheduleController extends Controller
             ->with('conflictsChecked', true);
     }
 
+    /**
+     * Live conflict report: same audit as conflicts(), rendered as an HTML
+     * fragment (the audit-report accordion) for the bottom sheet to fetch fresh
+     * on every open — so it reflects the current board after drags/moves,
+     * without a full page reload.
+     */
+    public function conflictsData(Tournament $tournament)
+    {
+        $this->authorize('update', $tournament);
+
+        $tz = 'America/Mexico_City';
+        $today = \Carbon\Carbon::now($tz)->format('Y-m-d');
+        $firstDay = optional($tournament->playDays()->first())->format('Y-m-d');
+        $fromDay = ($firstDay && $today < $firstDay) ? $firstDay : $today;
+
+        $audit = $this->scheduler->audit($tournament, $tournament->maxMatchesPerDay() + 1, $fromDay);
+
+        return view('dashboard.schedule.partials.audit-report', [
+            'conflicts' => $audit['conflicts'],
+            'load' => $audit['load'],
+            'order' => $audit['order'],
+        ])->render();
+    }
+
     /** Export the full schedule as a PDF (for WhatsApp / sharing). */
     public function exportPdf(Request $request, Tournament $tournament)
     {

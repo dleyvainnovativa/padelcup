@@ -5,9 +5,11 @@
       scheduleOrder  → per-category play order: errors / warnings
 --}}
 @php
-    $conflicts = session('conflicts', []);
-    $load = session('scheduleLoad', []);
-    $order = session('scheduleOrder', []);
+    // Live fetch (ScheduleController::conflictsData) passes these directly;
+    // the legacy POST flow still flashes them to the session.
+    $conflicts = $conflicts ?? session('conflicts', []);
+    $load = $load ?? session('scheduleLoad', []);
+    $order = $order ?? session('scheduleOrder', []);
 
     $orderErrors = collect($order)->sum(fn($c) => count($c['errors']));
     $orderWarnings = collect($order)->sum(fn($c) => count($c['warnings']));
@@ -49,11 +51,15 @@
 
 {{-- 1. Order per category --}}
 @if(!empty($order))
-<div class="tc-card mb-3">
-    <div class="tc-card__head">
-        <h3><i class="fa-solid fa-list-ol me-1"></i> Orden por categoría</h3>
-    </div>
-    <div class="tc-card__body" style="display:flex;flex-direction:column;gap:10px;">
+<details class="audit-acc" {{ $orderErrors ? 'open' : '' }}>
+    <summary class="audit-acc__head">
+        <span class="audit-acc__title"><i class="fa-solid fa-list-ol me-1"></i> Orden por categoría</span>
+        @if($orderErrors)<span class="pill pill--bad">{{ $catsWithErrors }} {{ $catsWithErrors === 1 ? 'categoría' : 'categorías' }}</span>
+        @elseif($orderWarnings)<span class="pill pill--warn">{{ $orderWarnings }} {{ $orderWarnings === 1 ? 'aviso' : 'avisos' }}</span>
+        @else<span class="pill pill--ok"><i class="fa-solid fa-check"></i> En orden</span>@endif
+        <i class="fa-solid fa-chevron-down audit-acc__chev"></i>
+    </summary>
+    <div class="audit-acc__body" style="display:flex;flex-direction:column;gap:10px;">
         @foreach($order as $cat)
         @php $ne = count($cat['errors']); $nw = count($cat['warnings']); @endphp
         <div class="audit-cat {{ $ne ? 'audit-cat--bad' : ($nw ? 'audit-cat--warn' : 'audit-cat--ok') }}">
@@ -91,16 +97,18 @@
         </div>
         @endforeach
     </div>
-</div>
+</details>
 @endif
 
 {{-- 2. Players with 3+ matches in one day --}}
 @if(!empty($load))
-<div class="tc-card mb-3">
-    <div class="tc-card__head">
-        <h3><i class="fa-solid fa-calendar-day me-1"></i> Jugadores con 3 o más partidos en un día ({{ count($load) }})</h3>
-    </div>
-    <div class="tc-card__body" style="display:flex;flex-direction:column;gap:8px;">
+<details class="audit-acc">
+    <summary class="audit-acc__head">
+        <span class="audit-acc__title"><i class="fa-solid fa-calendar-day me-1"></i> Jugadores con 3 o más partidos en un día</span>
+        <span class="pill pill--warn">{{ count($load) }}</span>
+        <i class="fa-solid fa-chevron-down audit-acc__chev"></i>
+    </summary>
+    <div class="audit-acc__body" style="display:flex;flex-direction:column;gap:8px;">
         @foreach($load as $row)
         <div class="conflict-row {{ $row['sure'] >= 3 ? 'conflict-row--overlap' : 'conflict-row--rest' }}">
             <div class="conflict-row__player">
@@ -122,16 +130,19 @@
             <strong>Posible</strong>: las opciones de R2 caen en días distintos, así que puede tocarle este día o el otro.
         </p>
     </div>
-</div>
+</details>
 @endif
 
 {{-- 3. Player conflicts (overlap / rest) --}}
 @if(!empty($conflicts))
-<div class="tc-card mb-3">
-    <div class="tc-card__head">
-        <h3><i class="fa-solid fa-user-clock me-1"></i> Conflictos de jugadores ({{ count($conflicts) }})</h3>
-    </div>
-    <div class="tc-card__body" style="display:flex;flex-direction:column;gap:8px;">
+@php $sureOverlap = collect($conflicts)->where('severity', 'overlap')->where('possible', false)->count(); @endphp
+<details class="audit-acc" {{ $sureOverlap ? 'open' : '' }}>
+    <summary class="audit-acc__head">
+        <span class="audit-acc__title"><i class="fa-solid fa-user-clock me-1"></i> Conflictos de jugadores</span>
+        <span class="pill {{ $sureOverlap ? 'pill--bad' : 'pill--warn' }}">{{ count($conflicts) }}</span>
+        <i class="fa-solid fa-chevron-down audit-acc__chev"></i>
+    </summary>
+    <div class="audit-acc__body" style="display:flex;flex-direction:column;gap:8px;">
         @foreach($conflicts as $c)
         <div class="conflict-row conflict-row--{{ $c['severity'] }} {{ !empty($c['possible']) ? 'conflict-row--possible' : '' }}">
             <div class="conflict-row__player">
@@ -150,7 +161,7 @@
             Los <strong>posibles</strong> dependen de un resultado de R1: solo ocurren si el jugador gana (o pierde) su primer partido.
         </p>
     </div>
-</div>
+</details>
 @endif
 
 @endif

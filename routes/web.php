@@ -144,6 +144,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('calendario/quitar-varios', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'unplaceMany'])->name('schedule.unplaceMany');
         Route::post('calendario/limpiar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'clearAll'])->name('schedule.clear');
         Route::post('calendario/conflictos', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'conflicts'])->name('schedule.conflicts');
+        Route::get('calendario/conflictos-data', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'conflictsData'])->name('schedule.conflicts.data');
         Route::get('calendario/pdf', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportPdf'])->name('schedule.pdf');
         Route::get('calendario/pdf-vista', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportGridPdf'])->name('schedule.gridPdf');
         Route::get('calendario/pdf-eliminacion', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'exportEliminationPdf'])->name('schedule.exportEliminationPdf');

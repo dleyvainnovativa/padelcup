@@ -54,10 +54,10 @@
                     </a>
                 </div>
             </div>
-            <form method="POST" action="{{ route('schedule.conflicts', $tournament) }}">
-                @csrf
-                <button class="btn btn-soft"><i class="fa-solid fa-user-clock me-1"></i><span class="btn-label">Revisar conflictos</span></button>
-            </form>
+            <button type="button" class="btn btn-soft"
+                data-conflicts-url="{{ route('schedule.conflicts.data', $tournament) }}">
+                <i class="fa-solid fa-user-clock me-1"></i><span class="btn-label">Revisar conflictos</span>
+            </button>
             <button type="button" class="btn btn-soft"
                 data-validate-schedule="{{ route('schedule.validation', $tournament) }}">
                 <i class="fa-solid fa-clipboard-check me-1"></i><span class="btn-label">Validar horarios</span>
@@ -407,10 +407,8 @@
 </div>
 @endif
 
-{{-- Conflict check report (order per category, 3+ matches/day, player conflicts) --}}
-@if(session('conflictsChecked'))
-@include('dashboard.schedule.partials.audit-report')
-@endif
+{{-- Conflict report now opens live in a bottom sheet (data-conflicts-url);
+     the audit-report partial is fetched fresh each open by scheduleConflicts.js. --}}
 
 @if($categories->count() > 1)
 

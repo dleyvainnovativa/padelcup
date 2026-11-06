@@ -40,18 +40,18 @@ export function initScheduleValidation() {
 
   trigger.addEventListener('click', async () => {
     overlay.classList.add('is-open');
-    if (data === null) {
-      listEl.innerHTML = '<div class="sched-sheet__empty">Cargando…</div>';
-      try {
-        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-        const json = await res.json();
-        data = json.players || [];
-      } catch (e) {
-        listEl.innerHTML = '<div class="sched-sheet__empty">No se pudo cargar la validación.</div>';
-        return;
-      }
-    }
     searchEl.value = '';
+    // Always re-fetch on open so the sheet reflects the CURRENT board (after
+    // drags / moves), not a stale snapshot from the first open.
+    listEl.innerHTML = '<div class="sched-sheet__empty">Cargando…</div>';
+    try {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+      const json = await res.json();
+      data = json.players || [];
+    } catch (e) {
+      listEl.innerHTML = '<div class="sched-sheet__empty">No se pudo cargar la validación.</div>';
+      return;
+    }
     render('');
   });
 

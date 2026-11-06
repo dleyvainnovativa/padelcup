@@ -4145,3 +4145,30 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
   0% { background: color-mix(in srgb, var(--accent) 45%, transparent); }
   100% { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 }
+
+
+.sc-list { padding: 2px; }
+
+.audit-acc {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.audit-acc__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+  font-size: 14px;
+  user-select: none;
+}
+.audit-acc__head::-webkit-details-marker { display: none; }
+.audit-acc__title { flex: 1; display: flex; align-items: center; gap: 4px; }
+.audit-acc__chev { color: var(--text-faint); font-size: 12px; transition: transform .18s ease; }
+.audit-acc[open] .audit-acc__chev { transform: rotate(180deg); }
+.audit-acc__body { padding: 0 14px 14px; }
