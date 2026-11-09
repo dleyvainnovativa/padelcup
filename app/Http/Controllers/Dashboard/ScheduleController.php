@@ -445,7 +445,9 @@ class ScheduleController extends Controller
         $startsAt = Carbon::parse($data['starts_at'], 'America/Mexico_City');
         // Always use the tournament's match duration so placements align to the
         // grid slots (a mismatched duration would create off-grid times).
-        $duration = $tournament->match_duration_minutes ?: ($data['duration'] ?? 60);
+        // Duration follows the DAY the match lands on (day_durations override),
+        // so a 60-min Fri/Sat match isn't measured/stamped as the 75-min default.
+        $duration = $tournament->durationForDay($startsAt);
 
         $conflicts = $this->scheduler->conflictsFor($match, $court, $startsAt, $duration);
 
@@ -516,7 +518,7 @@ class ScheduleController extends Controller
         $tz = 'America/Mexico_City';
         $day = $match->starts_at->timezone($tz)->format('Y-m-d');
         $startsAt = Carbon::parse("{$day} {$data['time']}", $tz);
-        $duration = $tournament->match_duration_minutes ?: ($match->duration_minutes ?: 60);
+        $duration = $tournament->durationForDay($startsAt); // per-day duration
 
         $conflicts = array_merge(
             $this->scheduler->conflictsFor($match, $court, $startsAt, $duration),
@@ -987,7 +989,8 @@ class ScheduleController extends Controller
             return response()->json(['players' => []]);
         }
 
-        $duration = (int) ($tournament->match_duration_minutes ?: 75);
+        $defaultDuration = (int) ($tournament->match_duration_minutes ?: 75);
+        $durByDay = $tournament->dayDurationMap(); // ['Y-m-d' => minutes] per-day override
         $tz = 'America/Mexico_City';
 
         // All matches in the tournament with both pairs + players, for name matching.
@@ -1047,6 +1050,7 @@ class ScheduleController extends Controller
                 $local = $m->starts_at->timezone($tz);
                 $ymd = $local->format('Y-m-d');
                 $rule = $rulesByDay[$ymd] ?? null;
+                $duration = (int) ($durByDay[$ymd] ?? $defaultDuration); // per-day
                 [$status, $reason] = $this->validateAgainstRule($local, $duration, $rule);
 
                 if ($status === 'ok') $okCount++;
@@ -1331,11 +1335,14 @@ class ScheduleController extends Controller
             ], 422);
         }
 
-        $duration = $tournament->match_duration_minutes ?: 60;
-
         // Remember originals (for rollback + audit).
         $aOrig = ['court_id' => $a->court_id, 'starts_at' => $a->starts_at->copy()];
         $bOrig = ['court_id' => $b->court_id, 'starts_at' => $b->starts_at->copy()];
+
+        // Each match adopts the OTHER's slot, so its duration follows the day it
+        // moves to (day_durations override), not the flat default.
+        $durA = $tournament->durationForDay($bOrig['starts_at']);
+        $durB = $tournament->durationForDay($aOrig['starts_at']);
 
         // Manual transaction so we can validate the tentative swap and roll it
         // back cleanly when blocked (returning a normal 422 response, not an
@@ -1345,12 +1352,12 @@ class ScheduleController extends Controller
             // --- Apply the swap tentatively -------------------------------------
             $a->court_id  = $bOrig['court_id'];
             $a->starts_at = $bOrig['starts_at'];
-            $a->duration_minutes = $duration;
+            $a->duration_minutes = $durA;
             $a->save();
 
             $b->court_id  = $aOrig['court_id'];
             $b->starts_at = $aOrig['starts_at'];
-            $b->duration_minutes = $duration;
+            $b->duration_minutes = $durB;
             $b->save();
 
             // --- Re-check BOTH at their new positions ---------------------------
@@ -1363,17 +1370,17 @@ class ScheduleController extends Controller
             if ($aCourt) {
                 $conflicts = array_merge(
                     $conflicts,
-                    $this->prefixConflicts($a, $this->scheduler->conflictsFor($a, $aCourt, $a->starts_at, $duration)),
-                    $this->prefixConflicts($a, $this->scheduler->restWarningsFor($a, $a->starts_at, $duration)),
-                    $this->prefixConflicts($a, $this->scheduler->placementWarnings($a, $a->starts_at, $duration, $maxPerDay)),
+                    $this->prefixConflicts($a, $this->scheduler->conflictsFor($a, $aCourt, $a->starts_at, $durA)),
+                    $this->prefixConflicts($a, $this->scheduler->restWarningsFor($a, $a->starts_at, $durA)),
+                    $this->prefixConflicts($a, $this->scheduler->placementWarnings($a, $a->starts_at, $durA, $maxPerDay)),
                 );
             }
             if ($bCourt) {
                 $conflicts = array_merge(
                     $conflicts,
-                    $this->prefixConflicts($b, $this->scheduler->conflictsFor($b, $bCourt, $b->starts_at, $duration)),
-                    $this->prefixConflicts($b, $this->scheduler->restWarningsFor($b, $b->starts_at, $duration)),
-                    $this->prefixConflicts($b, $this->scheduler->placementWarnings($b, $b->starts_at, $duration, $maxPerDay)),
+                    $this->prefixConflicts($b, $this->scheduler->conflictsFor($b, $bCourt, $b->starts_at, $durB)),
+                    $this->prefixConflicts($b, $this->scheduler->restWarningsFor($b, $b->starts_at, $durB)),
+                    $this->prefixConflicts($b, $this->scheduler->placementWarnings($b, $b->starts_at, $durB, $maxPerDay)),
                 );
             }
 

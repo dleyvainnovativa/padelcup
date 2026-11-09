@@ -22,6 +22,35 @@ use Illuminate\Support\Facades\DB;
  */
 class SchedulingService
 {
+    /** Cache of [dayDurationMap, defaultMinutes] per tournament id. */
+    private array $durCtxCache = [];
+
+    /**
+     * Per-day duration context for a tournament: [ ['Y-m-d' => minutes], default ].
+     * This is the SINGLE source of truth for how long a match lasts — the general
+     * rule by default, a per-day override (day_durations) when one is set.
+     */
+    private function durContext(\App\Models\Tournament $t): array
+    {
+        if (! isset($this->durCtxCache[$t->id])) {
+            $this->durCtxCache[$t->id] = [$t->dayDurationMap(), (int) ($t->match_duration_minutes ?: 75)];
+        }
+        return $this->durCtxCache[$t->id];
+    }
+
+    /**
+     * Effective duration (minutes) of an already-scheduled match, resolved by the
+     * DAY it lands on — NOT by its stored duration_minutes, which may be stale if
+     * the match was placed before a day's custom duration was set. This makes
+     * conflict/warning math self-correcting without a data migration.
+     */
+    private function durationOf(GameMatch $m, array $durMap, int $default): int
+    {
+        if (! $m->starts_at) return $default;
+        $key = $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d');
+        return (int) ($durMap[$key] ?? $default);
+    }
+
     /**
      * Check whether placing $match on $court at $startsAt for $duration would
      * conflict. Returns a list of human-readable conflict reasons (empty = ok).
@@ -32,6 +61,7 @@ class SchedulingService
     {
         $endsAt = $startsAt->copy()->addMinutes($duration);
         $conflicts = [];
+        [$durMap, $durDefault] = $this->durContext($match->category->tournament);
 
         // 1. Must fall within an availability window of the court.
         if (! $this->withinAvailability($court, $startsAt, $endsAt)) {
@@ -39,7 +69,7 @@ class SchedulingService
         }
 
         // 2. Court overlap.
-        if ($this->courtOverlap($court, $startsAt, $endsAt, $match->id)) {
+        if ($this->courtOverlap($court, $startsAt, $endsAt, $match->id, $durMap, $durDefault)) {
             $conflicts[] = 'La cancha ya tiene un partido en ese horario.';
         }
 
@@ -47,7 +77,7 @@ class SchedulingService
         // Identity is the NORMALIZED NAME, not player_id — the same person can be
         // a different Player row in each category (see playerKeys()).
         $playerKeys = $this->playerKeys($match);
-        $clash = $this->playerOverlap($match, $playerKeys, $startsAt, $endsAt);
+        $clash = $this->playerOverlap($match, $playerKeys, $startsAt, $endsAt, $durMap, $durDefault);
         if ($clash) {
             $conflicts[] = "Conflicto de jugador: {$clash} ya juega en ese horario.";
         }
@@ -63,7 +93,7 @@ class SchedulingService
             ->exists();
     }
 
-    private function courtOverlap(Court $court, Carbon $startsAt, Carbon $endsAt, int $exceptMatchId): bool
+    private function courtOverlap(Court $court, Carbon $startsAt, Carbon $endsAt, int $exceptMatchId, array $durMap, int $durDefault): bool
     {
         return GameMatch::where('court_id', $court->id)
             ->where('id', '!=', $exceptMatchId)
@@ -73,7 +103,7 @@ class SchedulingService
                 $startsAt,
                 $endsAt,
                 $m->starts_at,
-                $m->starts_at->copy()->addMinutes((int) ($m->duration_minutes ?: 60))
+                $m->starts_at->copy()->addMinutes($this->durationOf($m, $durMap, $durDefault))
             ));
     }
 
@@ -83,7 +113,7 @@ class SchedulingService
      * Cross-category safe: the same human in two categories has different player_ids
      * but the same normalized name.
      */
-    private function playerOverlap(GameMatch $match, array $playerKeys, Carbon $startsAt, Carbon $endsAt): ?string
+    private function playerOverlap(GameMatch $match, array $playerKeys, Carbon $startsAt, Carbon $endsAt, array $durMap, int $durDefault): ?string
     {
         if (empty($playerKeys)) return null;
 
@@ -97,7 +127,7 @@ class SchedulingService
             ->get();
 
         foreach ($scheduled as $other) {
-            $otherEnds = $other->starts_at->copy()->addMinutes((int) ($other->duration_minutes ?: 60));
+            $otherEnds = $other->starts_at->copy()->addMinutes($this->durationOf($other, $durMap, $durDefault));
             if (! $this->overlaps($startsAt, $endsAt, $other->starts_at, $otherEnds)) {
                 continue;
             }
@@ -278,7 +308,10 @@ class SchedulingService
         $endOf = []; // [matchId => endTs] — seeded with already-scheduled matches
         foreach ($existing as $m) {
             $start = $m->starts_at->timestamp;
-            $end = $start + (((int) ($m->duration_minutes ?: $duration)) * 60);
+            // Size an existing match by the DAY it lands on (day_durations), not
+            // its stored stamp — so a Fri/Sat 60-min match isn't treated as 75.
+            $existDur = (int) ($dayDurations[$m->starts_at->timezone('America/Mexico_City')->format('Y-m-d')] ?? ($tournament->match_duration_minutes ?: $duration));
+            $end = $start + ($existDur * 60);
             $endOf[$m->id] = $end;
             if ($m->court_id) $courtBusy[$m->court_id][] = [$start, $end];
             // Key busy-time by the player's IDENTITY (normalized name), so the same
@@ -782,6 +815,9 @@ class SchedulingService
     public function auditRows(Tournament $tournament, ?string $fromDay = null): array
     {
         $defaultDuration = (int) ($tournament->match_duration_minutes ?: 60);
+        // Per-day durations so the audit sizes each match by the day it lands on
+        // (a Fri/Sat 60-min match isn't measured as 75 — see durationOf()).
+        $auditDurMap = $tournament->dayDurationMap();
 
         $players = ['pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'];
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
@@ -819,7 +855,9 @@ class SchedulingService
         $rows = [];
         foreach ($matches as $m) {
             $start = $m->starts_at?->timestamp;
-            $duration = (int) ($m->duration_minutes ?: $defaultDuration);
+            $duration = (int) ($m->starts_at
+                ? ($auditDurMap[$m->starts_at->timezone('America/Mexico_City')->format('Y-m-d')] ?? $defaultDuration)
+                : $defaultDuration);
             $isGroup = $m->group_id !== null;
 
             if ($isGroup) {
@@ -1091,6 +1129,7 @@ class SchedulingService
             return []; // rest gap disabled for this tournament
         }
         $restSec = $restMin * 60;
+        [$durMap, $durDefault] = $this->durContext($tournament);
 
         $playerKeys = $this->playerKeys($match);
         if (empty($playerKeys)) {
@@ -1120,7 +1159,7 @@ class SchedulingService
             }
 
             $otherStart = $other->starts_at->timestamp;
-            $otherEnd   = $otherStart + (((int) ($other->duration_minutes ?: 60)) * 60);
+            $otherEnd   = $otherStart + ($this->durationOf($other, $durMap, $durDefault) * 60);
 
             // Hard overlap is handled by conflictsFor(); skip it here so we don't
             // double-report. We only care about the non-overlapping "too close" gap.
@@ -1212,9 +1251,10 @@ class SchedulingService
             $fb = $f->pairB?->name();
             $of = ($fa && $fb) ? " ({$fa} / {$fb})" : '';
 
+            [$durMap, $durDefault] = $this->durContext($match->category->tournament);
             $scheduled = $f->starts_at !== null;
             $endsTs = $scheduled
-                ? $f->starts_at->timestamp + (((int) ($f->duration_minutes ?: 60)) * 60)
+                ? $f->starts_at->timestamp + ($this->durationOf($f, $durMap, $durDefault) * 60)
                 : null;
 
             $out[] = ['label' => $word . $of, 'scheduled' => $scheduled, 'endsTs' => $endsTs];
@@ -1260,12 +1300,13 @@ class SchedulingService
 
         $out = [];
         foreach ($targets as $g) {
+            [$durMap, $durDefault] = $this->durContext($match->category->tournament);
             $gm = GameMatch::where('group_id', $g->id)->get();
             $endsTs = null;
             $unscheduled = 0;
             foreach ($gm as $m) {
                 if ($m->starts_at) {
-                    $end = $m->starts_at->timestamp + (((int) ($m->duration_minutes ?: 60)) * 60);
+                    $end = $m->starts_at->timestamp + ($this->durationOf($m, $durMap, $durDefault) * 60);
                     $endsTs = max($endsTs ?? 0, $end);
                 } else {
                     $unscheduled++;
