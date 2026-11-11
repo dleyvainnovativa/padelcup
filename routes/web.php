@@ -164,6 +164,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('ganadores', [\App\Http\Controllers\Dashboard\WinnersController::class, 'index'])->name('winners.index');
         Route::get('ganadores/export', [\App\Http\Controllers\Dashboard\WinnersController::class, 'export'])->name('winners.export');
 
+        // Pantalla (TV/kiosk arrivals-board URL builder).
+        Route::get('pantalla', [\App\Http\Controllers\Dashboard\DisplayConfigController::class, 'edit'])->name('display.config');
+
         // Resumen (tournament summary / leaderboard)
         Route::get('resumen', [\App\Http\Controllers\Dashboard\SummaryController::class, 'show'])->name('tournaments.summary');
 
@@ -298,6 +301,10 @@ Route::get('/t/{tournament}/calendario', [\App\Http\Controllers\PublicTournament
 Route::get('/t/{tournament}/jugador/{player}', [\App\Http\Controllers\PublicTournamentController::class, 'player'])->name('public.player');
 Route::get('/t/{tournament}/campeones', [\App\Http\Controllers\PublicTournamentController::class, 'winners'])->name('public.winners');
 Route::get('/t/{tournament}/jugadores', [\App\Http\Controllers\PublicTournamentController::class, 'players'])->name('public.players');
+// Arrivals-board display (TV/kiosk) + its JSON feed. MUST precede the category
+// catch-all below, or "pantalla" is matched as a category slug.
+Route::get('/t/{tournament}/pantalla', [\App\Http\Controllers\PublicTournamentController::class, 'display'])->name('public.display');
+Route::get('/t/{tournament}/pantalla/data', [\App\Http\Controllers\PublicTournamentController::class, 'displayData'])->name('public.display.data');
 Route::get('/t/{tournament}/{category:slug}', [\App\Http\Controllers\PublicTournamentController::class, 'category'])
     ->scopeBindings()
     ->name('public.category');

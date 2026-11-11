@@ -704,6 +704,164 @@ class PublicTournamentController extends Controller
     }
 
     /** 404 unless the tournament is publicly listed. */
+    /**
+     * Full-screen "arrivals board" display for a TV / kiosk (public, no login).
+     * Config is URL-param driven so a screen just bookmarks a URL; the manager
+     * "Pantalla" builder generates it. JS polls displayData() to stay live.
+     */
+    public function display(Request $request, Tournament $tournament)
+    {
+        $this->ensurePublic($tournament);
+
+        $max     = max(1, min(20, (int) $request->query('max', 6)));
+        $rotate  = max(4, min(120, (int) $request->query('rotate', 12)));
+        $refresh = max(10, min(300, (int) $request->query('refresh', 30)));
+        $venues  = $tournament->venues()->orderBy('name')->get(['id', 'name']);
+
+        return view('public.display', compact('tournament', 'max', 'rotate', 'refresh', 'venues'));
+    }
+
+    /**
+     * JSON feed for the display board: current ("en juego"), upcoming
+     * ("próximos") and recently finished matches, honoring the venue filter and
+     * the look-ahead / look-back windows. Prefers Mesa de control timestamps and
+     * falls back to the scheduled time + (day-aware) duration.
+     */
+    public function displayData(Request $request, Tournament $tournament)
+    {
+        $this->ensurePublic($tournament);
+
+        $tz = 'America/Mexico_City';
+        $now = \Carbon\Carbon::now($tz);
+
+        $venueIds = collect(explode(',', (string) $request->query('venues', '')))
+            ->map(fn($v) => (int) trim($v))->filter()->values()->all();
+        $aheadMin = max(15, min(720, (int) $request->query('ahead', 180)));
+        $backMin  = max(0, min(360, (int) $request->query('back', 45)));
+        // Pin a specific date (Y-m-d): show ONLY that day, the whole day in time
+        // order (finished inline with results), ignoring the ahead/back windows.
+        $dayFilter = $request->query('day'); // 'YYYY-MM-DD' or null for live rolling mode
+        $dayFilter = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $dayFilter) ? $dayFilter : null;
+
+        $matches = $tournament->categories()
+            ->with(['matches' => fn($q) => $q->whereNotNull('starts_at')
+                ->with(['court.venue', 'category', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
+                ->orderBy('starts_at')])
+            ->get()->flatMap->matches;
+
+        if ($venueIds) {
+            $matches = $matches->filter(fn($m) => in_array((int) optional(optional($m->court)->venue)->id, $venueIds, true));
+        }
+
+        $items = [];
+        foreach ($matches as $m) {
+            $start = $m->starts_at->timezone($tz);
+
+            // Date-pinned mode: keep only the chosen day; otherwise classify by window.
+            if ($dayFilter && $start->format('Y-m-d') !== $dayFilter) {
+                continue;
+            }
+
+            $end = $start->copy()->addMinutes($tournament->durationForDay($start));
+            $status = $m->controlStatus();
+            $isFinished = $status === 'finished' || ($m->ended_at === null && $status !== 'playing' && $now->gte($end));
+
+            if ($isFinished) {
+                $finishedAt = $m->ended_at ? $m->ended_at->timezone($tz) : $end;
+                $bucket = 'finished';
+                // In live mode, drop old finished matches (date mode keeps the whole day).
+                if (! $dayFilter && $finishedAt->diffInMinutes($now, false) > $backMin) continue;
+                $sort = $dayFilter ? $start->timestamp : -$finishedAt->timestamp;
+            } elseif ($status === 'playing' || ($now->gte($start) && $now->lt($end))) {
+                $bucket = 'current';
+                $sort = $start->timestamp;
+            } elseif ($now->lt($start)) {
+                $bucket = 'upcoming';
+                // Signed diff so a far-future match is excluded (not its absolute value).
+                if (! $dayFilter && $start->diffInMinutes($now, false) > $aheadMin) continue;
+                $sort = $start->timestamp;
+            } else {
+                continue; // past, unfinished, out of window
+            }
+
+            $winnerSide = null;
+            if ($m->winner_pair_id) {
+                $winnerSide = $m->winner_pair_id === $m->pair_a_id ? 'a' : 'b';
+            }
+            $score = $this->formatMatchSets($m->sets);
+            $winnerName = $winnerSide === 'a'
+                ? (optional($m->pairA)->name())
+                : ($winnerSide === 'b' ? optional($m->pairB)->name() : null);
+
+            $items[] = [
+                'bucket'      => $bucket,
+                'sort'        => $sort,
+                'time'        => $start->format('H:i'),
+                'court'       => optional($m->court)->name,
+                'venue'       => optional(optional($m->court)->venue)->name,
+                'category'    => optional($m->category)->name,
+                'phase'       => $m->publicPhase()['label'] ?? null,
+                'pairA'       => optional($m->pairA)->name() ?: $m->sideLabel('a'),
+                'pairB'       => optional($m->pairB)->name() ?: $m->sideLabel('b'),
+                'status'      => $status,
+                'statusLabel' => $m->controlStatusLabel(),
+                'score'       => $score,          // "6-3 6-4" or null
+                'winnerSide'  => $winnerSide,     // 'a' | 'b' | null (bold the winner)
+                'winner'      => $winnerName,     // for the ticker
+            ];
+        }
+
+        $col = collect($items);
+
+        if ($dayFilter) {
+            // Whole day, chronological; finished shown inline with results. No ticker.
+            return response()->json([
+                'now'        => $now->format('H:i'),
+                'board'      => $col->sortBy('sort')->values(),
+                'finished'   => [],
+                'venueLabel' => $this->displayVenueLabel($tournament, $venueIds),
+                'dayLabel'   => \Carbon\Carbon::parse($dayFilter, $tz)->translatedFormat('l d \d\e F'),
+                'counts'     => ['board' => $col->count(), 'current' => $col->where('bucket', 'current')->count()],
+            ]);
+        }
+
+        // Live rolling mode: en juego + próximos on the board, finished → ticker.
+        $current  = $col->where('bucket', 'current')->sortBy('sort')->values();
+        $upcoming = $col->where('bucket', 'upcoming')->sortBy('sort')->values();
+        $finished = $col->where('bucket', 'finished')->sortBy('sort')->values();
+
+        return response()->json([
+            'now'        => $now->format('H:i'),
+            'board'      => $current->concat($upcoming)->values(),
+            'finished'   => $finished->values(),
+            'venueLabel' => $this->displayVenueLabel($tournament, $venueIds),
+            'dayLabel'   => null,
+            'counts'     => ['current' => $current->count(), 'upcoming' => $upcoming->count(), 'finished' => $finished->count()],
+        ]);
+    }
+
+    /** "6-3 6-4" from a match's sets JSON, or null when there's no result yet. */
+    private function formatMatchSets($sets): ?string
+    {
+        if (empty($sets) || ! is_array($sets)) return null;
+        $parts = [];
+        foreach ($sets as $s) {
+            $a = $s[0] ?? ($s['a'] ?? null);
+            $b = $s[1] ?? ($s['b'] ?? null);
+            if ($a === null && $b === null) continue;
+            $parts[] = ((int) $a) . '-' . ((int) $b);
+        }
+        return $parts ? implode(' ', $parts) : null;
+    }
+
+    /** Header label for the active venue filter ("Todas las sedes" or names). */
+    private function displayVenueLabel(Tournament $tournament, array $venueIds): string
+    {
+        if (empty($venueIds)) return 'Todas las sedes';
+        $names = $tournament->venues()->whereIn('id', $venueIds)->orderBy('name')->pluck('name');
+        return $names->isEmpty() ? 'Todas las sedes' : $names->implode(' · ');
+    }
+
     private function ensurePublic(Tournament $tournament): void
     {
         abort_unless((bool) $tournament->is_listed, Response::HTTP_NOT_FOUND);
