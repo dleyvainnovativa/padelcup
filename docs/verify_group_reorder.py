@@ -33,21 +33,15 @@ check("A: A..Z then AA", [letter_at(i) for i in (0, 1, 25, 26, 27)] == ['A', 'B'
 check("A: wraps AZ→BA, ZZ→AAA", letter_at(51) == 'AZ' and letter_at(52) == 'BA' and letter_at(701) == 'ZZ' and letter_at(702) == 'AAA')
 check("A: negative index clamps to A", letter_at(-3) == 'A')
 
-# Two-pass reposition: park out of range, then assign 0..n-1 — positions stay
-# unique at every step even with a (category_id, position) unique index.
+# Direct single-pass reposition: assign 0..n-1 by the new order. The
+# (category_id, position) index is NOT unique, so no parking is needed and no
+# value can overflow the unsignedSmallInteger column.
 def two_pass(order):
-    pos = {}
-    for i, gid in enumerate(order):
-        pos[gid] = i + 100000
-        assert len(set(pos.values())) == len(pos)   # unique during pass 1
-    for i, gid in enumerate(order):
-        pos[gid] = i
-        # pass-2 values 0..i are unique vs the still-parked 100000+ ones
-        assert len(set(pos.values())) == len(pos)
-    return pos
+    return {gid: i for i, gid in enumerate(order)}
 
-check("A: two-pass keeps positions unique throughout",
-      two_pass([30, 10, 20, 40]) == {30: 0, 10: 1, 20: 2, 40: 3})
+check("A: direct position assignment (0..n-1), no value exceeds the column range",
+      two_pass([30, 10, 20, 40]) == {30: 0, 10: 1, 20: 2, 40: 3}
+      and all(0 <= p <= 65535 for p in two_pass([30, 10, 20, 40]).values()))
 
 # Letter follows order: reorder [B,A,C] (ids) → letters by NEW index.
 def letters_for(order):
@@ -83,7 +77,8 @@ check("B: reorderGroups NOT locked-guarded (works on started tournaments)",
       "abort_if($tournament->isLocked" not in ctrl.split("function reorderGroups")[1].split("public function")[0])
 check("B: reorderGroups validates full group set",
       "La lista de grupos no coincide" in ctrl)
-check("B: reorderGroups two-pass reposition", "$index + 100000" in ctrl)
+check("B: reorderGroups assigns position directly (no overflow of unsignedSmallInteger)",
+      "$g->position = $index;" in ctrl and "100000" not in ctrl)
 check("B: reorderGroups renames via helper", "\\App\\Support\\GroupLetter::name($index)" in ctrl)
 check("B: reorderGroups warns (not blocks) on bracket results",
       "La llave ya tiene resultados" in ctrl and "'ok' => true" in ctrl.split("function reorderGroups")[1].split("public function")[0])

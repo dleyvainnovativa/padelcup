@@ -136,13 +136,9 @@ class DrawController extends Controller
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($ids, $groups) {
-            // Two passes so a (category_id, position) unique index never collides
-            // mid-update: park everyone out of range, then assign final letters.
-            foreach ($ids as $index => $gid) {
-                $g = $groups[$gid];
-                $g->position = $index + 100000;
-                $g->save();
-            }
+            // (category_id, position) is a plain index, not unique, so positions
+            // can be assigned directly — no parking pass, and nothing to overflow
+            // the unsignedSmallInteger column.
             foreach ($ids as $index => $gid) {
                 $g = $groups[$gid];
                 $g->position = $index;
