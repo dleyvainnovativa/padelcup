@@ -40,8 +40,17 @@
                     <button class="icon-btn menu-toggle" data-sidebar-toggle aria-label="Menú">
                         <i class="fa-solid fa-bars"></i>
                     </button>
+                    @php
+                        // Tournament the manager is currently viewing (route param may be a
+                        // bound model or the slug string) — lets search prioritize it.
+                        $searchCtxTournament = request()->route('tournament');
+                        if ($searchCtxTournament instanceof \App\Models\Tournament) {
+                            $searchCtxTournament = $searchCtxTournament->slug;
+                        }
+                    @endphp
                     <div class="topbar-search" data-topbar-search
-                        data-search-url="{{ route('dashboard.search') }}">
+                        data-search-url="{{ route('dashboard.search') }}"
+                        @if($searchCtxTournament) data-current-tournament="{{ $searchCtxTournament }}" @endif>
                         <i class="fa-solid fa-magnifying-glass"></i>
                         <input type="search" placeholder="Buscar torneos, categorías, jugadores…"
                             aria-label="Buscar" autocomplete="off" data-search-input>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Pair;
 use App\Models\Player;
+use App\Models\Tournament;
 use Illuminate\Http\Request;
 
 /**
@@ -13,7 +14,10 @@ use Illuminate\Http\Request;
  * manager's OWN tournaments (via User::tournaments / manager_id) — a manager
  * never sees another manager's tournaments, categories or players.
  *
- * Returns JSON grouped by type for the live dropdown.
+ * When the request carries the tournament the manager is currently viewing
+ * (?t=<slug>), that tournament's matching categories + players are returned in
+ * a separate `current` block so the dropdown can surface them first; those same
+ * rows are then excluded from the global groups to avoid listing them twice.
  */
 class DashboardSearchController extends Controller
 {
@@ -22,7 +26,7 @@ class DashboardSearchController extends Controller
     public function index(Request $request)
     {
         $q = trim((string) $request->query('q', ''));
-        $out = ['tournaments' => [], 'categories' => [], 'players' => [], 'q' => $q];
+        $out = ['current' => null, 'tournaments' => [], 'categories' => [], 'players' => [], 'q' => $q];
 
         if (mb_strlen($q) < 2) {
             return response()->json($out);
@@ -35,6 +39,12 @@ class DashboardSearchController extends Controller
         }
 
         $like = '%' . $q . '%';
+        $needle = Player::normalize($q);
+
+        // Tournament the manager is currently on (must be one of theirs).
+        $current = $request->filled('t')
+            ? $manager->tournaments()->where('slug', $request->query('t'))->first()
+            : null;
 
         // --- Tournaments (the manager's own) ---
         // Pass the model to route() so it uses the slug (Tournament::getRouteKeyName).
@@ -48,22 +58,55 @@ class DashboardSearchController extends Controller
                 'url' => route('tournaments.show', $t),
             ])->values();
 
-        // --- Categories within those tournaments ---
-        $out['categories'] = Category::whereIn('tournament_id', $tids)
+        // Split the category/player scope: the current tournament first, the rest
+        // (its matches excluded) in the global groups.
+        if ($current) {
+            $out['current'] = [
+                'name' => $current->name,
+                'categories' => $this->categoriesIn([$current->id], $like),
+                'players' => $this->playersIn([$current->id], $like, $needle),
+            ];
+            $otherTids = $tids->reject(fn ($id) => (int) $id === (int) $current->id)->values()->all();
+        } else {
+            $otherTids = $tids->all();
+        }
+
+        $out['categories'] = $this->categoriesIn($otherTids, $like);
+        $out['players'] = $this->playersIn($otherTids, $like, $needle);
+
+        return response()->json($out);
+    }
+
+    /** Matching categories within the given tournament ids (slug-based URLs). */
+    private function categoriesIn(array $tids, string $like): array
+    {
+        if (empty($tids)) {
+            return [];
+        }
+
+        return Category::whereIn('tournament_id', $tids)
             ->where('name', 'like', $like)
             ->with('tournament:id,name,slug')
             ->orderBy('name')
             ->limit(self::PER_GROUP)
             ->get(['id', 'name', 'tournament_id'])
-            ->map(fn ($c) => [
+            ->map(fn ($c) => $c->tournament ? [
                 'name' => $c->name,
-                'tournament' => $c->tournament?->name,
-                // Tournament by slug (model), category by its own key.
-                'url' => $c->tournament ? route('categories.show', [$c->tournament, $c->id]) : null,
-            ])->filter(fn ($r) => $r['url'])->values();
+                'tournament' => $c->tournament->name,
+                'url' => route('categories.show', [$c->tournament, $c->id]),
+            ] : null)
+            ->filter()
+            ->values()
+            ->all();
+    }
 
-        // --- Players appearing in those tournaments (via their pairs) ---
-        $needle = Player::normalize($q);
+    /** Matching players within the given tournament ids, via their pairs. */
+    private function playersIn(array $tids, string $like, string $needle): array
+    {
+        if (empty($tids)) {
+            return [];
+        }
+
         $pairs = Pair::whereHas('category', fn ($c) => $c->whereIn('tournament_id', $tids))
             ->where(function ($w) use ($like) {
                 $w->whereHas('player1', fn ($p) => $p->where('name', 'like', $like))
@@ -81,7 +124,7 @@ class DashboardSearchController extends Controller
         $players = [];
         foreach ($pairs as $pair) {
             $cat = $pair->category;
-            if (! $cat) {
+            if (! $cat || ! $cat->tournament) {
                 continue;
             }
             foreach ([$pair->player1, $pair->player2] as $p) {
@@ -90,9 +133,6 @@ class DashboardSearchController extends Controller
                 }
                 $key = Player::normalize($p->name) . '|' . $cat->id;
                 if (isset($players[$key])) {
-                    continue;
-                }
-                if (! $cat->tournament) {
                     continue;
                 }
                 $players[$key] = [
@@ -106,8 +146,7 @@ class DashboardSearchController extends Controller
                 }
             }
         }
-        $out['players'] = array_values($players);
 
-        return response()->json($out);
+        return array_values($players);
     }
 }

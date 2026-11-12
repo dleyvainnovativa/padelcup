@@ -52,6 +52,16 @@ check("B: players scoped via pairs in those tournaments",
       "whereHas('category', fn ($c) => $c->whereIn('tournament_id', $tids))" in ctrl)
 check("B: min-length guard", "mb_strlen($q) < 2" in ctrl)
 check("B: returns three groups", "'tournaments'" in ctrl and "'categories'" in ctrl and "'players'" in ctrl)
+# URLs must use the tournament SLUG (route key), so pass the model — not the id.
+check("B: tournament URL passes the model (slug), not the id",
+      "route('tournaments.show', $t)" in ctrl and "route('tournaments.show', $t->id)" not in ctrl)
+check("B: category URL passes the tournament model (slug)",
+      "route('categories.show', [$c->tournament, $c->id])" in ctrl
+      and "route('categories.show', [$c->tournament_id, $c->id])" not in ctrl)
+check("B: player URL passes the tournament model (slug)",
+      "route('categories.show', [$cat->tournament, $cat->id])" in ctrl)
+check("B: slug eager-loaded for URL building",
+      "'category.tournament:id,name,slug'" in ctrl and "tournaments.slug" in ctrl)
 
 routes = read("routes/web.php")
 check("B: dashboard.search route (auth group)", "->name('dashboard.search')" in routes and "DashboardSearchController" in routes)
@@ -64,7 +74,7 @@ check("B: input + results panel present",
 
 js = read("resources/js/modules/topbarSearch.js")
 check("B: module exports initTopbarSearch", "export function initTopbarSearch()" in js)
-check("B: debounced GET to the endpoint", "get(`${url}?q=${encodeURIComponent(q)}`)" in js)
+check("B: debounced GET to the endpoint", "get(`${url}?q=${encodeURIComponent(q)}" in js)
 check("B: out-of-order responses guarded", "if (mine !== token) return;" in js)
 check("B: keyboard + click-outside", "ArrowDown" in js and "!root.contains(e.target)" in js)
 check("B: escapes result text", "function esc(" in js)

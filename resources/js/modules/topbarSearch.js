@@ -31,6 +31,7 @@ export function initTopbarSearch() {
   const input = root.querySelector('[data-search-input]');
   const panel = root.querySelector('[data-search-results]');
   const url = root.dataset.searchUrl;
+  const currentTournament = root.dataset.currentTournament || '';
   if (!input || !panel || !url) return;
 
   let timer = null;
@@ -55,30 +56,42 @@ export function initTopbarSearch() {
     });
   }
 
+  // Build one result row; `compact` drops the redundant tournament name inside
+  // the current-tournament section.
+  function rowHtml(g, r, compact) {
+    const idx = items.length;
+    items.push(r);
+    let sub = '';
+    if (g === 'players') sub = compact ? esc(r.category) : `${esc(r.category)} · ${esc(r.tournament)}`;
+    else if (g === 'categories') sub = compact ? '' : esc(r.tournament);
+    return `<a class="tbs__row" href="${esc(r.url)}" data-idx="${idx}">
+      <i class="fa-solid ${ICONS[g]} tbs__icon"></i>
+      <span class="tbs__text"><span class="tbs__name">${esc(r.name)}</span>${
+        sub ? `<span class="tbs__sub">${sub}</span>` : ''
+      }</span></a>`;
+  }
+
   function render(data) {
-    const groups = ['tournaments', 'categories', 'players'];
     let html = '';
     items = [];
-    for (const g of groups) {
+
+    // Current-tournament section first (categories + players), then a divider.
+    const cur = data.current;
+    if (cur && ((cur.categories || []).length || (cur.players || []).length)) {
+      html += `<div class="tbs__group tbs__group--current">En «${esc(cur.name)}»</div>`;
+      for (const r of cur.categories || []) html += rowHtml('categories', r, true);
+      for (const r of cur.players || []) html += rowHtml('players', r, true);
+      html += '<hr class="tbs__sep">';
+    }
+
+    // Global groups (current-tournament rows already excluded server-side).
+    for (const g of ['tournaments', 'categories', 'players']) {
       const rows = data[g] || [];
       if (!rows.length) continue;
       html += `<div class="tbs__group">${LABELS[g]}</div>`;
-      for (const r of rows) {
-        const idx = items.length;
-        items.push(r);
-        const sub =
-          g === 'players'
-            ? `${esc(r.category)} · ${esc(r.tournament)}`
-            : g === 'categories'
-              ? esc(r.tournament)
-              : '';
-        html += `<a class="tbs__row" href="${esc(r.url)}" data-idx="${idx}">
-          <i class="fa-solid ${ICONS[g]} tbs__icon"></i>
-          <span class="tbs__text"><span class="tbs__name">${esc(r.name)}</span>${
-            sub ? `<span class="tbs__sub">${sub}</span>` : ''
-          }</span></a>`;
-      }
+      for (const r of rows) html += rowHtml(g, r, false);
     }
+
     if (!items.length) {
       html = `<div class="tbs__empty">Sin resultados para «${esc(data.q || '')}»</div>`;
     }
@@ -90,7 +103,8 @@ export function initTopbarSearch() {
   async function run(q) {
     const mine = ++token;
     try {
-      const data = await get(`${url}?q=${encodeURIComponent(q)}`);
+      const t = currentTournament ? `&t=${encodeURIComponent(currentTournament)}` : '';
+      const data = await get(`${url}?q=${encodeURIComponent(q)}${t}`);
       if (mine !== token) return; // a newer query already fired
       render(data);
     } catch (e) {
