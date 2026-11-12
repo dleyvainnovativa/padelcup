@@ -37,28 +37,30 @@ class DashboardSearchController extends Controller
         $like = '%' . $q . '%';
 
         // --- Tournaments (the manager's own) ---
+        // Pass the model to route() so it uses the slug (Tournament::getRouteKeyName).
         $out['tournaments'] = $manager->tournaments()
             ->where('name', 'like', $like)
             ->orderBy('name')
             ->limit(self::PER_GROUP)
-            ->get(['tournaments.id', 'tournaments.name'])
+            ->get(['tournaments.id', 'tournaments.name', 'tournaments.slug'])
             ->map(fn ($t) => [
                 'name' => $t->name,
-                'url' => route('tournaments.show', $t->id),
+                'url' => route('tournaments.show', $t),
             ])->values();
 
         // --- Categories within those tournaments ---
         $out['categories'] = Category::whereIn('tournament_id', $tids)
             ->where('name', 'like', $like)
-            ->with('tournament:id,name')
+            ->with('tournament:id,name,slug')
             ->orderBy('name')
             ->limit(self::PER_GROUP)
             ->get(['id', 'name', 'tournament_id'])
             ->map(fn ($c) => [
                 'name' => $c->name,
                 'tournament' => $c->tournament?->name,
-                'url' => route('categories.show', [$c->tournament_id, $c->id]),
-            ])->values();
+                // Tournament by slug (model), category by its own key.
+                'url' => $c->tournament ? route('categories.show', [$c->tournament, $c->id]) : null,
+            ])->filter(fn ($r) => $r['url'])->values();
 
         // --- Players appearing in those tournaments (via their pairs) ---
         $needle = Player::normalize($q);
@@ -69,7 +71,7 @@ class DashboardSearchController extends Controller
             })
             ->with([
                 'category:id,name,tournament_id',
-                'category.tournament:id,name',
+                'category.tournament:id,name,slug',
                 'player1:id,name',
                 'player2:id,name',
             ])
@@ -90,11 +92,14 @@ class DashboardSearchController extends Controller
                 if (isset($players[$key])) {
                     continue;
                 }
+                if (! $cat->tournament) {
+                    continue;
+                }
                 $players[$key] = [
                     'name' => $p->name,
                     'category' => $cat->name,
-                    'tournament' => $cat->tournament?->name,
-                    'url' => route('categories.show', [$cat->tournament_id, $cat->id]),
+                    'tournament' => $cat->tournament->name,
+                    'url' => route('categories.show', [$cat->tournament, $cat->id]),
                 ];
                 if (count($players) >= self::PER_GROUP) {
                     break 2;
