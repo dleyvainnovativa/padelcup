@@ -40,9 +40,12 @@
                     <button class="icon-btn menu-toggle" data-sidebar-toggle aria-label="Menú">
                         <i class="fa-solid fa-bars"></i>
                     </button>
-                    <div class="topbar-search">
+                    <div class="topbar-search" data-topbar-search
+                        data-search-url="{{ route('dashboard.search') }}">
                         <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="search" placeholder="Buscar torneos, parejas, jugadores…" aria-label="Buscar">
+                        <input type="search" placeholder="Buscar torneos, categorías, jugadores…"
+                            aria-label="Buscar" autocomplete="off" data-search-input>
+                        <div class="topbar-search__panel" data-search-results hidden></div>
                     </div>
                 </div>
 

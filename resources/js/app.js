@@ -60,6 +60,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initSidebar();
 
+  // Topbar search (present on every dashboard page; self-guards if absent).
+  if (document.querySelector('[data-topbar-search]')) {
+    import('./modules/topbarSearch').then((m) => m.initTopbarSearch());
+  }
+
   if (document.querySelector('[data-cat-chip]')) {
 import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
 }

@@ -46,6 +46,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/dashboard', [\App\Http\Controllers\Dashboard\DashboardController::class, 'index'])->name('dashboard');
 
+    // Topbar search (manager's own tournaments / categories / players), JSON.
+    Route::get('/dashboard/buscar', [\App\Http\Controllers\Dashboard\DashboardSearchController::class, 'index'])->name('dashboard.search');
+
     // Player-facing: propose a match score from the public page (auth, any user;
     // eligibility is enforced in the controller via canBeProposedBy()).
     Route::post('/partidos/{match}/proponer', [\App\Http\Controllers\Public\MatchProposalController::class, 'store'])->name('public.match.propose');
