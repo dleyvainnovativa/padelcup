@@ -475,7 +475,7 @@ class GroupGenerationService
 
                 $group = Group::create([
                     'category_id' => $category->id,
-                    'name' => 'Grupo ' . chr(65 + $index), // A, B, C...
+                    'name' => \App\Support\GroupLetter::name($index), // Grupo A, B, C… (AA, AB… past Z)
                     'position' => $index,
                 ]);
 

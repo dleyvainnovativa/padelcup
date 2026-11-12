@@ -89,6 +89,12 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
     import('./modules/bracketPreview').then((m) => m.initBracketPreview());
   }
 
+  // Feature module: reorder groups / rename letters (groups page, always on —
+  // works on started tournaments since it never moves matches).
+  if (document.querySelector('[data-group-letters]')) {
+    import('./modules/groupLetters').then((m) => m.initGroupLetters());
+  }
+
   // Feature module: scheduling board (only on the calendar page).
   if (document.querySelector('[data-sched-board]')) {
     import('./modules/schedule').then((m) => m.initSchedule());

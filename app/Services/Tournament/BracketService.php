@@ -416,7 +416,7 @@ class BracketService
     private function positionalSeedLabels(int $groupCount, int $adv, int $extra, ?array $perGroup = null): array
     {
         $letters = [];
-        for ($i = 0; $i < $groupCount; $i++) $letters[] = chr(ord('A') + $i);
+        for ($i = 0; $i < $groupCount; $i++) $letters[] = \App\Support\GroupLetter::at($i);
 
         // Winners each group contributes (override or global).
         $winners = [];
@@ -523,7 +523,7 @@ class BracketService
         }
 
         $groups = $category->groups()->orderBy('position')->orderBy('id')->get();
-        $letters = array_map(fn($i) => chr(ord('A') + $i), array_keys($groups->all()));
+        $letters = array_map(fn($i) => \App\Support\GroupLetter::at($i), array_keys($groups->all()));
 
         $map = [];
         // Track which (group, position) pairs are auto-qualifiers so the Q-slots
@@ -763,7 +763,7 @@ class BracketService
 
         // Build labels exactly like positionalSeedLabels().
         $letters = [];
-        for ($i = 0; $i < $groupCount; $i++) $letters[] = chr(ord('A') + $i);
+        for ($i = 0; $i < $groupCount; $i++) $letters[] = \App\Support\GroupLetter::at($i);
         $maxPlace = $winners ? max($winners) : 0;
         $seeds = [];
         for ($place = 1; $place <= $maxPlace; $place++) {

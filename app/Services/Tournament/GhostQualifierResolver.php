@@ -65,7 +65,7 @@ class GhostQualifierResolver
             $labels = [];
             $i = 0;
             foreach ($groups as $group) {
-                $letter = chr(ord('A') + $i);
+                $letter = \App\Support\GroupLetter::at($i);
                 foreach ($group->pairs as $p) {
                     $pairs[$p->id] = $letter;
                 }
@@ -132,7 +132,7 @@ class GhostQualifierResolver
 
         $i = 0;
         foreach ($groups as $group) {
-            $letter = chr(ord('A') + $i);
+            $letter = \App\Support\GroupLetter::at($i);
             $byLetter[$letter] = $group;
 
             if ($this->groupComplete($group)) {

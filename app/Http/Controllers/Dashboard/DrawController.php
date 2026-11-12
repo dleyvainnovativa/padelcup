@@ -103,6 +103,70 @@ class DrawController extends Controller
         ]);
     }
 
+    /**
+     * Reorder the GROUPS of a category (not the pairs inside them) — this is what
+     * sets each group's letter, since the letter is derived from `position`.
+     * Renames + repositions only: matches keep their group_id and the bracket's
+     * positional seed labels re-resolve consistently, so NOTHING is unscheduled.
+     * Allowed on a locked (started) tournament on purpose — relabeling must not
+     * drop matches.
+     */
+    public function reorderGroups(Request $request, Tournament $tournament, Category $category)
+    {
+        $this->authorize('update', $category);
+        abort_unless($category->tournament_id === $tournament->id, 404);
+
+        $data = $request->validate([
+            'group_ids' => ['required', 'array', 'min:1'],
+            'group_ids.*' => ['integer'],
+        ]);
+
+        $groups = $category->groups()->get()->keyBy('id');
+        $ids = array_map('intval', $data['group_ids']);
+
+        // The posted list must be exactly this category's groups, once each.
+        if (count($ids) !== $groups->count()
+            || count(array_unique($ids)) !== count($ids)
+            || array_diff($ids, $groups->keys()->all())
+        ) {
+            return response()->json([
+                'ok' => false,
+                'warning' => 'La lista de grupos no coincide con la categoría.',
+            ], 422);
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($ids, $groups) {
+            // Two passes so a (category_id, position) unique index never collides
+            // mid-update: park everyone out of range, then assign final letters.
+            foreach ($ids as $index => $gid) {
+                $g = $groups[$gid];
+                $g->position = $index + 100000;
+                $g->save();
+            }
+            foreach ($ids as $index => $gid) {
+                $g = $groups[$gid];
+                $g->position = $index;
+                $g->name = \App\Support\GroupLetter::name($index);
+                $g->save();
+            }
+        });
+
+        // Warn (never block): relabeling a bracket that already has results only
+        // changes the displayed letters, not the pairs already bound into it.
+        $warning = null;
+        if ($category->format->hasBracket()) {
+            $confirmed = \App\Models\GameMatch::where('category_id', $category->id)
+                ->whereNull('group_id')
+                ->where('state', \App\Enums\MatchState::Confirmed)
+                ->count();
+            if ($confirmed > 0) {
+                $warning = 'La llave ya tiene resultados; se actualizaron las letras, revisa que los cruces sigan correctos.';
+            }
+        }
+
+        return response()->json(['ok' => true, 'warning' => $warning]);
+    }
+
     /** Group generation preview (no writes). */
     public function previewGroups(Tournament $tournament, Category $category)
     {

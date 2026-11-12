@@ -57,6 +57,72 @@
         </button>
     </div>
 
+    {{-- Reordenar / renombrar grupos (letras). Always available — even on a
+         started tournament — because relabeling must not drop any match. --}}
+    @php
+        $gl_hasBracket = $category->format->hasBracket();
+        $gl_tooMany = $gl_hasBracket && $groups->count() > \App\Support\GroupLetter::BRACKET_MAX;
+        $gl_bracketResults = $gl_hasBracket
+            ? \App\Models\GameMatch::where('category_id', $category->id)
+                ->whereNull('group_id')
+                ->where('state', \App\Enums\MatchState::Confirmed)->count()
+            : 0;
+    @endphp
+    <details class="grp-letters">
+        <summary>
+            <span><i class="fa-solid fa-arrow-down-a-z me-1"></i> Reordenar grupos y letras</span>
+            <i class="fa-solid fa-chevron-down grp-letters__caret"></i>
+        </summary>
+        <div class="grp-letters__body">
+            <p class="grp-letters__note">
+                Cambia el orden y la <strong>letra</strong> de cada grupo. No mueve parejas ni
+                desprograma partidos — solo renombra y reordena.
+            </p>
+            @if($gl_tooMany)
+            <div class="grp-letters__warn">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                Esta categoría tiene más de {{ \App\Support\GroupLetter::BRACKET_MAX }} grupos. La llave
+                usa letras de una sola letra (A–Z), así que los grupos a partir del 27 (AA, AB…) no se
+                pueden sembrar en la eliminación. Reduce el número de grupos para la llave.
+            </div>
+            @endif
+            @if($gl_bracketResults > 0)
+            <div class="grp-letters__warn grp-letters__warn--soft">
+                <i class="fa-solid fa-circle-info me-1"></i>
+                La llave ya tiene resultados; reordenar solo cambia las letras mostradas. Revisa que los
+                cruces sigan correctos.
+            </div>
+            @endif
+            <ul class="grp-letters__list" data-group-letters
+                data-url="{{ route('draw.groups.letters', [$tournament, $category]) }}">
+                @foreach($groups->values() as $i => $group)
+                <li class="grp-letters__item" data-group-id="{{ $group->id }}">
+                    <span class="grp-letters__badge" data-gl-badge>{{ \App\Support\GroupLetter::at($i) }}</span>
+                    <span class="grp-letters__name">
+                        <span data-gl-name>{{ $group->name }}</span>
+                        <small>({{ $group->pairs->count() }} {{ $group->pairs->count() === 1 ? 'pareja' : 'parejas' }})</small>
+                    </span>
+                    <span class="grp-letters__nudges">
+                        <button type="button" class="grp-letters__nudge" data-gl-up aria-label="Subir" title="Subir">
+                            <i class="fa-solid fa-chevron-up"></i>
+                        </button>
+                        <button type="button" class="grp-letters__nudge" data-gl-down aria-label="Bajar" title="Bajar">
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                    </span>
+                </li>
+                @endforeach
+            </ul>
+            <div class="grp-letters__actions">
+                <button type="button" class="btn btn-accent btn-sm" data-gl-save hidden>
+                    <i class="fa-solid fa-check me-1"></i> Guardar orden
+                </button>
+                <button type="button" class="btn btn-soft btn-sm" data-gl-reset hidden>Deshacer</button>
+                <span class="grp-letters__dirty" data-gl-dirty hidden>Cambios sin guardar</span>
+            </div>
+        </div>
+    </details>
+
     @if($category->format->hasBracket() && $groups->isNotEmpty())
     <div class="bp-panel" data-bracket-preview
         data-preview-url="{{ route('draw.bracket.preview', [$tournament, $category]) }}"

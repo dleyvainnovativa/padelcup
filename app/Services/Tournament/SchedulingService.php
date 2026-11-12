@@ -317,7 +317,7 @@ class SchedulingService
             ->get(['id', 'category_id']);
         foreach ($groupRows->groupBy('category_id') as $cid => $list) {
             foreach ($list->values() as $i => $g) {
-                $lettersByCat[$cid][chr(ord('A') + $i)] = $g->id;
+                $lettersByCat[$cid][\App\Support\GroupLetter::at($i)] = $g->id;
             }
         }
         $groupEnd = [];
@@ -899,7 +899,7 @@ class SchedulingService
             ->get(['id', 'category_id']);
         foreach ($groups->groupBy('category_id') as $cid => $list) {
             foreach ($list->values() as $i => $g) {
-                $L = chr(ord('A') + $i);
+                $L = \App\Support\GroupLetter::at($i);
                 $groupsByCategory[$cid][$L] = $g->id;
                 $letterByGroup[$g->id] = $L;
             }
