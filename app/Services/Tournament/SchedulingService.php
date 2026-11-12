@@ -214,6 +214,9 @@ class SchedulingService
         int $stepMinutes = 30,
         bool $limitPerDay = true,   // prefer slots where nobody goes over $maxPerDay that day
         int $maxPerDay = 2,
+        ?int $onlyCategoryId = null,   // scope: place ONLY this category's unscheduled matches
+        ?array $categoryRanges = null, // [[startTs,endTs],…] — constrain the scoped category
+                                       // to these windows; category range WINS over phase windows
     ): array {
         $stepSec = $stepMinutes * 60;
         $durSec = $duration * 60;
@@ -241,6 +244,13 @@ class SchedulingService
             $phaseWindows[$pw->phase][] = [$pw->starts_at->timestamp, $pw->ends_at->timestamp];
         }
         $hasPhases = ! empty($phaseWindows);
+
+        // Scoped per-category run (Option A): place one category's matches into
+        // the given time ranges. Those ranges act as the window for the scoped
+        // category and OVERRIDE phase windows (category range wins). We treat the
+        // run as "windowed" so placeholder matches can reserve slots in the range.
+        $scoped = $onlyCategoryId !== null && ! empty($categoryRanges);
+        $windowed = $hasPhases || $scoped;
 
         // Player availability WINDOWS (manager-entered), keyed by normalized name:
         //   [ normalized_name => [ 'Y-m-d' => ['from'=>'HH:MM','until'=>'HH:MM'|null] ] ]
@@ -337,7 +347,11 @@ class SchedulingService
             ->whereNull('starts_at')
             ->with(array_merge(['group', 'category', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'], $feederPairs));
 
-        if ($hasPhases) {
+        if ($onlyCategoryId !== null) {
+            $query->where('category_id', $onlyCategoryId);
+        }
+
+        if ($windowed) {
             // Ready matches OR placeholders that will be fed later (feeders) OR
             // positional bracket matches with two real seed labels (e.g.
             // "Grupo G - 1 vs Grupo J - 1") — reserve their slot ahead of the
@@ -405,8 +419,12 @@ class SchedulingService
             $phase = $match->phaseKey();
             $byPhase[$phase] ??= ['scheduled' => 0, 'unplaced' => 0];
 
-            // Effective windows = court availability ∩ phase window (if defined).
-            $allowed = $hasPhases ? ($phaseWindows[$phase] ?? []) : null;
+            // Effective windows = court availability ∩ window. In a scoped run the
+            // category ranges are THE window (they override phase windows);
+            // otherwise the phase window applies when one is defined.
+            $allowed = $scoped
+                ? $categoryRanges
+                : ($hasPhases ? ($phaseWindows[$phase] ?? []) : null);
 
             // A match cannot start before all its feeder matches have ENDED
             // (Mexicano R2 after its R1; bracket round after the round feeding it).

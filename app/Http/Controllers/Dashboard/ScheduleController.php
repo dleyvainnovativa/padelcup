@@ -424,6 +424,67 @@ class ScheduleController extends Controller
         return back()->with('status', $msg);
     }
 
+    /**
+     * Auto-schedule ONE category's unscheduled matches into one or more datetime
+     * ranges (Option A — a one-shot scoped run). The ranges override phase
+     * windows for this category (category range wins); conflicts, rest, per-day
+     * limits and day hours still apply. Returns JSON so the calendar can refresh
+     * in place.
+     */
+    public function autoCategory(Request $request, Tournament $tournament)
+    {
+        $this->authorize('update', $tournament);
+
+        $data = $request->validate([
+            'category_id'     => ['required', 'integer'],
+            'ranges'          => ['required', 'array', 'min:1'],
+            'ranges.*.start'  => ['required', 'date'],
+            'ranges.*.end'    => ['required', 'date'],
+        ]);
+
+        $category = $tournament->categories()->findOrFail($data['category_id']);
+
+        $courts = $tournament->courts()->with('availabilities')->get();
+        if ($courts->isEmpty()) {
+            return response()->json(['error' => 'Agrega canchas y horarios antes de programar.'], 422);
+        }
+
+        $tz = 'America/Mexico_City';
+        $ranges = [];
+        foreach ($data['ranges'] as $r) {
+            $start = Carbon::parse($r['start'], $tz);
+            $end = Carbon::parse($r['end'], $tz);
+            if ($end->gt($start)) {
+                $ranges[] = [$start->timestamp, $end->timestamp];
+            }
+        }
+        if (empty($ranges)) {
+            return response()->json(['error' => 'Agrega al menos un rango válido (el fin debe ser después del inicio).'], 422);
+        }
+
+        $duration = (int) ($tournament->match_duration_minutes ?: 75);
+        $maxPerDay = $tournament->maxMatchesPerDay();
+
+        $result = $this->scheduler->autoSchedule(
+            $tournament, $courts, $duration, $duration, true, $maxPerDay,
+            (int) $category->id, $ranges,
+        );
+
+        $msg = "{$result['scheduled']} partido" . ($result['scheduled'] === 1 ? '' : 's')
+            . " de «{$category->name}» programado" . ($result['scheduled'] === 1 ? '' : 's') . '.';
+        if ($result['unplaced'] > 0) {
+            $msg .= " {$result['unplaced']} no cupieron en el rango.";
+        }
+        if (! empty($result['over_limit_players'])) {
+            $n = $result['over_limit_players'];
+            $over = $maxPerDay + 1;
+            $msg .= ' ' . ($n === 1 ? '1 jugador quedó' : "{$n} jugadores quedaron")
+                . " con {$over}+ partidos en un día.";
+        }
+
+        return response()->json(['ok' => true, 'message' => $msg, 'result' => $result]);
+    }
+
     /** Manually place/move a match (drag-drop). Validates conflicts. */
     public function place(Request $request, Tournament $tournament)
     {

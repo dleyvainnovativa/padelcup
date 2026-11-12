@@ -9,7 +9,7 @@
         ['label' => 'Calendario'],
     ]" />
 
-<div x-data="{ showPhases: false, showCapacity: false }">
+<div x-data="{ showPhases: false, showCapacity: false, showAutoCat: false }">
     <div class="page-head">
         <div>
             <h1>Calendario</h1>
@@ -23,6 +23,9 @@
             </button>
             <button type="button" class="btn btn-soft" @click="showPhases = !showPhases">
                 <i class="fa-solid fa-clock me-1"></i><span class="btn-label">Ventanas de fase</span>
+            </button>
+            <button type="button" class="btn btn-soft" @click="showAutoCat = !showAutoCat">
+                <i class="fa-solid fa-wand-magic-sparkles me-1"></i><span class="btn-label">Auto-programar categoría</span>
             </button>
             <form method="POST" action="{{ route('schedule.auto', $tournament) }}"
                 data-confirm="Se programarán automáticamente los partidos sin horario en los espacios libres. ¿Continuar?"
@@ -396,6 +399,86 @@
                 @endif
                 <button type="submit" class="btn btn-accent btn-sm mt-2"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar ventanas</button>
             </form>
+        </div>
+    </div>
+
+    {{-- Auto-schedule ONE category into datetime ranges (Option A) --}}
+    @php
+        $autoCats = $tournament->categories()->orderBy('name')->get(['id', 'name']);
+        $autoFirstDay = optional($tournament->playDays()->first())->format('Y-m-d') ?? now('America/Mexico_City')->format('Y-m-d');
+    @endphp
+    <div x-show="showAutoCat" x-cloak class="tc-card mb-3" x-data="{
+            cat: '',
+            ranges: [{ date: @js($autoFirstDay), from: @js($tournament->play_start ?? '08:00'), until: @js($tournament->play_end ?? '22:00') }],
+            busy: false, msg: '', err: '',
+            addRange() {
+                const last = this.ranges[this.ranges.length - 1] || {};
+                this.ranges.push({ date: last.date || @js($autoFirstDay), from: last.from || '08:00', until: last.until || '22:00' });
+            },
+            removeRange(i) { this.ranges.splice(i, 1); if (!this.ranges.length) this.addRange(); },
+            async submit() {
+                this.err = ''; this.msg = '';
+                if (!this.cat) { this.err = 'Elige una categoría.'; return; }
+                const ranges = this.ranges.filter(r => r.date && r.from && r.until)
+                    .map(r => ({ start: r.date + 'T' + r.from, end: r.date + 'T' + r.until }));
+                if (!ranges.length) { this.err = 'Agrega al menos un rango.'; return; }
+                this.busy = true;
+                try {
+                    const res = await fetch(@js(route('schedule.autoCategory', $tournament)), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({ category_id: this.cat, ranges }),
+                    });
+                    const json = await res.json();
+                    if (!res.ok) { this.err = json.error || 'No se pudo programar.'; this.busy = false; return; }
+                    this.msg = json.message || 'Listo.';
+                    setTimeout(() => location.reload(), 1100);
+                } catch (e) { this.err = 'Error de red.'; this.busy = false; }
+            }
+         }">
+        <div class="tc-card__head">
+            <h3><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Auto-programar categoría</h3>
+        </div>
+        <div class="tc-card__body">
+            <p class="text-muted" style="font-size:13px;margin-bottom:12px;">
+                Programa los partidos <strong>sin horario</strong> de una categoría dentro de los rangos que elijas.
+                El rango manda sobre las ventanas de fase; se respetan canchas, descanso y máx./día.
+            </p>
+
+            <div class="ac-row">
+                <label class="dc__label">Categoría</label>
+                <select x-model="cat" class="pub-select" style="max-width:320px;">
+                    <option value="">Elige una categoría…</option>
+                    @foreach($autoCats as $c)
+                    <option value="{{ $c->id }}">{{ $c->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <label class="dc__label" style="margin-top:14px;">Rangos</label>
+            <template x-for="(r, i) in ranges" :key="i">
+                <div class="ac-range">
+                    <input type="date" x-model="r.date" class="pub-select">
+                    <input type="time" x-model="r.from" class="pub-select">
+                    <span class="ac-range__to">a</span>
+                    <input type="time" x-model="r.until" class="pub-select">
+                    <button type="button" class="btn btn-soft btn-sm" @click="removeRange(i)" x-show="ranges.length > 1" title="Quitar rango"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </template>
+            <button type="button" class="btn btn-soft btn-sm mt-1" @click="addRange()"><i class="fa-solid fa-plus me-1"></i> Agregar rango</button>
+
+            <div class="ac-actions">
+                <button type="button" class="btn btn-accent" @click="submit()" :disabled="busy">
+                    <span x-show="!busy"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Programar categoría</span>
+                    <span x-show="busy" x-cloak>Programando…</span>
+                </button>
+                <span class="ac-msg ac-msg--ok" x-show="msg" x-cloak x-text="msg"></span>
+                <span class="ac-msg ac-msg--err" x-show="err" x-cloak x-text="err"></span>
+            </div>
         </div>
     </div>
 </div>

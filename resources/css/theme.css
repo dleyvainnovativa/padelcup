@@ -4286,3 +4286,12 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
 .dc__url { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; overflow-x: auto; }
 .dc__url code { font-size: 13px; color: var(--text); white-space: nowrap; }
 .dc__actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+
+.ac-row { display: flex; flex-direction: column; gap: 5px; }
+.ac-range { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.ac-range .pub-select { max-width: 170px; }
+.ac-range__to { color: var(--text-faint); font-size: 13px; }
+.ac-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 16px; }
+.ac-msg { font-size: 13px; font-weight: 600; }
+.ac-msg--ok { color: var(--success-text); }
+.ac-msg--err { color: var(--danger-text); }

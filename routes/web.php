@@ -138,6 +138,7 @@ Route::middleware(['auth'])->group(function () {
         // Schedule / calendar (Phase 7)
         Route::get('calendario', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'index'])->name('schedule.index');
         Route::post('calendario/auto', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'auto'])->name('schedule.auto');
+        Route::post('calendario/auto-categoria', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'autoCategory'])->name('schedule.autoCategory');
         Route::post('calendario/colocar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'place'])->name('schedule.place');
         Route::post('calendario/hora', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'setTime'])->name('schedule.setTime');
         Route::post('calendario/quitar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'unplace'])->name('schedule.unplace');
