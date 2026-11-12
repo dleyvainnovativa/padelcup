@@ -68,8 +68,8 @@ $inTournament = $isStaff && $ctxTournament instanceof \App\Models\Tournament;
     <a href="{{ $to('tournaments.show', $ctxTournament) }}" class="nav-item {{ $isActive('tournaments.show') }}">
         <i class="fa-solid fa-circle-info"></i> Resumen
     </a>
-    <a href="{{ $to('categories.create', $ctxTournament) }}" class="nav-item {{ $isActive('categories.*') }}">
-        <i class="fa-solid fa-layer-group"></i> Categorías
+    <a href="{{ $to('categories.create', $ctxTournament) }}" class="nav-item {{ $isActive('categories.create') }}">
+        <i class="fa-solid fa-layer-group"></i> Nueva categoría
     </a>
 
     <div class="nav-label">Operación</div>

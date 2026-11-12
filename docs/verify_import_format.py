@@ -66,6 +66,10 @@ check("B: commit generation is format-aware (no hardcoded Hybrid branch)",
       and "if ($category->format === CategoryFormat::Hybrid)" not in svc)
 check("B: preview row carries existing category_format",
       "'category_format' => $existingCat?->format?->value," in svc)
+# Regression: a disabled group control (elimination) no longer posts 'size', so
+# settingsFor must not read $found['size'] without a default in the true branch.
+check("B: settingsFor size is null-safe in BOTH branches (no undefined-key crash)",
+      "? (int) ($found['size'] ?? 3) : 3," in svc and "? (int) $found['size'] :" not in svc)
 
 view = read("resources/views/dashboard/tournaments/import-preview.blade.php")
 check("B: Formato column header added", "<th>Formato</th>" in view and "<th>Formato grupo</th>" in view)
