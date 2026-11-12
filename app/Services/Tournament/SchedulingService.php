@@ -217,10 +217,19 @@ class SchedulingService
         ?int $onlyCategoryId = null,   // scope: place ONLY this category's unscheduled matches
         ?array $categoryRanges = null, // [[startTs,endTs],…] — constrain the scoped category
                                        // to these windows; category range WINS over phase windows
+        ?array $onlyPhases = null,     // restrict this run to these phase keys (null = every phase)
+        bool $overridePlayerRules = false, // relax player availability / rest gap / per-day max —
+                                       // court availability AND player double-booking stay HARD
     ): array {
         $stepSec = $stepMinutes * 60;
         $durSec = $duration * 60;
-        $restSec = ((int) ($tournament->min_rest_minutes ?? 30)) * 60;
+        // Player-rules override: the rest gap collapses to 0 and the per-day cap
+        // stops acting as a preference. Court availability, court overlap and
+        // player double-booking are NEVER relaxed by this flag.
+        $restSec = $overridePlayerRules ? 0 : (((int) ($tournament->min_rest_minutes ?? 30)) * 60);
+        if ($overridePlayerRules) {
+            $limitPerDay = false;
+        }
 
         // Court availability windows: [courtId => [[startTs, endTs], ...]],
         // CLIPPED to each day's play hours (day_hours override or global window),
@@ -257,7 +266,7 @@ class SchedulingService
         // A match may only start at/after the LATEST "from" among its players on
         // that day, and must FINISH by the EARLIEST "until" among them ("all rules
         // must hold"). Days/players without a rule impose nothing.
-        $availabilityMap = \App\Models\PlayerAvailability::windowsFor($tournament);
+        $availabilityMap = $overridePlayerRules ? [] : \App\Models\PlayerAvailability::windowsFor($tournament);
 
         // Per-day match duration: [ 'Y-m-d' => minutes ]. A day may override the
         // tournament default (e.g. the last day runs 90 min for SF/F). Used to
@@ -312,6 +321,18 @@ class SchedulingService
             }
         }
         $groupEnd = [];
+
+        // Per-group count of still-unscheduled matches. A bracket slot seeded from
+        // a group is held back until that group is fully scheduled (ordering
+        // safeguard — no bracket match jumps ahead of the groups that feed it).
+        $groupOpen = [];
+        foreach (
+            GameMatch::whereNotNull('group_id')->whereNull('starts_at')
+                ->whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+                ->get(['id', 'group_id']) as $gm
+        ) {
+            $groupOpen[$gm->group_id] = ($groupOpen[$gm->group_id] ?? 0) + 1;
+        }
 
         $courtBusy = [];
         $playerBusy = [];
@@ -372,6 +393,13 @@ class SchedulingService
 
         $matches = $query->get();
 
+        // Phase filter: when the caller restricts the run to specific phases, drop
+        // every other phase up front (the per-category panel's "fases a programar").
+        if ($onlyPhases !== null) {
+            $allowedPhases = array_values(array_intersect($onlyPhases, \App\Support\SchedulePhase::keys()));
+            $matches = $matches->filter(fn($m) => in_array($m->phaseKey(), $allowedPhases, true))->values();
+        }
+
         // Order matches: phase → round (so dependencies hold), and WITHIN each
         // phase+round, INTERLEAVE categories so the early slots get a mix instead
         // of one category clustering at the front. This spreads each category
@@ -414,10 +442,24 @@ class SchedulingService
         $availabilityBlocked = 0; // unplaced specifically due to player availability
         $overLimitMatches = 0;    // placed only by breaking the per-day preference
         $overLimitPlayers = [];   // "playerKey|Y-m-d" => true
+        $waitingDeps = 0;         // bracket matches held back until their inputs are placed
 
         foreach ($matches as $match) {
             $phase = $match->phaseKey();
             $byPhase[$phase] ??= ['scheduled' => 0, 'unplaced' => 0];
+
+            // Ordering safeguard: never place a bracket match before the matches
+            // that feed it are scheduled — a feeder round not yet placed, or a
+            // source group that still has unscheduled matches. Keeps the bracket in
+            // dependency order (Final after Semis, Semis after Quarters, first round
+            // after its groups) and stops an unbound placeholder from sliding ahead
+            // of groups that couldn't be placed.
+            if ($this->bracketDependencyPending($match, $endOf, $lettersByCat, $groupOpen)) {
+                $byPhase[$phase]['unplaced']++;
+                $byPhase[$phase]['waiting'] = ($byPhase[$phase]['waiting'] ?? 0) + 1;
+                $waitingDeps++;
+                continue;
+            }
 
             // Effective windows = court availability ∩ window. In a scoped run the
             // category ranges are THE window (they override phase windows);
@@ -533,6 +575,9 @@ class SchedulingService
                 }
                 if ($match->group_id) {
                     $groupEnd[$match->group_id] = max($groupEnd[$match->group_id] ?? 0, $endTs);
+                    if (isset($groupOpen[$match->group_id])) {
+                        $groupOpen[$match->group_id] = max(0, $groupOpen[$match->group_id] - 1);
+                    }
                 }
                 if ($overLimit) {
                     $overLimitMatches++;
@@ -586,6 +631,7 @@ class SchedulingService
             'scheduled' => count($placements),
             'unplaced' => $matches->count() - count($placements),
             'availability_blocked' => $availabilityBlocked,
+            'waiting' => $waitingDeps,
             'by_phase' => $byPhase,
             'limit_per_day' => $limitPerDay ? $maxPerDay : null,
             'over_limit_matches' => $overLimitMatches,
@@ -1087,6 +1133,44 @@ class SchedulingService
             }
         }
         return $earliest;
+    }
+
+    /**
+     * True when a bracket match still depends on earlier matches that aren't
+     * scheduled yet: a feeder round with no known end, or a source group that
+     * still has unscheduled matches. Group matches never pend. Used to hold a
+     * bracket slot back until its inputs are placed (dependency ordering).
+     *
+     * @param  array<int,int>    $endOf        [matchId => endTs] of placed/scheduled matches
+     * @param  array<int,array>  $lettersByCat [categoryId => [letter => groupId]]
+     * @param  array<int,int>    $groupOpen    [groupId => count of unscheduled matches]
+     */
+    private function bracketDependencyPending(GameMatch $match, array $endOf, array $lettersByCat, array $groupOpen): bool
+    {
+        if ($match->group_id) return false;
+
+        // Feeder rounds: a set feeder with no known end hasn't been placed yet.
+        foreach ([$match->feeder_a_id, $match->feeder_b_id] as $fid) {
+            if ($fid && ! isset($endOf[$fid])) return true;
+        }
+
+        // First round seeded from groups: any mapped group that still has an
+        // unscheduled match (Q# depends on every group; A#/B# on that one group).
+        $letters = $lettersByCat[$match->category_id] ?? [];
+        foreach ([$match->seed_label_a, $match->seed_label_b] as $label) {
+            if (! $label || $label === 'BYE') continue;
+            $gids = [];
+            if (preg_match('/^Q\d+$/', $label)) {
+                $gids = array_values($letters);
+            } elseif (preg_match('/^([A-Z])\d+$/', $label, $mm) && isset($letters[$mm[1]])) {
+                $gids = [$letters[$mm[1]]];
+            }
+            foreach ($gids as $gid) {
+                if (($groupOpen[$gid] ?? 0) > 0) return true;
+            }
+        }
+
+        return false;
     }
 
     private function playerKeys(GameMatch $match): array

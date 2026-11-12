@@ -88,6 +88,12 @@ $inTournament = $isStaff && $ctxTournament instanceof \App\Models\Tournament;
     <a href="{{ $to('availability.player.index', $ctxTournament) }}" class="nav-item {{ $isActive('availability.player.*') }}">
         <i class="fa-solid fa-user-clock"></i> Disponibilidad
     </a>
+    <a href="{{ $to('winners.index', $ctxTournament) }}" class="nav-item {{ $isActive('winners.*') }}">
+        <i class="fa-solid fa-trophy"></i> Ganadores
+    </a>
+    <a href="{{ $to('display.config', $ctxTournament) }}" class="nav-item {{ $isActive('display.config') }}">
+        <i class="fa-solid fa-display"></i> Pantalla
+    </a>
 
     <div class="nav-label">Promoción</div>
     <a href="{{ $to('sponsors.index', $ctxTournament) }}" class="nav-item {{ $isActive('sponsors.*') }}">

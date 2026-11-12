@@ -128,8 +128,17 @@ class CategoryStructureState
         if ($hasBracket && ! $groupStale) {
             $bracketSlots = $this->bracketFirstRoundSlots($category);
             if ($bracketSlots > 0) {
-                $wantedQualifiers = $category->qualifiersTotal($groupCount);
-                $wantedSlots = $this->nextPow2(max(2, $wantedQualifiers));
+                // What feeds the bracket decides its "wanted" first-round size:
+                //   groups → bracket : the qualifier count (winners/group + extras)
+                //   elimination-only : the entrant pool itself — there are no groups,
+                //                      so qualifiersTotal(0) would collapse to ~0 and
+                //                      leave the bracket permanently "stale" (the bug
+                //                      where "Reconstruir llave" never cleared). Using
+                //                      poolPairs here makes it match a rebuilt bracket.
+                $wantedEntrants = $hasGroups
+                    ? $category->qualifiersTotal($groupCount)
+                    : $poolPairs;
+                $wantedSlots = $this->nextPow2(max(2, $wantedEntrants));
                 $bracketStale = $wantedSlots !== $bracketSlots;
             }
         }

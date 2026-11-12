@@ -29,6 +29,7 @@
     @php
         $state = $structure['state'];
         $atRisk = $structure['results_at_risk'];
+        $hasGroups = $structure['has_groups'];
         // bracket-only path: only the bracket is stale and it's rebuildable losslessly
         $bracketOnly = $structure['bracket_stale']
             && !$structure['group_stale']
@@ -41,11 +42,18 @@
             <div style="flex:1 1 320px;min-width:0;">
                 @if($bracketOnly)
                     <div class="rk-regen-banner__title">
-                        <i class="fa-solid fa-sitemap me-1"></i> La configuración de la llave cambió
+                        <i class="fa-solid fa-sitemap me-1"></i>
+                        @if($hasGroups) La configuración de la llave cambió
+                        @else Las parejas cambiaron @endif
                     </div>
                     <div class="rk-regen-banner__text">
-                        Cambió “avanzan por grupo” o “clasificados extra”. Puedes reconstruir la
-                        llave sin afectar los resultados de grupos.
+                        @if($hasGroups)
+                            Cambió “avanzan por grupo” o “clasificados extra”. Puedes reconstruir la
+                            llave sin afectar los resultados de grupos.
+                        @else
+                            El número de parejas ya no coincide con la llave actual. Reconstrúyela
+                            para ajustar los cruces (todavía no hay resultados).
+                        @endif
                     </div>
                 @elseif($safe)
                     <div class="rk-regen-banner__title">
@@ -61,7 +69,7 @@
                         <i class="fa-solid fa-triangle-exclamation me-1"></i> Las parejas cambiaron y ya hay resultados
                     </div>
                     <div class="rk-regen-banner__text">
-                        Regenerar los grupos borrará <strong>{{ $atRisk }}</strong>
+                        Regenerar {{ $hasGroups ? 'los grupos' : 'la llave' }} borrará <strong>{{ $atRisk }}</strong>
                         resultado(s) ya {{ $atRisk === 1 ? 'jugado' : 'jugados' }}. Solo hazlo si estás seguro.
                     </div>
                 @endif
@@ -87,7 +95,7 @@
                         @csrf
                         <input type="hidden" name="force" value="1">
                         <button class="btn btn-danger btn-sm"
-                            data-confirm="Se borrarán {{ $atRisk }} resultado(s) ya jugados y se regenerarán los grupos{{ $category->format->hasBracket() ? ' y la llave' : '' }}. Esta acción no se puede deshacer."
+                            data-confirm="Se borrarán {{ $atRisk }} resultado(s) ya jugados y se regenerará {{ $hasGroups ? 'los grupos' . ($category->format->hasBracket() ? ' y la llave' : '') : 'la llave' }}. Esta acción no se puede deshacer."
                             data-confirm-title="Regenerar y borrar resultados"
                             data-confirm-ok="Regenerar y borrar"
                             data-confirm-variant="danger">

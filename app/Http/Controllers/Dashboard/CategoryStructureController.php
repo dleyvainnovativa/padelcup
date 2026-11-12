@@ -80,6 +80,10 @@ class CategoryStructureController extends Controller
             ]);
         }
 
-        return back()->with('status', 'Llave reconstruida (se conservaron los resultados de grupos).');
+        $msg = $category->format->hasGroups()
+            ? 'Llave reconstruida (se conservaron los resultados de grupos).'
+            : 'Llave reconstruida.';
+
+        return back()->with('status', $msg);
     }
 }

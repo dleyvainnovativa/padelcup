@@ -436,10 +436,13 @@ class ScheduleController extends Controller
         $this->authorize('update', $tournament);
 
         $data = $request->validate([
-            'category_id'     => ['required', 'integer'],
-            'ranges'          => ['required', 'array', 'min:1'],
-            'ranges.*.start'  => ['required', 'date'],
-            'ranges.*.end'    => ['required', 'date'],
+            'category_id'      => ['required', 'integer'],
+            'ranges'           => ['required', 'array', 'min:1'],
+            'ranges.*.start'   => ['required', 'date'],
+            'ranges.*.end'     => ['required', 'date'],
+            'phases'           => ['sometimes', 'array'],
+            'phases.*'         => ['string'],
+            'override_players' => ['sometimes', 'boolean'],
         ]);
 
         $category = $tournament->categories()->findOrFail($data['category_id']);
@@ -462,18 +465,34 @@ class ScheduleController extends Controller
             return response()->json(['error' => 'Agrega al menos un rango válido (el fin debe ser después del inicio).'], 422);
         }
 
+        // Phase scope: only the selected phases are placed this run (null = all).
+        // An empty selection is a mistake, not "everything" — reject it clearly.
+        $phases = null;
+        if ($request->has('phases')) {
+            $phases = array_values(array_intersect((array) $data['phases'], \App\Support\SchedulePhase::keys()));
+            if (empty($phases)) {
+                return response()->json(['error' => 'Selecciona al menos una fase.'], 422);
+            }
+        }
+        $overridePlayers = (bool) ($data['override_players'] ?? false);
+
         $duration = (int) ($tournament->match_duration_minutes ?: 75);
         $maxPerDay = $tournament->maxMatchesPerDay();
 
         $result = $this->scheduler->autoSchedule(
             $tournament, $courts, $duration, $duration, true, $maxPerDay,
-            (int) $category->id, $ranges,
+            (int) $category->id, $ranges, $phases, $overridePlayers,
         );
 
         $msg = "{$result['scheduled']} partido" . ($result['scheduled'] === 1 ? '' : 's')
             . " de «{$category->name}» programado" . ($result['scheduled'] === 1 ? '' : 's') . '.';
         if ($result['unplaced'] > 0) {
             $msg .= " {$result['unplaced']} no cupieron en el rango.";
+        }
+        if (! empty($result['waiting'])) {
+            $w = (int) $result['waiting'];
+            $msg .= ' ' . ($w === 1 ? '1 partido espera' : "{$w} partidos esperan")
+                . ' a que se programe una fase previa.';
         }
         if (! empty($result['over_limit_players'])) {
             $n = $result['over_limit_players'];

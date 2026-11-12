@@ -406,11 +406,29 @@
     @php
         $autoCats = $tournament->categories()->orderBy('name')->get(['id', 'name']);
         $autoFirstDay = optional($tournament->playDays()->first())->format('Y-m-d') ?? now('America/Mexico_City')->format('Y-m-d');
+
+        // Phases that actually exist per category, so the panel only offers the
+        // phases a category has (keyed by string id to match the <select> value).
+        $autoCatPhases = [];
+        $autoPhaseMatches = \App\Models\GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+            ->get(['id', 'category_id', 'group_id', 'round']);
+        foreach ($autoPhaseMatches->groupBy('category_id') as $cid => $ms) {
+            $autoCatPhases[(string) $cid] = \App\Support\SchedulePhase::presentIn($ms);
+        }
+        $autoPhaseLabels = \App\Support\SchedulePhase::LABELS;
     @endphp
     <div x-show="showAutoCat" x-cloak class="tc-card mb-3" x-data="{
             cat: '',
+            catPhases: @js($autoCatPhases),
+            phaseLabels: @js($autoPhaseLabels),
+            phases: [],
+            overridePlayers: false,
             ranges: [{ date: @js($autoFirstDay), from: @js($tournament->play_start ?? '08:00'), until: @js($tournament->play_end ?? '22:00') }],
             busy: false, msg: '', err: '',
+            availablePhases() { return this.catPhases[this.cat] || []; },
+            onCatChange() { this.phases = (this.catPhases[this.cat] || []).slice(); },
+            togglePhase(k) { const i = this.phases.indexOf(k); if (i < 0) this.phases.push(k); else this.phases.splice(i, 1); },
+            isPhase(k) { return this.phases.includes(k); },
             addRange() {
                 const last = this.ranges[this.ranges.length - 1] || {};
                 this.ranges.push({ date: last.date || @js($autoFirstDay), from: last.from || '08:00', until: last.until || '22:00' });
@@ -419,6 +437,7 @@
             async submit() {
                 this.err = ''; this.msg = '';
                 if (!this.cat) { this.err = 'Elige una categoría.'; return; }
+                if (this.availablePhases().length && !this.phases.length) { this.err = 'Selecciona al menos una fase.'; return; }
                 const ranges = this.ranges.filter(r => r.date && r.from && r.until)
                     .map(r => ({ start: r.date + 'T' + r.from, end: r.date + 'T' + r.until }));
                 if (!ranges.length) { this.err = 'Agrega al menos un rango.'; return; }
@@ -431,7 +450,7 @@
                             'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
                             'Accept': 'application/json',
                         },
-                        body: JSON.stringify({ category_id: this.cat, ranges }),
+                        body: JSON.stringify({ category_id: this.cat, ranges, phases: this.phases, override_players: this.overridePlayers }),
                     });
                     const json = await res.json();
                     if (!res.ok) { this.err = json.error || 'No se pudo programar.'; this.busy = false; return; }
@@ -446,18 +465,34 @@
         <div class="tc-card__body">
             <p class="text-muted" style="font-size:13px;margin-bottom:12px;">
                 Programa los partidos <strong>sin horario</strong> de una categoría dentro de los rangos que elijas.
-                El rango manda sobre las ventanas de fase; se respetan canchas, descanso y máx./día.
+                El rango manda sobre las ventanas de fase. Las canchas siempre se respetan;
+                las reglas de jugadores se pueden omitir abajo. La llave nunca se adelanta a su fase previa.
             </p>
 
             <div class="ac-row">
                 <label class="dc__label">Categoría</label>
-                <select x-model="cat" class="pub-select" style="max-width:320px;">
+                <select x-model="cat" @change="onCatChange()" class="pub-select" style="max-width:320px;">
                     <option value="">Elige una categoría…</option>
                     @foreach($autoCats as $c)
                     <option value="{{ $c->id }}">{{ $c->name }}</option>
                     @endforeach
                 </select>
             </div>
+
+            <template x-if="availablePhases().length">
+                <div class="ac-row" style="margin-top:14px;">
+                    <label class="dc__label">Fases a programar</label>
+                    <div class="ac-phases">
+                        <template x-for="k in availablePhases()" :key="k">
+                            <label class="ac-phase" :class="{ 'ac-phase--on': isPhase(k) }">
+                                <input type="checkbox" :checked="isPhase(k)" @change="togglePhase(k)">
+                                <span x-text="phaseLabels[k] || k"></span>
+                            </label>
+                        </template>
+                    </div>
+                    <p class="ac-hint">Programa una fase a la vez (p. ej. Grupos primero, luego la eliminación) para un orden limpio.</p>
+                </div>
+            </template>
 
             <label class="dc__label" style="margin-top:14px;">Rangos</label>
             <template x-for="(r, i) in ranges" :key="i">
@@ -470,6 +505,14 @@
                 </div>
             </template>
             <button type="button" class="btn btn-soft btn-sm mt-1" @click="addRange()"><i class="fa-solid fa-plus me-1"></i> Agregar rango</button>
+
+            <label class="ac-override" :class="{ 'ac-override--on': overridePlayers }" style="margin-top:14px;">
+                <input type="checkbox" x-model="overridePlayers">
+                <span>
+                    <strong>Ignorar reglas de jugadores</strong>
+                    <small>Omite disponibilidad, descanso y máx./día. Se mantienen las canchas y que un jugador no juegue en dos lugares a la vez.</small>
+                </span>
+            </label>
 
             <div class="ac-actions">
                 <button type="button" class="btn btn-accent" @click="submit()" :disabled="busy">
