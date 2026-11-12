@@ -67,11 +67,13 @@ class StructureRegenerationService
         $deleted = $snapshot['results_at_risk'];
 
         DB::transaction(function () use ($category, $pairs) {
-            // generate() rebuilds groups + group matches. For Hybrid we then
-            // (re)build the positional bracket, mirroring DrawController.
-            $this->groups->generate($category, $pairs);
-
-            if ($category->format === CategoryFormat::Hybrid) {
+            // Rebuild only the stages this format actually has: groups for
+            // round-robin/hybrid, a bracket for hybrid/elimination. buildPositional
+            // builds a direct seeded bracket for a pure-elimination category.
+            if ($category->format->hasGroups()) {
+                $this->groups->generate($category, $pairs);
+            }
+            if ($category->format->hasBracket()) {
                 $this->brackets->buildPositional($category->fresh());
             }
         });

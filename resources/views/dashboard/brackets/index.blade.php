@@ -37,6 +37,11 @@
 </div>
 
 @include('dashboard.partials.flash')
+@if($errors->any())
+<div class="alert py-2 px-3 mb-3" style="font-size:13px;border-radius:var(--radius);background:var(--danger-soft);color:var(--danger-text);">
+    @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
+</div>
+@endif
 
 @if($matches->isEmpty())
 <div class="tc-card">

@@ -302,7 +302,7 @@ class TournamentImportService
         return [
             'size' => in_array((int) ($found['size'] ?? 3), [3, 4], true) ? (int) $found['size'] : 3,
             'advance' => max(1, min(2, (int) ($found['advance'] ?? 1))),
-            'extra' => max(0, min(3, (int) ($found['extra'] ?? 0))),
+            'extra' => max(0, (int) ($found['extra'] ?? 0)), // no upper cap (set freely, like category edit)
             'format' => (($found['format'] ?? 'mex') === 'rr') ? 'rr' : 'mex',
         ];
     }

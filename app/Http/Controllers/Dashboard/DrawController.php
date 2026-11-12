@@ -154,6 +154,15 @@ class DrawController extends Controller
         $this->authorize('update', $category);
         abort_unless($category->tournament_id === $tournament->id, 404);
 
+        // Hybrid (Grupos → eliminación) needs groups before a bracket can be
+        // seeded from them. Without this guard the qualifier path builds an empty
+        // bracket and throws a 500.
+        if ($category->format === CategoryFormat::Hybrid && $category->groups()->count() === 0) {
+            return redirect()->route('draw.bracket', [$tournament, $category])
+                ->withErrors(['bracket' => 'Esta categoría es «Grupos → eliminación» pero aún no tiene grupos. Genera los grupos primero, o cambia la categoría a solo eliminación.']);
+        }
+
+        try {
         if ($category->format === CategoryFormat::Hybrid) {
             // Overall-seeded: build the rank-labeled bracket (O1..ON → "1º, 2º…").
             // The structure + schedule are fixed; occupants project live from the
@@ -204,6 +213,12 @@ class DrawController extends Controller
         return redirect()
             ->route('draw.bracket', [$tournament, $category])
             ->with('status', 'Llave generada.');
+        } catch (\RuntimeException $e) {
+            // Domain errors (too few pairs, missing group config, …) become a
+            // friendly flash instead of a 500 page.
+            return redirect()->route('draw.bracket', [$tournament, $category])
+                ->withErrors(['bracket' => $e->getMessage()]);
+        }
     }
 
     /** Swap two round-1 bracket slots (manual seeding adjustment). */

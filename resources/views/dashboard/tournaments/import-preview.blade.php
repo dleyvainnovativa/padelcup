@@ -127,7 +127,7 @@ $existingCats = collect($preview)->where('exists', true)->count();
                             <input type="number" name="settings[{{ $row['category'] }}][advance]" data-f="advance" value="1" min="1" max="2" class="form-control form-control-sm" style="width:60px;border-radius:var(--radius);">
                         </td>
                         <td>
-                            <input type="number" name="settings[{{ $row['category'] }}][extra]" data-f="extra" value="0" min="0" max="3" class="form-control form-control-sm" style="width:60px;border-radius:var(--radius);">
+                            <input type="number" name="settings[{{ $row['category'] }}][extra]" data-f="extra" value="0" min="0" class="form-control form-control-sm" style="width:60px;border-radius:var(--radius);">
                         </td>
                         <td data-out="groups" class="pub-mono">—</td>
                         {{-- #1 — size breakdown (e.g. "2×4 · 1×3") --}}
@@ -219,7 +219,7 @@ $existingCats = collect($preview)->where('exists', true)->count();
                 const size = parseInt(row.querySelector('[data-f="size"]').value, 10) || 3;
                 const isMex = (row.querySelector('[data-f="format"]').value || 'mex') === 'mex';
                 const advance = Math.max(1, Math.min(2, parseInt(row.querySelector('[data-f="advance"]').value, 10) || 1));
-                const extra = Math.max(0, Math.min(3, parseInt(row.querySelector('[data-f="extra"]').value, 10) || 0));
+                const extra = Math.max(0, parseInt(row.querySelector('[data-f="extra"]').value, 10) || 0);
 
                 const sizes = distribution(pairs, size);
                 const groups = sizes.length;

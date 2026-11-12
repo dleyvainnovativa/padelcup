@@ -282,6 +282,16 @@ class BracketService
             return;
         }
 
+        // Pure ELIMINATION (no group stage): there are no group positions to seed
+        // from, so build a direct seeded bracket from the confirmed pool. Without
+        // this, buildPositional would look for groups and throw — which is the
+        // 500 seen when regenerating the llave of an elimination-only category.
+        if (! $category->format->hasGroups()) {
+            $seedIds = $category->poolPairs()->orderBy('seed')->pluck('id')->all();
+            $this->build($category, $seedIds);
+            return;
+        }
+
         $groups = $category->groups()->orderBy('position')->orderBy('id')->get();
         $groupCount = $groups->count();
         $adv = (int) $category->advance_per_group;
