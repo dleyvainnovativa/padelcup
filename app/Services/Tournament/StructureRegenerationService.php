@@ -5,6 +5,7 @@ namespace App\Services\Tournament;
 use App\Enums\CategoryFormat;
 use App\Models\Category;
 use App\Models\GameMatch;
+use App\Models\Group;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -70,11 +71,19 @@ class StructureRegenerationService
             // Rebuild only the stages this format actually has: groups for
             // round-robin/hybrid, a bracket for hybrid/elimination. buildPositional
             // builds a direct seeded bracket for a pure-elimination category.
+            // The ELSE branches clear a stage the new format no longer has, so a
+            // format change (e.g. Grupos→eliminación → Solo eliminación) can't
+            // leave orphaned group/bracket matches with no UI to delete them.
             if ($category->format->hasGroups()) {
                 $this->groups->generate($category, $pairs);
+            } else {
+                GameMatch::where('category_id', $category->id)->whereNotNull('group_id')->delete();
+                Group::where('category_id', $category->id)->delete();
             }
             if ($category->format->hasBracket()) {
                 $this->brackets->buildPositional($category->fresh());
+            } else {
+                GameMatch::where('category_id', $category->id)->whereNull('group_id')->delete();
             }
         });
 

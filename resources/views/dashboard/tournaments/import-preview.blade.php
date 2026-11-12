@@ -63,9 +63,10 @@ $existingCats = collect($preview)->where('exists', true)->count();
                         <th>Categoría</th>
                         <th>Estado</th>
                         <th>Modalidad</th>
+                        <th>Formato</th>
                         <th>Inscr.</th>
                         <th>Grupo</th>
-                        <th>Formato</th>
+                        <th>Formato grupo</th>
                         <th>Avanzan</th>
                         <th>Extra</th>
                         <th>Grupos</th>
@@ -108,6 +109,20 @@ $existingCats = collect($preview)->where('exists', true)->count();
                             </div>
                             @endif
                         </td>
+                        {{-- Category STRUCTURE: editable for new categories, read-only for existing. --}}
+                        @php $cf = $row['category_format'] ?? null; $cfLocked = ($row['exists'] ?? false) && $cf; @endphp
+                        <td>
+                            <select name="settings[{{ $row['category'] }}][category_format]" data-f="catformat"
+                                class="form-select form-select-sm" style="width:148px;border-radius:var(--radius);"
+                                @if($cfLocked) disabled title="El formato de una categoría existente no se cambia al importar." @endif>
+                                <option value="hybrid" @selected(($cf ?? 'hybrid') === 'hybrid')>Grupos + elim.</option>
+                                <option value="round_robin" @selected($cf === 'round_robin')>Solo grupos</option>
+                                <option value="elimination" @selected($cf === 'elimination')>Solo eliminación</option>
+                            </select>
+                            @if($cfLocked)
+                            <div style="font-size:10px;color:var(--text-faint);margin-top:2px;">no se cambia</div>
+                            @endif
+                        </td>
                         <td>{{ $row['pairs'] }}</td>
                         <td>
                             <select name="settings[{{ $row['category'] }}][size]" data-f="size" class="form-select form-select-sm" style="width:64px;border-radius:var(--radius);">
@@ -140,7 +155,7 @@ $existingCats = collect($preview)->where('exists', true)->count();
                 </tbody>
                 <tfoot>
                     <tr style="font-weight:700;border-top:2px solid var(--border);">
-                        <td colspan="7" style="text-align:right;">Totales del torneo</td>
+                        <td colspan="8" style="text-align:right;">Totales del torneo</td>
                         <td data-total="groups" class="pub-mono">—</td>
                         <td data-total="dist" class="pub-mono">—</td>
                         <td data-total="gmatches" class="pub-mono">—</td>
@@ -189,6 +204,13 @@ $existingCats = collect($preview)->where('exists', true)->count();
             }, 0);
         }
 
+        // Smallest power of two ≥ n — bracket first-round size for a direct knockout.
+        function nextPow2(n) {
+            let p = 2;
+            while (p < n) p *= 2;
+            return p;
+        }
+
         // #1 — compact size breakdown string, e.g. [4,4,3] -> "2×4 · 1×3".
         function breakdown(sizes) {
             if (!sizes.length) return '—';
@@ -220,32 +242,54 @@ $existingCats = collect($preview)->where('exists', true)->count();
                 const isMex = (row.querySelector('[data-f="format"]').value || 'mex') === 'mex';
                 const advance = Math.max(1, Math.min(2, parseInt(row.querySelector('[data-f="advance"]').value, 10) || 1));
                 const extra = Math.max(0, parseInt(row.querySelector('[data-f="extra"]').value, 10) || 0);
+                const catFmt = (row.querySelector('[data-f="catformat"]') || {}).value || 'hybrid';
 
-                const sizes = distribution(pairs, size);
+                const hasGroups = catFmt !== 'elimination';
+                const hasBracket = catFmt !== 'round_robin';
+
+                // Groups only exist for round-robin/hybrid; the bracket is seeded
+                // from the pool for elimination, from qualifiers for hybrid.
+                const sizes = hasGroups ? distribution(pairs, size) : [];
                 const groups = sizes.length;
-                const gm = groupMatches(sizes, isMex);
+                const gm = hasGroups ? groupMatches(sizes, isMex) : 0;
                 const quals = groups * advance + extra;
-                const em = Math.max(0, quals - 1);
+                let em = 0;
+                if (hasBracket) {
+                    em = catFmt === 'elimination'
+                        ? (pairs >= 2 ? nextPow2(pairs) - 1 : 0)   // direct knockout from the pool
+                        : Math.max(0, quals - 1);                   // hybrid: from qualifiers
+                }
                 const total = gm + em;
 
-                row.querySelector('[data-out="groups"]').textContent = groups;
-                row.querySelector('[data-out="dist"]').textContent = breakdown(sizes);
+                row.querySelector('[data-out="groups"]').textContent = hasGroups ? groups : '—';
+                row.querySelector('[data-out="dist"]').textContent = hasGroups ? breakdown(sizes) : '—';
                 row.querySelector('[data-out="gmatches"]').textContent = gm;
                 row.querySelector('[data-out="ematches"]').textContent = em;
                 row.querySelector('[data-out="total"]').textContent = total;
 
-                // Dim the format select when no 4-group exists (toggle is a no-op).
+                // Enable only the controls each format uses: groups controls for
+                // round-robin/hybrid, qualifier controls (advance/extra) for hybrid.
+                [['size', hasGroups], ['format', hasGroups], ['advance', hasGroups && hasBracket], ['extra', hasGroups && hasBracket]]
+                    .forEach(([f, on]) => {
+                        const el = row.querySelector(`[data-f="${f}"]`);
+                        if (!el) return;
+                        el.disabled = !on;
+                        el.style.opacity = on ? '' : '0.4';
+                    });
+                // Dim the group-format select further when no 4-group exists.
                 const fmtSel = row.querySelector('[data-f="format"]');
                 const has4 = sizes.includes(4);
-                fmtSel.style.opacity = has4 ? '1' : '0.45';
-                fmtSel.title = has4 ?
-                    'Aplica a los grupos de 4 de esta categoría.' :
-                    'Esta categoría no tiene grupos de 4; el formato no cambia nada aquí.';
+                if (hasGroups) {
+                    fmtSel.style.opacity = has4 ? '1' : '0.45';
+                    fmtSel.title = has4 ?
+                        'Aplica a los grupos de 4 de esta categoría.' :
+                        'Esta categoría no tiene grupos de 4; el formato no cambia nada aquí.';
+                }
 
                 const catName = row.querySelector('td').childNodes[0].textContent.trim();
                 if (pairs < 2) warnings.push(`«${catName}»: solo ${pairs} pareja(s), no se puede generar.`);
-                else if (sizes.length === 1 && sizes[0] >= 5) warnings.push(`«${catName}»: ${pairs} parejas caben en un solo grupo de ${sizes[0]} (sin llave real).`);
-                else if (quals < 2) warnings.push(`«${catName}»: solo ${quals} clasificado(s); revisa "avanzan/extra".`);
+                else if (hasGroups && sizes.length === 1 && sizes[0] >= 5 && hasBracket) warnings.push(`«${catName}»: ${pairs} parejas caben en un solo grupo de ${sizes[0]} (sin llave real).`);
+                else if (catFmt === 'hybrid' && quals < 2) warnings.push(`«${catName}»: solo ${quals} clasificado(s); revisa "avanzan/extra".`);
 
                 sizes.forEach((s) => totalSizes.push(s));
                 tG += groups;

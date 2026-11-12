@@ -213,6 +213,9 @@ class TournamentImportService
                 'exists' => (bool) $existingCat,
                 'play_format' => $effectiveFormat,
                 'format_mismatch' => $mismatch,
+                // Current category structure for an existing category (read-only in
+                // the preview); null for a new one so the manager can choose it.
+                'category_format' => $existingCat?->format?->value,
             ];
         }
 
@@ -266,10 +269,16 @@ class TournamentImportService
                 try {
                     $pairs = $category->poolPairs()->with(['player1', 'player2'])->get();
                     if ($pairs->count() >= 2) {
-                        $this->groupGen->generate($category->fresh(), $pairs);
-                        $groupsBuilt++;
-                        if ($category->format === CategoryFormat::Hybrid) {
-                            $this->brackets->buildPositional($category->fresh());
+                        // Build only the stages this category's format actually has:
+                        // groups for round-robin/hybrid, a bracket for hybrid/elimination
+                        // (elimination seeds the bracket straight from the pool — no groups).
+                        $cat = $category->fresh();
+                        if ($cat->format->hasGroups()) {
+                            $this->groupGen->generate($cat, $pairs);
+                            $groupsBuilt++;
+                        }
+                        if ($cat->format->hasBracket()) {
+                            $this->brackets->buildPositional($cat->fresh());
                             $bracketsBuilt++;
                         }
                     }
@@ -303,7 +312,8 @@ class TournamentImportService
             'size' => in_array((int) ($found['size'] ?? 3), [3, 4], true) ? (int) $found['size'] : 3,
             'advance' => max(1, min(2, (int) ($found['advance'] ?? 1))),
             'extra' => max(0, (int) ($found['extra'] ?? 0)), // no upper cap (set freely, like category edit)
-            'format' => (($found['format'] ?? 'mex') === 'rr') ? 'rr' : 'mex',
+            'format' => (($found['format'] ?? 'mex') === 'rr') ? 'rr' : 'mex', // GROUP play format (Mexicano/RR)
+            'category_format' => $this->resolveCategoryFormat($found['category_format'] ?? null), // CATEGORY structure
         ];
     }
 
@@ -313,7 +323,7 @@ class TournamentImportService
         return $tournament->categories()->create([
             'name' => trim($name),
             'tint' => $tint,
-            'format' => CategoryFormat::Hybrid,
+            'format' => $cfg['category_format'] ?? CategoryFormat::Hybrid,
             'play_format' => $isSingles ? CategoryPlayFormat::Singles : CategoryPlayFormat::Doubles,
             'group_format' => $this->resolveGroupFormat($cfg['format'] ?? 'mex'),
             'mexicano_pairing' => \App\Enums\MexicanoPairing::Cross,
@@ -334,6 +344,20 @@ class TournamentImportService
     private function resolveGroupFormat(?string $flag): GroupFormat
     {
         return ($flag === 'rr') ? GroupFormat::RoundRobin : GroupFormat::Mexicano;
+    }
+
+    /**
+     * Map the posted category-structure flag to the CategoryFormat enum.
+     * 'round_robin' → solo grupos; 'elimination' → solo llave; anything else
+     * (incl. 'hybrid'/null) → grupos + eliminación (the historical default).
+     */
+    private function resolveCategoryFormat(?string $flag): CategoryFormat
+    {
+        return match ($flag) {
+            'round_robin' => CategoryFormat::RoundRobin,
+            'elimination' => CategoryFormat::Elimination,
+            default => CategoryFormat::Hybrid,
+        };
     }
     private function parseScheduleCell($raw, array $playDaySet): array
     {

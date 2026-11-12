@@ -57,10 +57,15 @@ class CategoryController extends Controller
         return view('dashboard.categories.edit', compact('tournament', 'category'));
     }
 
-    public function update(StoreCategoryRequest $request, Tournament $tournament, Category $category)
-    {
+    public function update(
+        StoreCategoryRequest $request,
+        Tournament $tournament,
+        Category $category,
+        \App\Services\Tournament\StructureRegenerationService $structureRegen,
+    ) {
         $this->authorize('update', $category);
         abort_unless($category->tournament_id === $tournament->id, 404);
+        $oldFormat = $category->format?->value;
         // Guard: can't lower max_pairs below current occupancy.
         $occupied = $category->occupiedSlots();
         if ($request->filled('max_pairs') && (int) $request->input('max_pairs') < $occupied) {
@@ -81,6 +86,25 @@ class CategoryController extends Controller
         }
 
         $category->update($request->validated());
+
+        // Format changed → reconcile the structure so the old stages don't linger
+        // with no UI to delete them (the "can't delete the group matches after
+        // switching to elimination" trap). Safe (no confirmed results) → rebuild
+        // for the new format, clearing what it no longer has. With results → leave
+        // them and point the manager at Regenerar instead of destroying silently.
+        if ($category->format?->value !== $oldFormat) {
+            $res = $structureRegen->regenerateAll($category->fresh());
+            if (! empty($res['ok'])) {
+                return redirect()
+                    ->route('categories.show', [$tournament, $category])
+                    ->with('status', 'Categoría actualizada y estructura regenerada para el nuevo formato.');
+            }
+            if (($res['reason'] ?? null) === 'has_results') {
+                return redirect()
+                    ->route('categories.show', [$tournament, $category])
+                    ->with('status', 'Categoría actualizada. El formato cambió, pero ya hay resultados: usa «Regenerar» en Grupos o Llave para reconstruir la estructura.');
+            }
+        }
 
         return redirect()
             ->route('categories.show', [$tournament, $category])
