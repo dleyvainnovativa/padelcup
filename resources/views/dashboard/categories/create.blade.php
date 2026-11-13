@@ -129,6 +129,14 @@
                 <label for="htp" class="form-check-label" style="font-size:13px;">Incluir partido por 3er lugar (eliminación)</label>
             </div>
 
+            <div class="form-check mb-3">
+                <input type="checkbox" name="public_hidden" id="phid" value="1" class="form-check-input" @checked(old('public_hidden'))>
+                <label for="phid" class="form-check-label" style="font-size:13px;">Ocultar en vistas públicas</label>
+                <div style="font-size:12px;color:var(--text-faint);margin-top:2px;">
+                    No aparece en el calendario público, la pantalla ni la lista de categorías. El panel de organización la sigue mostrando.
+                </div>
+            </div>
+
             <div class="d-flex gap-2 mt-2">
                 <button type="submit" class="btn btn-accent">Crear categoría</button>
                 <a href="{{ route('tournaments.show', $tournament) }}" class="btn btn-soft">Cancelar</a>

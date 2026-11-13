@@ -64,7 +64,7 @@ class PublicTournamentController extends Controller
         $this->ensurePublic($tournament);
 
         $tournament->loadCount('categories');
-        $categories = $tournament->categories()->withCount('pairs')->orderBy('name')->get();
+        $categories = $tournament->categories()->publicVisible()->withCount('pairs')->orderBy('name')->get();
         $sponsors = \App\Models\Sponsor::forTournament($tournament);
 
         // Mesa de control: tournament-wide running delay (minutes), if any.
@@ -409,6 +409,7 @@ class PublicTournamentController extends Controller
         $venueFilter = $request->query('venue');  // venue id (only relevant with 2+ venues)
 
         $matches = $tournament->categories()
+            ->publicVisible()
             ->with(['matches' => function ($q) {
                 $q->whereNotNull('starts_at')
                     ->with([
@@ -438,7 +439,7 @@ class PublicTournamentController extends Controller
             ->values();
 
         // Filter options (before narrowing).
-        $allCategories = $tournament->categories()->orderBy('name')->get(['id', 'name']);
+        $allCategories = $tournament->categories()->publicVisible()->orderBy('name')->get(['id', 'name']);
         $allDays = $matches->map(fn($m) => $m->starts_at->timezone('America/Mexico_City')->format('Y-m-d'))->unique()->values();
         $allPhases = \App\Support\SchedulePhase::presentIn($matches);
         // Venues present (court → venue). Chips render only when there are 2+.
@@ -744,6 +745,7 @@ class PublicTournamentController extends Controller
         $dayFilter = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $dayFilter) ? $dayFilter : null;
 
         $matches = $tournament->categories()
+            ->publicVisible()
             ->with(['matches' => fn($q) => $q->whereNotNull('starts_at')
                 ->with(['court.venue', 'category', 'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'])
                 ->orderBy('starts_at')])

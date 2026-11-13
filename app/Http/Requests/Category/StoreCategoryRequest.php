@@ -30,8 +30,18 @@ class StoreCategoryRequest extends FormRequest
             'max_pairs' => ['nullable', 'integer', 'min:1', 'gte:min_pairs'],
             'price_centavos' => ['required', 'integer', 'min:0'],
             'has_third_place' => ['nullable', 'boolean'],
+            'public_hidden' => ['boolean'],
             'whatsapp_group_url' => ['nullable', 'url', 'starts_with:https://chat.whatsapp.com/'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        // An unchecked checkbox doesn't submit, so coerce it to a real boolean —
+        // this makes unchecking "ocultar" actually persist (true → false).
+        $this->merge([
+            'public_hidden' => $this->boolean('public_hidden'),
+        ]);
     }
 
     public function messages(): array

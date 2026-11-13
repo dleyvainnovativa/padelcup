@@ -16,6 +16,7 @@ class Category extends Model
     protected $fillable = [
         'tournament_id',
         'name',
+        'public_hidden',
         'slug',
         'format',
         'play_format',
@@ -75,8 +76,18 @@ class Category extends Model
             'registration_opens_at' => 'datetime',
             'registration_closes_at' => 'datetime',
             'has_third_place' => 'boolean',
+            'public_hidden' => 'boolean',
             'winners_per_group' => 'array',
         ];
+    }
+
+    /**
+     * Categories visible to the public (calendar, pantalla, public category
+     * list). The admin dashboard never uses this scope — it always shows all.
+     */
+    public function scopePublicVisible($query)
+    {
+        return $query->where('public_hidden', false);
     }
 
     // --- Relationships -------------------------------------------------
