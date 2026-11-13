@@ -254,7 +254,7 @@
                         </div>
                         @if($m->starts_at || $m->court)
                         <div class="pub-result-meta">
-                            @if($m->court)<span><i class="fa-solid fa-location-dot"></i> {{ $m->court->name }}</span>@endif
+                            @if($m->court && $tournament->showsPublicCourtName())<span><i class="fa-solid fa-location-dot"></i> {{ $m->court->name }}</span>@endif
                             @if($m->starts_at)<span><i class="fa-regular fa-clock"></i> {{ $m->starts_at->timezone('America/Mexico_City')->translatedFormat('D d M · H:i') }}</span>@endif
                         </div>
                         @endif
@@ -297,7 +297,7 @@
                         </div>
                         @if($m->starts_at || $m->court)
                         <div class="pub-result-meta">
-                            @if($m->court)<span><i class="fa-solid fa-location-dot"></i> {{ $m->court->name }}</span>@endif
+                            @if($m->court && $tournament->showsPublicCourtName())<span><i class="fa-solid fa-location-dot"></i> {{ $m->court->name }}</span>@endif
                             @if($m->starts_at)<span><i class="fa-regular fa-clock"></i> {{ $m->starts_at->timezone('America/Mexico_City')->translatedFormat('D d M · H:i') }}</span>@endif
                         </div>
                         @endif

@@ -131,6 +131,8 @@
 .ms-drawer.is-open .ms-drawer__scrim { opacity: 1; }
 
 .ms-drawer__sheet {
+    scrollbar-width: thin;                                                   /* Firefox */
+  scrollbar-color: color-mix(in srgb, var(--lp-indigo, #635bff) 35%, transparent) transparent;
   position: absolute; left: 0; right: 0; bottom: 0;
   max-height: 92vh;
   background: var(--surface);

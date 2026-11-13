@@ -30,6 +30,7 @@ class Tournament extends Model
         'ends_on',
         'play_start',
         'play_end',
+        'public_court_visibility',
         'match_duration_minutes',
         'min_rest_minutes',
         'max_matches_per_day',
@@ -56,6 +57,7 @@ class Tournament extends Model
             'registration_opens_at' => 'datetime',
             'registration_closes_at' => 'datetime',
             'phase' => TournamentPhase::class,
+            'public_court_visibility' => \App\Enums\PublicCourtVisibility::class,
             'locked_at' => 'datetime',
             'expiry_policy' => ExpiryPolicy::class,
             'iva_enabled' => 'boolean',
@@ -130,6 +132,52 @@ class Tournament extends Model
     public function isLocked(): bool
     {
         return $this->phase === TournamentPhase::Locked;
+    }
+
+    // --- Public court/venue visibility ---------------------------------
+    // Controls how much court detail the PUBLIC surfaces show (never the
+    // manager dashboard). Defaults to Full so existing tournaments are unchanged.
+
+    public function publicCourtVisibility(): \App\Enums\PublicCourtVisibility
+    {
+        return $this->public_court_visibility ?? \App\Enums\PublicCourtVisibility::Full;
+    }
+
+    /** Show the specific court name (e.g. "Cancha 1") on public surfaces? */
+    public function showsPublicCourtName(): bool
+    {
+        return $this->publicCourtVisibility()->showsCourtName();
+    }
+
+    /** Show the venue/sede name on public surfaces? */
+    public function showsPublicVenue(): bool
+    {
+        return $this->publicCourtVisibility()->showsVenue();
+    }
+
+    /** Hide the court column entirely on public surfaces / pantalla? */
+    public function hidesPublicCourt(): bool
+    {
+        return $this->publicCourtVisibility()->isHidden();
+    }
+
+    /**
+     * Composed public location label for a court, honoring the setting:
+     *   Full      → "Sede · Cancha 1" (or "Cancha 1" when the court has no venue)
+     *   VenueOnly → "Sede" (or "" when the court has no venue)
+     *   Hidden    → ""
+     * Used by the venue+court views (public calendar, player page). The
+     * court-only views (bracket/results) gate on showsPublicCourtName() instead.
+     */
+    public function publicCourtLabel(?\App\Models\Court $court): string
+    {
+        if (! $court || $this->hidesPublicCourt()) {
+            return '';
+        }
+        $venue = $this->showsPublicVenue() ? ($court->venue?->name) : null;
+        $name = $this->showsPublicCourtName() ? $court->name : null;
+
+        return implode(' · ', array_filter([$venue, $name], fn ($v) => filled($v)));
     }
 
     /** Public URL for the cover image, or null if none uploaded. */

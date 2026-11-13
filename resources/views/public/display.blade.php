@@ -8,7 +8,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="disp-body">
-    <main class="disp"
+    <main class="disp @if($tournament->hidesPublicCourt()) disp--no-court @endif"
         data-display-board
         data-data-url="{{ route('public.display.data', $tournament) }}"
         data-max="{{ $max }}"
@@ -33,7 +33,7 @@
         <section class="disp__board">
             <div class="disp__row disp__row--head">
                 <span class="disp__c-time">Hora</span>
-                <span class="disp__c-court">Cancha</span>
+                <span class="disp__c-court">{{ $tournament->showsPublicCourtName() ? 'Cancha' : 'Sede' }}</span>
                 <span class="disp__c-cat">Categoría</span>
                 <span class="disp__c-pairs">Partido</span>
                 <span class="disp__c-status">Estado</span>

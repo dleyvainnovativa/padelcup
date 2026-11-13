@@ -38,7 +38,8 @@ $shareData = [
         @else
         <span class="pub-muted">—</span>
         @endif
-        @if($m->court)<span class="pub-match__court"><i class="fa-solid fa-location-dot"></i> @if($m->court->venue){{ $m->court->venue->name }} · @endif{{ $m->court->name }}</span>@endif
+        @php $courtLabel = $tournament->publicCourtLabel($m->court); @endphp
+        @if($courtLabel)<span class="pub-match__court"><i class="fa-solid fa-location-dot"></i> {{ $courtLabel }}</span>@endif
     </div>
     <div class="pub-match__body">
         <div class="pub-match__ctx">

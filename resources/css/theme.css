@@ -3414,6 +3414,8 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
 }
 .pc-changes-overlay.is-open { display: block; }
 .pc-changes {
+    scrollbar-width: thin;                                                   /* Firefox */
+  scrollbar-color: color-mix(in srgb, var(--lp-indigo, #635bff) 35%, transparent) transparent;
   position: absolute; left: 0; right: 0; bottom: 0;
   max-height: 82vh; overflow-y: auto;
   background: var(--surface);
@@ -4531,4 +4533,14 @@ a.pl-dir__main:hover .pl-dir__name { color: var(--accent); }
   border: 0;
   border-top: 1px solid var(--border);
   margin: 6px 4px;
+}
+
+/* Drop the court column: 5 cols (time · court · cat · pairs · status) → 4. */
+.disp--no-court .disp__row { grid-template-columns: 1.1fr 1.8fr 4fr 1.6fr; }
+.disp--no-court .disp__c-court { display: none; }
+
+/* Mobile already hides the category column (court · pairs · status + time);
+   with no court that's time · pairs · status. */
+@media (max-width: 760px) {
+  .disp--no-court .disp__row { grid-template-columns: .9fr 3fr 1.4fr; }
 }

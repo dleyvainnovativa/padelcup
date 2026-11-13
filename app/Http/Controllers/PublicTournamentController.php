@@ -282,7 +282,7 @@ class PublicTournamentController extends Controller
         // Cross-table ("cruces") data per group: for each ordered pair (row,col),
         // their head-to-head match — score from the ROW pair's perspective, plus
         // whether the row pair won. Also each pair's UPCOMING crosses + times.
-        $crossTables = $category->groups->map(function ($group) {
+        $crossTables = $category->groups->map(function ($group) use ($tournament) {
             $group->loadMissing('pairs');
             // Confirmed + scheduled matches within this group.
             $matches = \App\Models\GameMatch::where('group_id', $group->id)
@@ -327,7 +327,7 @@ class PublicTournamentController extends Controller
                         $cells[$row][$col] = [
                             'played' => false,
                             'when' => $m->starts_at,
-                            'court' => $m->court?->name,
+                            'court' => $tournament->showsPublicCourtName() ? $m->court?->name : null,
                         ];
                     }
                 }
@@ -342,7 +342,7 @@ class PublicTournamentController extends Controller
                     $schedule[$pid][] = [
                         'cross' => $cross,
                         'when' => $m->starts_at,
-                        'court' => $m->court?->name,
+                        'court' => $tournament->showsPublicCourtName() ? $m->court?->name : null,
                         'played' => $played,
                     ];
                 }
@@ -793,12 +793,29 @@ class PublicTournamentController extends Controller
                 ? (optional($m->pairA)->name())
                 : ($winnerSide === 'b' ? optional($m->pairB)->name() : null);
 
+            // Court/venue per the tournament's public setting. Full → court + venue;
+            // VenueOnly → venue as the cell text, no sub-label; Hidden → blank (the
+            // column itself is hidden via a class on the board — see display.blade).
+            $pcv = $tournament->publicCourtVisibility();
+            $courtName = optional($m->court)->name;
+            $venueName = optional(optional($m->court)->venue)->name;
+            if ($pcv->isHidden()) {
+                $dispCourt = '';
+                $dispVenue = '';
+            } elseif (! $pcv->showsCourtName()) { // VenueOnly
+                $dispCourt = $venueName ?: '';
+                $dispVenue = '';
+            } else { // Full
+                $dispCourt = $courtName;
+                $dispVenue = $venueName;
+            }
+
             $items[] = [
                 'bucket'      => $bucket,
                 'sort'        => $sort,
                 'time'        => $start->format('H:i'),
-                'court'       => optional($m->court)->name,
-                'venue'       => optional(optional($m->court)->venue)->name,
+                'court'       => $dispCourt,
+                'venue'       => $dispVenue,
                 'category'    => optional($m->category)->name,
                 'phase'       => $m->publicPhase()['label'] ?? null,
                 'pairA'       => optional($m->pairA)->name() ?: $m->sideLabel('a'),
@@ -1085,7 +1102,9 @@ class PublicTournamentController extends Controller
                 'when'     => $whenLabel,                 // null when unscheduled
                 'day'      => $day?->format('Y-m-d'),
                 'time'     => $day?->format('H:i'),
-                'court'    => $m->court?->name,
+                // Court-only context; show it only when the tournament's public
+                // court setting is Full. This method already receives $tournament.
+                'court'    => $tournament->showsPublicCourtName() ? $m->court?->name : null,
                 'vs'       => $vs,                         // "Ganador (X / Y)" etc.
                 'reach'    => $reach,                      // "si gana/pierde su partido"
                 'source'   => $source ?: 'winner',
@@ -1153,13 +1172,15 @@ class PublicTournamentController extends Controller
             ->limit(60)
             ->get();
 
-        // Court id → name map so before/after court ids render as names.
+        // Court id → public label map so before/after court ids render as names,
+        // honoring the tournament's public court setting (no leak when hidden).
         $courtNames = $tournament->courts()
             ->with('venue')
             ->get()
-            ->mapWithKeys(fn($court) => [
-                $court->id => "{$court->venue->name}: {$court->name}"
-            ]);
+            ->mapWithKeys(function ($court) use ($tournament) {
+                $label = $tournament->publicCourtLabel($court);
+                return [$court->id => $label !== '' ? $label : 'cancha'];
+            });
         $out = [];
         foreach ($audits as $a) {
             $m = $a->match;

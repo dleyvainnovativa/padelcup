@@ -74,6 +74,21 @@
                     <input type="number" name="max_matches_per_day" min="1" max="10" step="1" value="{{ old('max_matches_per_day', $tournament->max_matches_per_day) }}" placeholder="2" class="form-control" style="border-radius:var(--radius);">
                 </div>
             </div>
+            <div class="row g-3 mt-0">
+                <div class="col-12 col-md-6">
+                    @php $pcv = old('public_court_visibility', $tournament->publicCourtVisibility()->value); @endphp
+                    <label class="form-label" style="font-size:13px;font-weight:500;">Cancha en vistas públicas y pantalla</label>
+                    <select name="public_court_visibility" class="form-select" style="border-radius:var(--radius);">
+                        @foreach(\App\Enums\PublicCourtVisibility::cases() as $opt)
+                        <option value="{{ $opt->value }}" @selected($pcv === $opt->value)>{{ $opt->label() }}</option>
+                        @endforeach
+                    </select>
+                    <div style="font-size:12px;color:var(--text-faint);margin-top:6px;">
+                        Controla cuánto se muestra de la cancha en el calendario público, la llave, los
+                        resultados y la pantalla. El panel de organización siempre ve la cancha completa.
+                    </div>
+                </div>
+            </div>
             <div style="font-size:12px;color:var(--text-faint);margin-top:6px;">
                 El calendario usa estos valores para crear los espacios (slots) y el horario disponible de todas las canchas.
             </div>
