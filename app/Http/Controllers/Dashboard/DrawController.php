@@ -230,11 +230,15 @@ class DrawController extends Controller
             // (ResultController::maybeBindBracket). No reseed that moves positions.
             if ($category->usesOverallSeeding()) {
                 $this->brackets->buildPositional($category); // delegates to the overall builder
+                $tieBroken = false;
                 if ($this->brackets->groupsComplete($category)) {
-                    $this->brackets->bindQualifiers($category);
+                    $tieBroken = ! empty($this->brackets->bindQualifiers($category)['tie_broken']);
                 }
-                return redirect()->route('draw.bracket', [$tournament, $category])
-                    ->with('status', 'Llave por tabla general generada. Las posiciones (1º, 2º…) salen de la tabla general y se actualizan con cada resultado; se asignan solas al terminar los grupos.');
+                $msg = 'Llave por tabla general generada. Las posiciones (1º, 2º…) salen de la tabla general y se actualizan con cada resultado; se asignan solas al terminar los grupos.';
+                if ($tieBroken) {
+                    $msg .= ' Nota: se desempató la última posición de clasificados extra por los criterios de desempate; revisa la llave.';
+                }
+                return redirect()->route('draw.bracket', [$tournament, $category])->with('status', $msg);
             }
 
             // Group-position seeding (A1/B2…): positional preview, bind at completion.

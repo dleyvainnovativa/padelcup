@@ -96,7 +96,7 @@ class BracketService
      *   tie: null|array,               // unresolved boundary tie, if any
      * }
      */
-    public function qualifiers(Category $category): array
+    public function qualifiers(Category $category, bool $breakTies = false): array
     {
         $groups = $category->groups()->with('pairs')->orderBy('position')->get();
         $auto = [];
@@ -130,7 +130,13 @@ class BracketService
             // Detect an unbreakable tie on the boundary (more tied than slots).
             $tie = $this->boundaryTie($rankedPool, $need);
 
-            if (! $tie) {
+            // Normally an unbreakable boundary tie returns NO extras so the manager
+            // resolves it (the positional generate flow prompts). With $breakTies —
+            // the live auto-fill — we STILL fill the extras deterministically by the
+            // tiebreak order (what the live projection already shows) and report the
+            // tie so the caller can notify. This is why overall-seeded extras now
+            // bind on their own instead of staying ghosted.
+            if (! $tie || $breakTies) {
                 $extras = collect($rankedPool)->take($need)->pluck('pair_id')->all();
             }
         }
@@ -480,10 +486,13 @@ class BracketService
      * final. Resolves each seed label (e.g. "B2") to the pair that finished in
      * that group position, fills round-1 pairs, applies byes, and advances.
      */
-    public function bindQualifiers(Category $category): void
+    public function bindQualifiers(Category $category): array
     {
-        // Map seed label → pair id from final standings.
-        $map = $this->seedLabelMap($category);
+        // Map seed label → pair id from final standings. breakTies: the live
+        // auto-fill always fills the extra slots (deterministically), reporting a
+        // boundary tie if one had to be broken, rather than leaving them empty.
+        $seed = $this->seedLabelMap($category, breakTies: true);
+        $map = $seed['map'];
 
         DB::transaction(function () use ($category, $map) {
             $firstRound = GameMatch::where('category_id', $category->id)
@@ -506,20 +515,27 @@ class BracketService
                 if ($fresh->winner_pair_id) $this->advanceWinner($fresh);
             }
         });
+
+        return ['tie_broken' => $seed['tie'] !== null, 'tie' => $seed['tie']];
     }
 
-    /** label (A1, B2…, Q1… or O1..ON) → pair id, from final standings. */
-    private function seedLabelMap(Category $category): array
+    /**
+     * label (A1, B2…, Q1… or O1..ON) → pair id, from final standings.
+     * Returns ['map' => [...], 'tie' => ?array] — the tie is non-null when a
+     * boundary tie among the extra qualifiers was auto-broken (for notifying).
+     */
+    private function seedLabelMap(Category $category, bool $breakTies = false): array
     {
         // Overall-seeded: O1..ON map to the qualifiers ranked by the overall
         // (cross-group) table, using the tournament's tiebreak order.
         if ($category->usesOverallSeeding()) {
-            $ids = $this->seedByOverall($category, $this->qualifiers($category)['qualifiers'] ?? []);
+            $q = $this->qualifiers($category, $breakTies);
+            $ids = $this->seedByOverall($category, $q['qualifiers'] ?? []);
             $map = [];
             foreach ($ids as $k => $pairId) {
                 $map['O' . ($k + 1)] = $pairId;
             }
-            return $map;
+            return ['map' => $map, 'tie' => $q['tie']];
         }
 
         $groups = $category->groups()->orderBy('position')->orderBy('id')->get();
@@ -539,19 +555,22 @@ class BracketService
         // Extra qualifiers (Q1, Q2…): the best boundary finishers ranked across
         // groups, as computed by qualifiers(). They come AFTER the auto pairs in
         // the returned list, so take the tail.
+        $tie = null;
         $extra = (int) ($category->extra_qualifiers ?? 0);
         if ($extra > 0) {
             // Sum of per-group winners (honours winners_per_group overrides) —
             // qualifiers() lists all auto pairs first, then the extras.
+            $q = $this->qualifiers($category, $breakTies);
+            $tie = $q['tie'];
             $auto = $category->autoQualifiersTotal($groups->count());
-            $ranked = $this->qualifiers($category)['qualifiers'] ?? [];
+            $ranked = $q['qualifiers'] ?? [];
             $extraIds = array_slice($ranked, $auto, $extra);
             foreach ($extraIds as $k => $pairId) {
                 $map['Q' . ($k + 1)] = $pairId;
             }
         }
 
-        return $map;
+        return ['map' => $map, 'tie' => $tie];
     }
 
     /** True when every group in the category has all its matches confirmed. */

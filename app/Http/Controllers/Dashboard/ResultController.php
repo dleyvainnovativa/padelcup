@@ -17,11 +17,11 @@ class ResultController extends Controller
 
     /** After a group result, if all groups are now complete, bind a positional
      *  bracket's qualifiers (A1/B2 labels → real pairs). No-op otherwise. */
-    private function maybeBindBracket(Tournament $tournament, Category $category, GameMatch $match): void
+    private function maybeBindBracket(Tournament $tournament, Category $category, GameMatch $match): bool
     {
-        if (! $match->group_id) return;                       // only group matches trigger
-        if ($category->format !== \App\Enums\CategoryFormat::Hybrid) return;
-        if (! $this->brackets->groupsComplete($category)) return;
+        if (! $match->group_id) return false;                 // only group matches trigger
+        if ($category->format !== \App\Enums\CategoryFormat::Hybrid) return false;
+        if (! $this->brackets->groupsComplete($category)) return false;
 
         // Is there a positional bracket waiting (round-1 has seed labels, no pairs)?
         $positional = GameMatch::where('category_id', $category->id)
@@ -30,8 +30,18 @@ class ResultController extends Controller
             ->exists();
 
         if ($positional) {
-            $this->brackets->bindQualifiers($category);
+            $res = $this->brackets->bindQualifiers($category);
+            return ! empty($res['tie_broken']); // a boundary tie was auto-broken
         }
+        return false;
+    }
+
+    /** Appends a tie-broken notice to a flash message when needed. */
+    private function tieNotice(string $message, bool $tieBroken): string
+    {
+        return $tieBroken
+            ? $message . ' Nota: se desempató la última posición de clasificados extra por los criterios de desempate; revisa la llave.'
+            : $message;
     }
 
     /** Match list for a category (group matches + bracket), with entry forms. */
@@ -83,9 +93,9 @@ class ResultController extends Controller
             return back()->withErrors($e->errors());
         }
 
-        $this->maybeBindBracket($tournament, $category, $match);
+        $tieBroken = $this->maybeBindBracket($tournament, $category, $match);
 
-        return back()->with('status', 'Resultado confirmado.');
+        return back()->with('status', $this->tieNotice('Resultado confirmado.', $tieBroken));
     }
 
     /** Manager accepts the pending player proposal → confirms it as official. */
@@ -105,9 +115,9 @@ class ResultController extends Controller
             return back()->withErrors($e->errors());
         }
 
-        $this->maybeBindBracket($tournament, $category, $match);
+        $tieBroken = $this->maybeBindBracket($tournament, $category, $match);
 
-        return back()->with('status', 'Propuesta aceptada y resultado confirmado.');
+        return back()->with('status', $this->tieNotice('Propuesta aceptada y resultado confirmado.', $tieBroken));
     }
 
     /** Manager rejects the pending player proposal (no result confirmed). */
