@@ -100,6 +100,11 @@ import('./modules/categoryHighlight').then((m) => m.initCategoryHighlight());
     import('./modules/groupLetters').then((m) => m.initGroupLetters());
   }
 
+  // Category edit: themed confirm before a format change wipes the structure.
+  if (document.getElementById('categoryEditForm')) {
+    import('./modules/categoryFormatConfirm').then((m) => m.initCategoryFormatConfirm());
+  }
+
   // Feature module: scheduling board (only on the calendar page).
   if (document.querySelector('[data-sched-board]')) {
     import('./modules/schedule').then((m) => m.initSchedule());

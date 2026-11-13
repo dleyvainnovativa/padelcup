@@ -12,8 +12,12 @@
 
 <div class="tc-card" style="max-width:680px;">
     <div class="tc-card__body">
-        <form method="POST" action="{{ route('categories.update', [$tournament, $category]) }}">
+        @php $catHasResults = $category->matches()->where('state', \App\Enums\MatchState::Confirmed)->exists(); @endphp
+        <form method="POST" action="{{ route('categories.update', [$tournament, $category]) }}"
+            id="categoryEditForm" data-orig-format="{{ $category->format->value }}"
+            data-has-results="{{ $catHasResults ? '1' : '0' }}">
             @csrf @method('PUT')
+            <input type="hidden" name="confirm_structure_reset" value="" id="confirmStructureReset">
             <div class="mb-3">
                 <label class="form-label" style="font-size:13px;font-weight:500;">Nombre</label>
                 <input type="text" name="name" value="{{ old('name', $category->name) }}" required
@@ -29,6 +33,12 @@
                         <option value="elimination" @selected($category->format->value==='elimination')>Eliminación</option>
                         <option value="hybrid" @selected($category->format->value==='hybrid')>Grupos → eliminación</option>
                     </select>
+                    @error('format')<div class="text-danger" style="font-size:12px;margin-top:4px;">{{ $message }}</div>@enderror
+                    @if($catHasResults)
+                    <div style="font-size:12px;color:var(--text-faint);margin-top:6px;">
+                        Cambiar el formato reconstruye la estructura y borra los partidos y resultados actuales.
+                    </div>
+                    @endif
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label" style="font-size:13px;font-weight:500;">Modalidad</label>

@@ -85,24 +85,36 @@ class CategoryController extends Controller
                 ]);
         }
 
+        // Changing the format drops a stage, and that stage's matches/results are
+        // removed with it (e.g. Grupos→eliminación → Solo eliminación deletes the
+        // group matches). On a category that already has results that's
+        // destructive, so require explicit confirmation — but NEVER leave the old
+        // stage orphaned with no way to delete it (the bug this fixes). Gate
+        // BEFORE saving so a refused change can't half-switch the category.
+        $formatChanging = $request->filled('format') && $request->input('format') !== $oldFormat;
+        $hasResults = $category->matches()
+            ->where('state', \App\Enums\MatchState::Confirmed)->exists();
+
+        if ($formatChanging && $hasResults && ! $request->boolean('confirm_structure_reset')) {
+            return back()->withInput()->withErrors([
+                'format' => 'Esta categoría ya tiene resultados. Confirma el cambio de formato para reconstruir la estructura (se perderán los partidos y resultados actuales).',
+            ]);
+        }
+
         $category->update($request->validated());
 
-        // Format changed → reconcile the structure so the old stages don't linger
-        // with no UI to delete them (the "can't delete the group matches after
-        // switching to elimination" trap). Safe (no confirmed results) → rebuild
-        // for the new format, clearing what it no longer has. With results → leave
-        // them and point the manager at Regenerar instead of destroying silently.
-        if ($category->format?->value !== $oldFormat) {
-            $res = $structureRegen->regenerateAll($category->fresh());
+        // Rebuild for the new format, clearing the stage it no longer has. force:
+        // the results case was already confirmed above; a fresh category rebuilds
+        // losslessly; too few pairs → nothing to build (just saved).
+        if ($formatChanging) {
+            $res = $structureRegen->regenerateAll($category->fresh(), force: true);
             if (! empty($res['ok'])) {
+                $deleted = (int) ($res['deleted_results'] ?? 0);
                 return redirect()
                     ->route('categories.show', [$tournament, $category])
-                    ->with('status', 'Categoría actualizada y estructura regenerada para el nuevo formato.');
-            }
-            if (($res['reason'] ?? null) === 'has_results') {
-                return redirect()
-                    ->route('categories.show', [$tournament, $category])
-                    ->with('status', 'Categoría actualizada. El formato cambió, pero ya hay resultados: usa «Regenerar» en Grupos o Llave para reconstruir la estructura.');
+                    ->with('status', $deleted > 0
+                        ? "Categoría actualizada; estructura regenerada ({$deleted} resultado(s) borrados)."
+                        : 'Categoría actualizada y estructura regenerada para el nuevo formato.');
             }
         }
 
