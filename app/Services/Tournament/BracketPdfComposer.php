@@ -22,10 +22,24 @@ class BracketPdfComposer
     // Geometry (points). A box holds two stacked sides.
     public const BOX_W = 150;
     public const ROW_H = 34;          // full match box height
-    public const ROW_GAP = 44;        // vertical pitch between round-1 matches
+    public const ROW_GAP = 50;        // vertical pitch between round-1 matches (→ 16pt gap between matches)
     private const COL_GAP = 28;
     private const MARGIN = 24;
     public const HEADER_H = 74;       // logo + title band
+    public const ROUND_LABEL_H = 20;  // round-name strip above the bracket
+
+    private function roundName(int $round, int $total): string
+    {
+        return match ($total - $round) {
+            0 => 'Final',
+            1 => 'Semifinal',
+            2 => 'Cuartos de final',
+            3 => 'Octavos de final',
+            4 => 'Dieciseisavos',
+            5 => 'Treintaidosavos',
+            default => 'Ronda ' . $round,
+        };
+    }
 
     private int $colW;
 
@@ -40,6 +54,7 @@ class BracketPdfComposer
         $matches = $matches->filter(fn($m) => ! $m->is_third_place)->values();
         if ($matches->isEmpty()) {
             return ['width' => 400, 'height' => 200, 'boxes' => [], 'lines' => [], 'rounds' => [],
+                'roundLabels' => [], 'labelY' => 0,
                 'boxW' => self::BOX_W, 'rowH' => self::ROW_H, 'headerH' => self::HEADER_H];
         }
 
@@ -78,18 +93,23 @@ class BracketPdfComposer
     {
         [$y, $nLeaf] = $this->assignY($root, $children);
 
+        $top = self::MARGIN + self::HEADER_H + self::ROUND_LABEL_H;
         $width = self::MARGIN * 2 + $R * $this->colW + 46;            // + champion stub
-        $height = self::MARGIN + self::HEADER_H + $nLeaf * self::ROW_GAP + self::MARGIN;
+        $height = $top + $nLeaf * self::ROW_GAP + self::MARGIN;
 
         $boxes = [];
         foreach ($matches as $m) {
             $boxes[$m->id] = [
                 'x' => self::MARGIN + ($m->round - 1) * $this->colW,
-                'y' => self::MARGIN + self::HEADER_H + ($y[$m->id] - 0.5) * self::ROW_GAP,
+                'y' => $top + ($y[$m->id] - 0.5) * self::ROW_GAP,
                 'side' => 'L',
             ];
         }
-        return $this->finish($matches, $children, $boxes, $width, $height, $R);
+        $labels = [];
+        for ($r = 1; $r <= $R; $r++) {
+            $labels[] = ['x' => self::MARGIN + ($r - 1) * $this->colW, 'label' => $this->roundName($r, $R)];
+        }
+        return $this->finish($matches, $children, $boxes, $width, $height, $R, $labels);
     }
 
     private function mirror(Collection $matches, object $root, callable $children, int $R): array
@@ -106,31 +126,39 @@ class BracketPdfComposer
         [$yL, $nL] = $kids->count() > 0 ? $this->assignY($kids[0], $children) : [[], 0];
         [$yR, $nR] = $kids->count() > 1 ? $this->assignY($kids[1], $children) : [[], 0];
 
+        $top = self::MARGIN + self::HEADER_H + self::ROUND_LABEL_H;
         $wing = ($R - 1) * $this->colW;
         $width = self::MARGIN * 2 + 2 * $wing + self::BOX_W + 40;     // two wings + centre final
-        $height = self::MARGIN + self::HEADER_H + max($nL, $nR) * self::ROW_GAP + self::MARGIN;
-        $midY = self::MARGIN + self::HEADER_H + (max($nL, $nR) / 2) * self::ROW_GAP - self::ROW_H / 2;
+        $height = $top + max($nL, $nR) * self::ROW_GAP + self::MARGIN;
+        $midY = $top + (max($nL, $nR) / 2) * self::ROW_GAP - self::ROW_H / 2;
 
         $boxes = [];
         foreach ($matches as $m) {
             $s = $side[$m->id] ?? 'L';
             if ($s === 'L') {
                 $x = self::MARGIN + ($m->round - 1) * $this->colW;
-                $yy = self::MARGIN + self::HEADER_H + (($yL[$m->id] ?? 0) - 0.5) * self::ROW_GAP;
+                $yy = $top + (($yL[$m->id] ?? 0) - 0.5) * self::ROW_GAP;
             } elseif ($s === 'R') {
                 $x = $width - self::MARGIN - self::BOX_W - ($m->round - 1) * $this->colW;
-                $yy = self::MARGIN + self::HEADER_H + (($yR[$m->id] ?? 0) - 0.5) * self::ROW_GAP;
+                $yy = $top + (($yR[$m->id] ?? 0) - 0.5) * self::ROW_GAP;
             } else { // centre final
                 $x = ($width - self::BOX_W) / 2;
                 $yy = $midY;
             }
             $boxes[$m->id] = ['x' => $x, 'y' => $yy, 'side' => $s];
         }
-        return $this->finish($matches, $children, $boxes, $width, $height, $R);
+        $labels = [];
+        for ($r = 1; $r < $R; $r++) {
+            $nm = $this->roundName($r, $R);
+            $labels[] = ['x' => self::MARGIN + ($r - 1) * $this->colW, 'label' => $nm];
+            $labels[] = ['x' => $width - self::MARGIN - self::BOX_W - ($r - 1) * $this->colW, 'label' => $nm];
+        }
+        $labels[] = ['x' => ($width - self::BOX_W) / 2, 'label' => $this->roundName($R, $R)];
+        return $this->finish($matches, $children, $boxes, $width, $height, $R, $labels);
     }
 
     /** Add connector segments between each match and its feeders. */
-    private function finish(Collection $matches, callable $children, array $boxes, float $w, float $h, int $R): array
+    private function finish(Collection $matches, callable $children, array $boxes, float $w, float $h, int $R, array $labels = []): array
     {
         $lines = [];
         foreach ($matches as $m) {
@@ -157,6 +185,7 @@ class BracketPdfComposer
         return [
             'width' => round($w), 'height' => round($h),
             'boxes' => $boxes, 'lines' => $lines, 'rounds' => $R,
+            'roundLabels' => $labels, 'labelY' => self::MARGIN + self::HEADER_H,
             'boxW' => self::BOX_W, 'rowH' => self::ROW_H, 'headerH' => self::HEADER_H,
         ];
     }

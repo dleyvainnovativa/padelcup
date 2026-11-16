@@ -21,7 +21,8 @@ def check(n, c):
     print(f"  {'ok  ' if c else 'FAIL'} {n}")
 
 # ---- constants mirror BracketPdfComposer ----
-BOX_W, ROW_H, ROW_GAP, COL_GAP, MARGIN, HEADER_H = 150, 34, 44, 28, 24, 74
+BOX_W, ROW_H, ROW_GAP, COL_GAP, MARGIN, HEADER_H, ROUND_LABEL_H = 150, 34, 50, 28, 24, 74, 20
+TOP = MARGIN + HEADER_H + ROUND_LABEL_H
 COLW = BOX_W + COL_GAP
 
 def build(matches):
@@ -43,8 +44,8 @@ def assign_y(start, children):
 def linear(by, root, children, R):
     y, n = assign_y(root, children)
     W = MARGIN*2 + R*COLW + 46
-    H = MARGIN + HEADER_H + n*ROW_GAP + MARGIN
-    boxes = {ref: (MARGIN+(by[ref]["round"]-1)*COLW, MARGIN+HEADER_H+(y[ref]-0.5)*ROW_GAP, "L") for ref in by}
+    H = TOP + n*ROW_GAP + MARGIN
+    boxes = {ref: (MARGIN+(by[ref]["round"]-1)*COLW, TOP+(y[ref]-0.5)*ROW_GAP, "L") for ref in by}
     return W, H, boxes
 
 def mirror(by, root, children, R):
@@ -59,16 +60,16 @@ def mirror(by, root, children, R):
     yR, nR = assign_y(kids[1], children) if len(kids) > 1 else ({}, 0)
     wing = (R-1)*COLW
     W = MARGIN*2 + 2*wing + BOX_W + 40
-    H = MARGIN + HEADER_H + max(nL, nR)*ROW_GAP + MARGIN
+    H = TOP + max(nL, nR)*ROW_GAP + MARGIN
     boxes = {}
     for ref, m in by.items():
         s = side.get(ref, "L"); r = m["round"]
         if s == "L":
-            boxes[ref] = (MARGIN+(r-1)*COLW, MARGIN+HEADER_H+(yL.get(ref,0)-0.5)*ROW_GAP, "L")
+            boxes[ref] = (MARGIN+(r-1)*COLW, TOP+(yL.get(ref,0)-0.5)*ROW_GAP, "L")
         elif s == "R":
-            boxes[ref] = (W-MARGIN-BOX_W-(r-1)*COLW, MARGIN+HEADER_H+(yR.get(ref,0)-0.5)*ROW_GAP, "R")
+            boxes[ref] = (W-MARGIN-BOX_W-(r-1)*COLW, TOP+(yR.get(ref,0)-0.5)*ROW_GAP, "R")
         else:
-            boxes[ref] = ((W-BOX_W)/2, MARGIN+HEADER_H+(max(nL,nR)/2)*ROW_GAP - ROW_H/2, "C")
+            boxes[ref] = ((W-BOX_W)/2, TOP+(max(nL,nR)/2)*ROW_GAP - ROW_H/2, "C")
     return W, H, boxes
 
 def no_overlap(by, boxes):
@@ -98,6 +99,7 @@ if export:
     check("mirror: no overlapping boxes in a column", no_overlap(by, mb))
     check("mirror is shorter than linear (fits big draws)", MH < LH)
     check("mirror is wider than linear (uses both sides)", MW > LW)
+    check("clear gap between matches (>= 14pt)", ROW_GAP - ROW_H >= 14)
     check("page sizes are sane (positive, bounded)", 0 < LW < 5000 and 0 < LH < 8000 and 0 < MW < 8000)
     print(f"      linear {LW:.0f}x{LH:.0f}pt · mirror {MW:.0f}x{MH:.0f}pt")
 else:
@@ -109,6 +111,9 @@ comp = (ROOT/"app/Services/Tournament/BracketPdfComposer.php").read_text()
 check("composer has both layouts", "private function linear(" in comp and "private function mirror(" in comp)
 check("composer returns page size + boxes + lines", "'width'" in comp and "'boxes'" in comp and "'lines'" in comp)
 check("composer constants match", f"BOX_W = {BOX_W}" in comp and f"ROW_GAP = {ROW_GAP}" in comp)
+check("composer emits round names (cuartos/semifinal/final…)", "function roundName(" in comp
+      and "'Cuartos de final'" in comp and "'Semifinal'" in comp and "'Final'" in comp)
+check("composer outputs roundLabels", "'roundLabels'" in comp)
 
 dc = (ROOT/"app/Http/Controllers/Dashboard/DrawController.php").read_text()
 check("controller bracketPdf method", "public function bracketPdf(" in dc)
@@ -120,6 +125,7 @@ blade = (ROOT/"resources/views/dashboard/schedule/pdf-bracket.blade.php").read_t
 check("pdf blade embeds the logo", "img/voleo-logo.png" in blade)
 check("pdf blade shows category + url", "$category->name" in blade and "$categoryUrl" in blade)
 check("pdf blade draws boxes + connector lines", "class=\"bx\"" in blade and "class=\"ln\"" in blade)
+check("pdf blade renders round-name labels", "class=\"rl\"" in blade and "roundLabels" in blade)
 
 web = (ROOT/"routes/web.php").read_text()
 check("route draw.bracket.pdf", "'bracketPdf'])->name('draw.bracket.pdf')" in web)

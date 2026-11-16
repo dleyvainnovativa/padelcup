@@ -56,7 +56,9 @@ return [
         'api_key' => env('UMAMI_API_KEY'),
         'website_id' => env('UMAMI_WEBSITE_ID'),
         'register_event' => env('UMAMI_REGISTER_EVENT', 'registro'),
-        'path_param' => env('UMAMI_PATH_PARAM', 'url'),
+        // Page-path filter key(s), comma-separated. Default sends both because
+        // Cloud uses 'path' and self-hosted uses 'url'; both take a path value.
+        'path_param' => env('UMAMI_PATH_PARAM', 'url,path'),
     ],
 
 ];

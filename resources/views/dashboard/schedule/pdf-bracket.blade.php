@@ -34,6 +34,12 @@
 
     .ln { position: absolute; background: #9aa8a2; }
 
+    .rl {
+        position: absolute; width: {{ $BW }}pt; text-align: center;
+        font-size: 8pt; font-weight: bold; color: #0e3b2e;
+        text-transform: uppercase; letter-spacing: .04em;
+    }
+
     .bx { position: absolute; width: {{ $BW }}pt; }
     .bx .s {
         height: {{ $sideH }}pt; box-sizing: border-box; border: 0.6pt solid #c9d2ce;
@@ -55,6 +61,10 @@
         </span>
         <span class="tn">{{ $tournament->name }}<br>{{ $generatedAt->translatedFormat('d M Y, H:i') }}</span>
     </div>
+
+    @foreach($layoutData['roundLabels'] as $rl)
+        <div class="rl" style="left: {{ $rl['x'] }}pt; top: {{ $layoutData['labelY'] }}pt;">{{ $rl['label'] }}</div>
+    @endforeach
 
     @foreach($layoutData['lines'] as $l)
         <div class="ln" style="left: {{ $l['x'] }}pt; top: {{ $l['y'] }}pt; width: {{ $l['w'] }}pt; height: {{ $l['h'] }}pt;"></div>

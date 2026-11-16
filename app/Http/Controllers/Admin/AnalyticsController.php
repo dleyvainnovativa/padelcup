@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 
 class AnalyticsController extends Controller
 {
-    private const RANGES = ['today' => 'Hoy', '7d' => '7 días', '30d' => '30 días', '90d' => '90 días'];
+    private const RANGES = ['all' => 'Todo', 'today' => 'Hoy', '7d' => '7 días', '30d' => '30 días', '90d' => '90 días'];
 
     public function index(Request $request, UmamiClient $umami)
     {
@@ -21,8 +21,8 @@ class AnalyticsController extends Controller
         }
         $selected ??= $tournaments->first();
 
-        $range = array_key_exists($request->get('range'), self::RANGES) ? $request->get('range') : '30d';
-        [$startMs, $endMs] = $this->window($range);
+        $range = array_key_exists($request->get('range'), self::RANGES) ? $request->get('range') : 'all';
+        [$startMs, $endMs] = $this->window($range, $selected);
 
         $report = null;
         if ($selected) {
@@ -55,8 +55,8 @@ class AnalyticsController extends Controller
     /** Stylized one-document brief for a manager: tournament + every category's traffic. */
     public function exportPdf(Request $request, Tournament $tournament, UmamiClient $umami)
     {
-        $range = array_key_exists($request->get('range'), self::RANGES) ? $request->get('range') : '30d';
-        [$startMs, $endMs] = $this->window($range);
+        $range = array_key_exists($request->get('range'), self::RANGES) ? $request->get('range') : 'all';
+        [$startMs, $endMs] = $this->window($range, $tournament);
         $event = (string) config('services.umami.register_event');
 
         $overallPath = '/t/' . $tournament->slug;
@@ -86,10 +86,12 @@ class AnalyticsController extends Controller
     }
 
     /** [startMs, endMs] for a range key, in the tournament timezone's day boundaries. */
-    private function window(string $range): array
+    private function window(string $range, ?Tournament $tournament = null): array
     {
         $now = now('America/Mexico_City');
         $start = match ($range) {
+            // "Todo": everything since the tournament page could first get traffic.
+            'all' => ($tournament?->created_at ?? $now->copy()->subYears(2))->copy()->startOfDay(),
             'today' => $now->copy()->startOfDay(),
             '7d' => $now->copy()->subDays(7)->startOfDay(),
             '90d' => $now->copy()->subDays(90)->startOfDay(),

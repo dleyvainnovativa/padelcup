@@ -16,21 +16,36 @@ use Illuminate\Support\Facades\Http;
  */
 class UmamiClient
 {
+    /** @var string[] query keys the page-path filter is sent under (Umami Cloud uses 'path', older/self-hosted 'url'). */
+    private array $pathKeys;
+
     public function __construct(
         private ?string $base = null,
         private ?string $apiKey = null,
         private ?string $websiteId = null,
-        private ?string $pathParam = null,
+        ?string $pathParam = null,
     ) {
         $this->base ??= rtrim((string) config('services.umami.base'), '/');
         $this->apiKey ??= (string) config('services.umami.api_key');
         $this->websiteId ??= (string) config('services.umami.website_id');
-        $this->pathParam ??= (string) (config('services.umami.path_param') ?: 'url');
+
+        // Send the page-path filter under BOTH 'url' and 'path' by default: Cloud
+        // honours 'path' and ignores the other; self-hosted the reverse. Both take
+        // a path value (same page), so neither ever filters it to nothing. Override
+        // with UMAMI_PATH_PARAM (comma-separated) to pin one.
+        $raw = $pathParam ?? (string) (config('services.umami.path_param') ?: 'url,path');
+        $this->pathKeys = array_values(array_filter(array_map('trim', explode(',', $raw)))) ?: ['url', 'path'];
     }
 
     public function configured(): bool
     {
         return $this->base !== '' && $this->apiKey !== '' && $this->websiteId !== '';
+    }
+
+    /** The page-path filter, spread into a query array ([] when no path). */
+    private function pathFilter(string $path): array
+    {
+        return $path === '' ? [] : array_fill_keys($this->pathKeys, $path);
     }
 
     /** Aggregate stats for a path over [startMs, endMs]: pageviews, visitors, visits, bounces, totaltime. */
@@ -39,8 +54,7 @@ class UmamiClient
         $raw = $this->get("/websites/{$this->websiteId}/stats", [
             'startAt' => $startMs,
             'endAt' => $endMs,
-            $this->pathParam => $path,
-        ]);
+        ] + $this->pathFilter($path));
         if (isset($raw['error'])) return $raw;
 
         // Response shape changed across versions: either flat ints or {value,prev}.
@@ -62,8 +76,7 @@ class UmamiClient
             'endAt' => $endMs,
             'unit' => $unit,
             'timezone' => $tz,
-            $this->pathParam => $path,
-        ]);
+        ] + $this->pathFilter($path));
         if (isset($raw['error'])) return ['pageviews' => [], 'sessions' => [], 'error' => $raw['error']];
 
         $pts = fn($rows) => collect($rows ?? [])->map(fn($r) => ['t' => $r['x'] ?? '', 'y' => (int) ($r['y'] ?? 0)])->all();
@@ -80,7 +93,7 @@ class UmamiClient
             'limit' => $limit,
         ];
         // 'event' metrics are site-wide (not path-filtered) in Umami.
-        if ($type !== 'event') $params[$this->pathParam] = $path;
+        if ($type !== 'event') $params += $this->pathFilter($path);
 
         $raw = $this->get("/websites/{$this->websiteId}/metrics", $params);
         if (isset($raw['error'])) return [];

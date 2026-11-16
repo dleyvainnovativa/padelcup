@@ -46,7 +46,9 @@ check("client hits api base from config", "config('services.umami.base')" in cli
 check("client has stats/series/metrics/eventCount",
       all(f"function {m}" in client for m in ["stats", "pageviewsSeries", "metrics", "eventCount"]))
 check("client fails soft (no throw to caller)", "return ['error'" in client and "catch (\\Throwable" in client)
-check("path filter key is configurable (url vs path)", "$this->pathParam" in client and "services.umami.path_param" in client)
+check("page-path filter sent under BOTH url and path", "array_fill_keys($this->pathKeys" in client and "function pathFilter" in client)
+check("config defaults path_param to url,path", "'url,path'" in (ROOT/"config/services.php").read_text())
+check("all-time range default", "'all' => 'Todo'" in (ROOT/"app/Http/Controllers/Admin/AnalyticsController.php").read_text() and "created_at" in (ROOT/"app/Http/Controllers/Admin/AnalyticsController.php").read_text())
 
 ctrl = (ROOT / "app/Http/Controllers/Admin/AnalyticsController.php").read_text()
 check("controller filters by the tournament public path /t/{slug}", "'/t/' . $selected->slug" in ctrl)
