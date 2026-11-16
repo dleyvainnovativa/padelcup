@@ -21,7 +21,7 @@
             @endforeach
         </select>
     </div>
-    <div class="col-12 col-md-6 col-lg-4">
+    <div class="col-8 col-md-4 col-lg-4">
         <label class="form-label" style="font-size:13px;font-weight:500;">Rango</label>
         <div class="btn-group d-flex" role="group">
             @foreach($ranges as $key => $label)
@@ -30,6 +30,15 @@
             @endforeach
         </div>
     </div>
+    @if($selected)
+    <div class="col-4 col-md-2 col-lg-3 text-end">
+        <label class="form-label d-block" style="font-size:13px;">&nbsp;</label>
+        <a href="{{ route('admin.analytics.pdf', ['tournament' => $selected->slug, 'range' => $range]) }}"
+           class="btn btn-soft btn-sm" target="_blank" rel="noopener">
+            <i class="fa-solid fa-file-pdf me-1"></i> Exportar PDF
+        </a>
+    </div>
+    @endif
 </form>
 
 @if(! $selected)

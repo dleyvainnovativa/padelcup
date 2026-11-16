@@ -52,6 +52,39 @@ class AnalyticsController extends Controller
         ]);
     }
 
+    /** Stylized one-document brief for a manager: tournament + every category's traffic. */
+    public function exportPdf(Request $request, Tournament $tournament, UmamiClient $umami)
+    {
+        $range = array_key_exists($request->get('range'), self::RANGES) ? $request->get('range') : '30d';
+        [$startMs, $endMs] = $this->window($range);
+        $event = (string) config('services.umami.register_event');
+
+        $overallPath = '/t/' . $tournament->slug;
+        $overall = $umami->stats($overallPath, $startMs, $endMs);
+
+        $rows = [];
+        foreach ($tournament->categories()->orderBy('name')->get() as $c) {
+            $path = '/t/' . $tournament->slug . '/' . $c->slug;
+            $s = $umami->stats($path, $startMs, $endMs);
+            $rows[] = ['name' => $c->name, 'path' => $path, 'stats' => ($s['error'] ?? false) ? null : $s];
+        }
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.analytics.pdf', [
+            'tournament' => $tournament,
+            'rangeLabel' => self::RANGES[$range],
+            'overall' => ($overall['error'] ?? false) ? null : $overall,
+            'overallPath' => $overallPath,
+            'rows' => $rows,
+            'eventName' => $event,
+            'eventCount' => $umami->configured() ? $umami->eventCount($event, $startMs, $endMs) : 0,
+            'configured' => $umami->configured(),
+            'error' => $overall['error'] ?? null,
+            'generatedAt' => now('America/Mexico_City'),
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-analitica.pdf');
+    }
+
     /** [startMs, endMs] for a range key, in the tournament timezone's day boundaries. */
     private function window(string $range): array
     {
