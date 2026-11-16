@@ -20,6 +20,64 @@ class ScheduleController extends Controller
     {
         $this->authorize('view', $tournament);
 
+        // Shared grid load (courts + matches + scheduled/unscheduled split + ghosts).
+        // SINGLE source of truth — the live-refresh board partial uses the exact
+        // same data via boardViewData(), so the two can never diverge.
+        [
+            'courts' => $courts,
+            'matches' => $matches,
+            'scheduled' => $scheduled,
+            'unscheduled' => $unscheduled,
+            'ghostQualifiers' => $ghostQualifiers
+        ]
+            = $this->gridData($tournament);
+
+        // Phases that actually exist in this tournament + any saved windows.
+        $presentPhases = \App\Support\SchedulePhase::presentIn($matches);
+        $phaseWindows = $tournament->phaseWindows()->get()->groupBy('phase');
+        $capacity = app(\App\Services\Tournament\CapacityService::class)->preview($tournament);
+        $proposal = app(\App\Services\Tournament\CapacityService::class)->proposeWindows($tournament);
+        $proposedWindows = $proposal['windows'];
+        $proposalOverflow = $proposal['overflow'];
+        // Categories in this tournament (for the highlight filter chips), with tint.
+        $categories = $tournament->categories()->orderBy('name')->get(['id', 'name', 'tint']);
+
+        // Cheatsheet: players registered in 2+ categories (collision risk).
+        $multiCategoryPlayers = $this->multiCategoryPlayers($tournament);
+        // Cheatsheet: players still missing payment (grouped by name, deduped).
+        $unpaidPlayers = $this->unpaidPlayers($tournament);
+
+        return view('dashboard.schedule.index', [
+            'tournament' => $tournament,
+            'courts' => $courts,
+            'scheduled' => $scheduled,
+            'unscheduled' => $unscheduled,
+            'days' => $tournament->playDays(),
+            'slots' => $tournament->timeSlots(),
+            'presentPhases' => $presentPhases,
+            'phaseWindows' => $phaseWindows,
+            'capacity' => $capacity,
+            'proposedWindows' => $proposedWindows,
+            'proposalOverflow' => $proposalOverflow,
+            'categories' => $categories,
+            'multiCategoryPlayers' => $multiCategoryPlayers,
+            'unpaidPlayers' => $unpaidPlayers,
+            'preferredSchedulePlayers' => $this->preferredSchedulePlayers($tournament),
+            'busyDayPlayers' => $this->busyDayPlayers($tournament, $tournament->maxMatchesPerDay() + 1),
+            'ghostQualifiers' => $ghostQualifiers,
+            'playerMatchIndex' => $this->playerMatchIndex($tournament),
+        ]);
+    }
+
+    /**
+     * The grid's core data: courts, every match (eager-loaded for the cards),
+     * and the scheduled / unscheduled split + ghost-qualifier map. Shared by the
+     * full page (index) and the live board partial (boardViewData) so a save can
+     * repaint JUST the board without re-running the heavy cheatsheets, the
+     * conflict audit, or the capacity preview that index() also builds.
+     */
+    private function gridData(Tournament $tournament): array
+    {
         $courts = $tournament->courts()->with('venue')->get();
 
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
@@ -54,42 +112,52 @@ class ScheduleController extends Controller
             })
             ->values();
 
-        // Phases that actually exist in this tournament + any saved windows.
-        $presentPhases = \App\Support\SchedulePhase::presentIn($matches);
-        $phaseWindows = $tournament->phaseWindows()->get()->groupBy('phase');
-        $capacity = app(\App\Services\Tournament\CapacityService::class)->preview($tournament);
-        $proposal = app(\App\Services\Tournament\CapacityService::class)->proposeWindows($tournament);
-        $proposedWindows = $proposal['windows'];
-        $proposalOverflow = $proposal['overflow'];
-        // Categories in this tournament (for the highlight filter chips), with tint.
-        $categories = $tournament->categories()->orderBy('name')->get(['id', 'name', 'tint']);
-
-        // Cheatsheet: players registered in 2+ categories (collision risk).
-        $multiCategoryPlayers = $this->multiCategoryPlayers($tournament);
-        // Cheatsheet: players still missing payment (grouped by name, deduped).
-        $unpaidPlayers = $this->unpaidPlayers($tournament);
         $ghostQualifiers = app(\App\Services\Tournament\GhostQualifierResolver::class)
             ->mapForTournament($tournament);
-        return view('dashboard.schedule.index', [
+
+        return compact('courts', 'matches', 'scheduled', 'unscheduled', 'ghostQualifiers');
+    }
+
+    /**
+     * Just what the board partial needs — the grid plus the day/slot axes and the
+     * two per-card lookups (multi-category pagos subtitle + player match index).
+     * Deliberately omits the cheatsheets, audit and capacity preview that index()
+     * loads, so a live repaint is cheap.
+     */
+    private function boardViewData(Tournament $tournament): array
+    {
+        $grid = $this->gridData($tournament);
+
+        return [
             'tournament' => $tournament,
-            'courts' => $courts,
-            'scheduled' => $scheduled,
-            'unscheduled' => $unscheduled,
+            'courts' => $grid['courts'],
+            'scheduled' => $grid['scheduled'],
+            'unscheduled' => $grid['unscheduled'],
+            'ghostQualifiers' => $grid['ghostQualifiers'],
             'days' => $tournament->playDays(),
             'slots' => $tournament->timeSlots(),
-            'presentPhases' => $presentPhases,
-            'phaseWindows' => $phaseWindows,
-            'capacity' => $capacity,
-            'proposedWindows' => $proposedWindows,
-            'proposalOverflow' => $proposalOverflow,
-            'categories' => $categories,
-            'multiCategoryPlayers' => $multiCategoryPlayers,
-            'unpaidPlayers' => $unpaidPlayers,
-            'preferredSchedulePlayers' => $this->preferredSchedulePlayers($tournament),
-            'busyDayPlayers' => $this->busyDayPlayers($tournament, $tournament->maxMatchesPerDay() + 1),
-            'ghostQualifiers' => $ghostQualifiers,
+            'multiCategoryPlayers' => $this->multiCategoryPlayers($tournament),
             'playerMatchIndex' => $this->playerMatchIndex($tournament),
-        ]);
+        ];
+    }
+
+    /** Render the board partial to an HTML string (for live, in-place repaints). */
+    private function boardHtml(Tournament $tournament): string
+    {
+        return view('dashboard.schedule.partials.board', $this->boardViewData($tournament))->render();
+    }
+
+    /**
+     * Lightweight board-only endpoint. Returns just the board partial HTML (no
+     * layout, sidebar, cheatsheets, audit or capacity preview), so the live
+     * refresh after an action re-fetches a fraction of what the full page costs.
+     */
+    public function board(Tournament $tournament)
+    {
+        $this->authorize('view', $tournament);
+
+        return response($this->boardHtml($tournament))
+            ->header('Content-Type', 'text/html; charset=UTF-8');
     }
 
     /**
@@ -480,8 +548,16 @@ class ScheduleController extends Controller
         $maxPerDay = $tournament->maxMatchesPerDay();
 
         $result = $this->scheduler->autoSchedule(
-            $tournament, $courts, $duration, $duration, true, $maxPerDay,
-            (int) $category->id, $ranges, $phases, $overridePlayers,
+            $tournament,
+            $courts,
+            $duration,
+            $duration,
+            true,
+            $maxPerDay,
+            (int) $category->id,
+            $ranges,
+            $phases,
+            $overridePlayers,
         );
 
         $msg = "{$result['scheduled']} partido" . ($result['scheduled'] === 1 ? '' : 's')
@@ -513,7 +589,7 @@ class ScheduleController extends Controller
             'match_id' => ['required', 'integer'],
             'court_id' => ['required', 'integer'],
             'starts_at' => ['required', 'date'],
-            'duration' => ['nullable', 'integer', 'min:15', 'max:240'],
+            'duration' => ['nullable', 'integer', 'min:1', 'max:240'],
             'force' => ['nullable', 'boolean'],
         ]);
 
@@ -540,7 +616,10 @@ class ScheduleController extends Controller
         // Live placement warnings: starts before a feeder / source group finishes
         // (or those aren't scheduled), or a player would exceed the daily limit.
         $placementWarnings = $this->scheduler->placementWarnings(
-            $match, $startsAt, $duration, $tournament->maxMatchesPerDay()
+            $match,
+            $startsAt,
+            $duration,
+            $tournament->maxMatchesPerDay()
         );
         $conflicts = array_merge($conflicts, $placementWarnings);
 
@@ -560,7 +639,9 @@ class ScheduleController extends Controller
         // Log the schedule change for the public "Últimos cambios" feed.
         $this->auditScheduleChange($match->fresh(), $before, $request, 'reprogramar');
 
-        return response()->json(['ok' => true, 'warnings' => $conflicts]);
+        // Hand back the freshly rendered board so the client repaints in place
+        // with a single round-trip (no follow-up GET).
+        return response()->json(['ok' => true, 'warnings' => $conflicts, 'board' => $this->boardHtml($tournament)]);
     }
 
     /**
@@ -614,7 +695,7 @@ class ScheduleController extends Controller
         $match->update(['starts_at' => $startsAt, 'duration_minutes' => $duration]);
         $this->auditScheduleChange($match->fresh(), $before, $request, 'ajustar hora');
 
-        return response()->json(['ok' => true, 'warnings' => $conflicts]);
+        return response()->json(['ok' => true, 'warnings' => $conflicts, 'board' => $this->boardHtml($tournament)]);
     }
 
     /** Unschedule a match (back to the unplaced tray). */
@@ -630,7 +711,7 @@ class ScheduleController extends Controller
         $match->update(['court_id' => null, 'starts_at' => null]);
         $this->auditScheduleChange($match->fresh(), $before, $request, 'quitar del calendario');
 
-        return response()->json(['ok' => true]);
+        return response()->json(['ok' => true, 'board' => $this->boardHtml($tournament)]);
     }
 
     /** Unschedule MANY matches at once (multi-select on the board). */
@@ -649,7 +730,7 @@ class ScheduleController extends Controller
             ->whereNotNull('starts_at')
             ->update(['court_id' => null, 'starts_at' => null]);
 
-        return response()->json(['ok' => true, 'count' => $count]);
+        return response()->json(['ok' => true, 'count' => $count, 'board' => $this->boardHtml($tournament)]);
     }
 
     /** Unschedule ALL matches in the tournament (clear the whole calendar). */
@@ -871,9 +952,14 @@ class ScheduleController extends Controller
             ->whereNotNull('starts_at')
             ->when($catIds, fn($q) => $q->whereIn('category_id', $catIds))
             ->with([
-                'category', 'court',
-                'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2',
-                'feederA', 'feederB',
+                'category',
+                'court',
+                'pairA.player1',
+                'pairA.player2',
+                'pairB.player1',
+                'pairB.player2',
+                'feederA',
+                'feederB',
             ])
             ->get();
 

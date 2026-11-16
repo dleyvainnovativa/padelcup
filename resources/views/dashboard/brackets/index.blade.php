@@ -68,7 +68,15 @@
             // played yet (a played match's result must not be disturbed). This
             // lets the manager fix a bad draw — e.g. an extra qualifier drawn
             // against their own group's winner — even after the tournament locks.
-            $swappable = $status !== 'played' && ! $category->usesOverallSeeding();
+            // A bye is stored as a confirmed walkover (status 'played') but isn't
+            // really played — let the manager move it too; only genuine results
+            // stay locked.
+            $isBye = $status === 'played' && $m->result_type?->value === 'walkover' && $m->incident_note === 'Bye';
+            $swappable = (! $category->usesOverallSeeding()) && ($status !== 'played' || $isBye);
+            // For a bye, only its FILLED side is selectable — the empty "Por
+            // definir" side must not be (matches the backend occupied-sides guard).
+            $swapA = $swappable && (! $isBye || $m->pair_a_id || $m->seed_label_a);
+            $swapB = $swappable && (! $isBye || $m->pair_b_id || $m->seed_label_b);
             @endphp
             <div class="sched-match is-{{ $status }} {{ $ready ? 'is-tappable' : '' }}"
                 @if($ready)
@@ -83,10 +91,10 @@
                 data-clear-url="{{ route('results.clear', [$tournament, $category, $m]) }}"
                 @endif>
                 <div class="bmatch-side {{ $m->winner_pair_id === $m->pair_a_id && $m->pair_a_id ? '' : 'is-dim' }}"
-                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="a" @endif>{{ $m->sideLabel('a') }}@php $gtA = $m->groupTagFor('a', $groupTags ?? []); @endphp @if($gtA)<span class="bmatch-grp">Grupo {{ $gtA }}</span>@endif@php $ghA = $m->ghostFor('a', $ghostQualifiers ?? []); @endphp @if($ghA)<span class="bmatch-ghost" title="Posible clasificado (grupo terminado)">{{ $ghA }}</span>@endif</div>
+                    @if($swapA) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="a" @endif>{{ $m->sideLabel('a') }}@php $gtA = $m->groupTagFor('a', $groupTags ?? []); @endphp @if($gtA)<span class="bmatch-grp">Grupo {{ $gtA }}</span>@endif@php $ghA = $m->ghostFor('a', $ghostQualifiers ?? []); @endphp @if($ghA)<span class="bmatch-ghost" title="Posible clasificado (grupo terminado)">{{ $ghA }}</span>@endif</div>
                 <div style="font-size:10px;color:var(--text-faint);">vs</div>
                 <div class="bmatch-side {{ $m->winner_pair_id === $m->pair_b_id && $m->pair_b_id ? '' : 'is-dim' }}"
-                    @if($swappable) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="b" @endif>{{ $m->sideLabel('b') }}@php $gtB = $m->groupTagFor('b', $groupTags ?? []); @endphp @if($gtB)<span class="bmatch-grp">Grupo {{ $gtB }}</span>@endif@php $ghB = $m->ghostFor('b', $ghostQualifiers ?? []); @endphp @if($ghB)<span class="bmatch-ghost" title="Posible clasificado (grupo terminado)">{{ $ghB }}</span>@endif</div>
+                    @if($swapB) data-swap-slot data-swap-match="{{ $m->id }}" data-swap-side="b" @endif>{{ $m->sideLabel('b') }}@php $gtB = $m->groupTagFor('b', $groupTags ?? []); @endphp @if($gtB)<span class="bmatch-grp">Grupo {{ $gtB }}</span>@endif@php $ghB = $m->ghostFor('b', $ghostQualifiers ?? []); @endphp @if($ghB)<span class="bmatch-ghost" title="Posible clasificado (grupo terminado)">{{ $ghB }}</span>@endif</div>
                 @if($status === 'played' && $m->sets)
                 <div class="sched-match__scores">
                     @foreach($m->sets as $s)

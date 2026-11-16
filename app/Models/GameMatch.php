@@ -309,7 +309,11 @@ class GameMatch extends Model
     /**
      * Scheduling phase key for this match, used to match it to a phase window.
      * Group matches → 'groups'. Bracket matches → their round by distance from
-     * the final: final / semifinal / quarterfinal / r16 / r32.
+     * the final: final / semifinal / quarterfinal / r16 / r32 / r64.
+     *
+     * A 64-slot bracket (6 rounds) needs the r64 tier so its first round (round
+     * of 64) and second round (round of 32) land on DIFFERENT phases — otherwise
+     * both collapse onto r32 and the scheduler crams them into one window.
      */
     public function phaseKey(): string
     {
@@ -325,7 +329,8 @@ class GameMatch extends Model
             2 => 'quarterfinal',
             3 => 'r16',
             4 => 'r32',
-            default => 'r32',
+            5 => 'r64',
+            default => 'r64',
         };
     }
 

@@ -84,18 +84,32 @@ class ResultController extends Controller
         ]);
 
         if (! $match->isReady()) {
-            return back()->withErrors(['result' => 'El partido aún no tiene ambas parejas definidas.']);
+            $msg = 'El partido aún no tiene ambas parejas definidas.';
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'errors' => ['result' => [$msg]]], 422);
+            }
+            return back()->withErrors(['result' => $msg]);
         }
 
         try {
             $this->results->confirm($match, $request->user(), $data['sets']);
         } catch (ValidationException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'errors' => $e->errors()], 422);
+            }
             return back()->withErrors($e->errors());
         }
 
         $tieBroken = $this->maybeBindBracket($tournament, $category, $match);
 
-        return back()->with('status', $this->tieNotice('Resultado confirmado.', $tieBroken));
+        $status = $this->tieNotice('Resultado confirmado.', $tieBroken);
+        // Calendar / bracket sheets POST via fetch (Accept: json) — hand back a
+        // tiny JSON so there's no 302→full-page redirect-follow before the board
+        // repaints. The Resultados page uses normal form posts and still redirects.
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'status' => $status]);
+        }
+        return back()->with('status', $status);
     }
 
     /** Manager accepts the pending player proposal → confirms it as official. */
@@ -149,9 +163,15 @@ class ResultController extends Controller
         try {
             $this->results->edit($match, $data['sets'], $request->user());
         } catch (ValidationException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'errors' => $e->errors()], 422);
+            }
             return back()->withErrors($e->errors());
         }
 
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'status' => 'Resultado actualizado.']);
+        }
         return back()->with('status', 'Resultado actualizado.');
     }
 

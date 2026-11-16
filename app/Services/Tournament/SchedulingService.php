@@ -359,6 +359,17 @@ class SchedulingService
             }
         }
 
+        // Resolved feeders: a match that is already CONFIRMED (incl. a bye /
+        // walkover) is decided and imposes NO scheduling dependency — even though
+        // a bye is never placed on the calendar, so it never lands in $endOf. A
+        // bracket match fed by a bye must not wait forever on that bye.
+        $resolved = array_flip(
+            GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
+                ->where('state', \App\Enums\MatchState::Confirmed)
+                ->pluck('id')
+                ->all()
+        );
+
         // Unscheduled matches to place. With phase windows we INCLUDE placeholder
         // matches (pairs not yet known — Mexicano R2, bracket rounds fed by earlier
         // results) so the phase window can RESERVE their court/time ahead of time.
@@ -454,7 +465,7 @@ class SchedulingService
             // dependency order (Final after Semis, Semis after Quarters, first round
             // after its groups) and stops an unbound placeholder from sliding ahead
             // of groups that couldn't be placed.
-            if ($this->bracketDependencyPending($match, $endOf, $lettersByCat, $groupOpen)) {
+            if ($this->bracketDependencyPending($match, $endOf, $resolved, $lettersByCat, $groupOpen)) {
                 $byPhase[$phase]['unplaced']++;
                 $byPhase[$phase]['waiting'] = ($byPhase[$phase]['waiting'] ?? 0) + 1;
                 $waitingDeps++;
@@ -1145,13 +1156,15 @@ class SchedulingService
      * @param  array<int,array>  $lettersByCat [categoryId => [letter => groupId]]
      * @param  array<int,int>    $groupOpen    [groupId => count of unscheduled matches]
      */
-    private function bracketDependencyPending(GameMatch $match, array $endOf, array $lettersByCat, array $groupOpen): bool
+    private function bracketDependencyPending(GameMatch $match, array $endOf, array $resolved, array $lettersByCat, array $groupOpen): bool
     {
         if ($match->group_id) return false;
 
-        // Feeder rounds: a set feeder with no known end hasn't been placed yet.
+        // Feeder rounds: a set feeder with no known end hasn't been placed yet —
+        // UNLESS it's already resolved (a confirmed result / bye), which never
+        // gets a calendar slot but still satisfies the dependency.
         foreach ([$match->feeder_a_id, $match->feeder_b_id] as $fid) {
-            if ($fid && ! isset($endOf[$fid])) return true;
+            if ($fid && ! isset($endOf[$fid]) && ! isset($resolved[$fid])) return true;
         }
 
         // First round seeded from groups: any mapped group that still has an

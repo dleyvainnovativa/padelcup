@@ -301,14 +301,38 @@ class DrawController extends Controller
         $a = \App\Models\GameMatch::where('category_id', $category->id)->findOrFail($data['match_a']);
         $b = \App\Models\GameMatch::where('category_id', $category->id)->findOrFail($data['match_b']);
 
-        // Only allow swapping before the bracket has results.
-        abort_if($a->state === \App\Enums\MatchState::Confirmed || $b->state === \App\Enums\MatchState::Confirmed, 422, 'No se puede mover un partido ya jugado.');
+        // Byes are stored as confirmed walkovers, but they aren't really played —
+        // the manager must be able to move them. So block only GENUINELY played
+        // matches (a real result, or a non-bye walkover such as a forfeit); a bye
+        // walkover is movable and re-resolved after the swap.
+        foreach ([$a, $b] as $m) {
+            $played = $m->state === \App\Enums\MatchState::Confirmed
+                && ! ($m->result_type?->value === 'walkover' && $m->incident_note === 'Bye');
+            abort_if($played, 422, 'No se puede mover un partido ya jugado.');
+        }
+
+        // Both chosen sides must hold a real occupant (a pair or a seed label) —
+        // you can't swap into an empty "Por definir" bye side, which would leave a
+        // slot with nobody in it.
+        $occupied = fn(\App\Models\GameMatch $m, string $s) => $s === 'a'
+            ? ($m->pair_a_id || $m->seed_label_a)
+            : ($m->pair_b_id || $m->seed_label_b);
+        abort_unless($occupied($a, $data['side_a']) && $occupied($b, $data['side_b']),
+            422, 'Selecciona dos posiciones ocupadas para intercambiar (no un hueco de bye).');
 
         // Snapshot before, for the audit trail.
         $beforeA = ['seed_label_a' => $a->seed_label_a, 'seed_label_b' => $a->seed_label_b, 'pair_a_id' => $a->pair_a_id, 'pair_b_id' => $a->pair_b_id];
         $beforeB = ['seed_label_a' => $b->seed_label_a, 'seed_label_b' => $b->seed_label_b, 'pair_a_id' => $b->pair_a_id, 'pair_b_id' => $b->pair_b_id];
 
-        $this->brackets->swapSlots($a, $data['side_a'], $b, $data['side_b']);
+        // Swap + re-resolve any touched bye (re-point walkover + round-2 feed)
+        // atomically, so the bracket is never left half-updated.
+        \Illuminate\Support\Facades\DB::transaction(function () use ($a, $b, $data) {
+            $this->brackets->swapSlots($a, $data['side_a'], $b, $data['side_b']);
+            $this->brackets->resolveByeAfterEdit($a);
+            if ($b->id !== $a->id) {
+                $this->brackets->resolveByeAfterEdit($b);
+            }
+        });
 
         // Audit both affected matches (manual position edit — kept even post-lock).
         $a->refresh();

@@ -637,6 +637,81 @@ class BracketService
         // nothing else to do; the parent becomes playable when both filled.
     }
 
+    /**
+     * Inverse of advanceWinner: remove a feeder's winner from its parent slot.
+     * Shallow by design — only called while editing positions (before any real
+     * result exists downstream), so there is never a deeper cascade to undo.
+     * Only clears the parent slot if it still holds THIS feeder's winner and the
+     * parent itself hasn't been played.
+     */
+    public function retractWinner(GameMatch $match): void
+    {
+        if (! $match->winner_pair_id) return;
+
+        $parent = GameMatch::where('feeder_a_id', $match->id)->first();
+        $slot = 'pair_a_id';
+        if (! $parent) {
+            $parent = GameMatch::where('feeder_b_id', $match->id)->first();
+            $slot = 'pair_b_id';
+        }
+        if (! $parent) return;
+
+        if ((int) $parent->{$slot} === (int) $match->winner_pair_id
+            && $parent->state !== MatchState::Confirmed) {
+            $parent->update([$slot => null]);
+        }
+    }
+
+    /**
+     * Re-resolve a round-1 slot after a manual position edit (Editar posiciones).
+     *
+     * Byes are stored as confirmed walkovers, so moving one has to re-point the
+     * walkover to the slot's CURRENT occupant and fix the round-2 propagation.
+     * Because a swap only ever exchanges two OCCUPIED sides (controller guard), a
+     * bye stays a bye and a real pairing stays a real pairing — only the occupant
+     * changes, which keeps this to a re-point (no bracket reshape).
+     *
+     * Pure-elimination byes only (pair-id based). Hybrid positional slots (seed
+     * labels, not yet bound) carry no winner and fall through untouched.
+     */
+    public function resolveByeAfterEdit(GameMatch $match): void
+    {
+        $match = $match->fresh();
+        if ($match->group_id || (int) $match->round !== 1) return;
+
+        $a = $match->pair_a_id;
+        $b = $match->pair_b_id;
+        $onePresent = (bool) $a !== (bool) $b; // exactly one side has a pair → bye
+
+        if ($onePresent) {
+            // Still a bye — point the walkover at whoever occupies it now.
+            $present = (int) ($a ?: $b);
+            if ((int) $match->winner_pair_id !== $present) {
+                $this->retractWinner($match);          // pull the old winner out of round 2
+                $this->autoWin($match, $present);       // re-confirm the bye for the new occupant
+                $this->advanceWinner($match->fresh());  // push the new winner into round 2
+            } elseif ($match->state !== MatchState::Confirmed) {
+                $this->autoWin($match, $present);
+                $this->advanceWinner($match->fresh());
+            }
+        } elseif ($a && $b) {
+            // Became a real pairing — if it was a bye walkover, make it playable.
+            if ($match->state === MatchState::Confirmed
+                && $match->result_type?->value === 'walkover'
+                && $match->incident_note === 'Bye') {
+                $this->retractWinner($match);
+                $match->update([
+                    'state' => MatchState::Scheduled,
+                    'winner_pair_id' => null,
+                    'result_type' => 'normal',
+                    'incident_note' => null,
+                    'confirmed_at' => null,
+                ]);
+            }
+        }
+        // Both empty: a well-formed swap never produces this; leave as-is.
+    }
+
     // --- Seeding helpers ----------------------------------------------
 
     private function nextPowerOfTwo(int $n): int

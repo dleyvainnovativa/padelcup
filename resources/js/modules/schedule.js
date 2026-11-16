@@ -18,6 +18,13 @@ export function initSchedule() {
   let board = document.querySelector('[data-sched-board]');
   if (!board) return;
 
+  // Restore scroll after a fallback hard-reload (see hardReloadKeepingScroll).
+  const SCROLL_KEY = 'sched_scroll_' + location.pathname;
+  try {
+    const sv = sessionStorage.getItem(SCROLL_KEY);
+    if (sv !== null) { sessionStorage.removeItem(SCROLL_KEY); window.scrollTo(0, parseInt(sv, 10) || 0); }
+  } catch (_) {}
+
   let cfg = JSON.parse(board.dataset.schedConfig);
   const sheet = buildSheet();
 
@@ -26,9 +33,9 @@ export function initSchedule() {
     const payload = { match_id: matchId, court_id: court, starts_at: `${date}T${slot}:00`, duration: cfg.duration };
     if (force) payload.force = true;
     try {
-      await post(cfg.placeUrl, payload);
+      const res = await post(cfg.placeUrl, payload);
       toast.success('Partido programado.');
-      refreshBoard();
+      applyOrRefresh(res);
       return true;
     } catch (e) {
       const conflicts = e?.body?.conflicts;
@@ -42,9 +49,9 @@ export function initSchedule() {
 
   async function unplace(matchId) {
     try {
-      await post(cfg.unplaceUrl, { match_id: matchId });
+      const res = await post(cfg.unplaceUrl, { match_id: matchId });
       toast.success('Partido quitado.');
-      refreshBoard();
+      applyOrRefresh(res);
     } catch (_) { toast.error('No se pudo quitar.'); }
   }
 
@@ -97,7 +104,7 @@ export function initSchedule() {
   // --- Multi-select unschedule -------------------------------------
   // A "selection mode" toggle turns match clicks into select/deselect instead of
   // opening the control sheet. A floating bar shows the count + the action.
-  const selection = initMultiSelect(board, cfg, refreshBoard);
+  const selection = initMultiSelect(board, cfg, applyOrRefresh);
 
   // --- Scheduled match click → match-control sheet ------------------
   const ctrlSheet = buildControlSheet({
@@ -111,9 +118,9 @@ export function initSchedule() {
   // true on success, { conflicts } on a 422 (so the sheet can offer to force).
   async function setMatchTime(matchData, time, force) {
     try {
-      await post(cfg.setTimeUrl, { match_id: matchData.id, time, force: !!force });
+      const res = await post(cfg.setTimeUrl, { match_id: matchData.id, time, force: !!force });
       toast.success('Hora actualizada.');
-      refreshBoard();
+      applyOrRefresh(res);
       return true;
     } catch (e) {
       if (e && e.status === 422 && e.body && e.body.conflicts) {
@@ -199,40 +206,63 @@ export function initSchedule() {
   // helpers (highlight dimming, player badges) re-apply via the dispatched
   // event. Anything unexpected falls back to a hard reload so state is never
   // left wrong.
+  // Swap the board DOM in from a freshly-rendered HTML string — either the board
+  // partial an action endpoint hands back inline (single round-trip), or the
+  // partial fetched by refreshBoard(). Scroll + active day survive. Returns false
+  // (and hard-reloads) if the markup has no board node.
+  function applyBoardHtml(html) {
+    const scrollY = window.scrollY;
+    selection.reset(); // leave selection mode; clears stale selected nodes
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const fresh = doc.querySelector('[data-sched-board]');
+    if (!fresh) { hardReloadKeepingScroll(); return false; }
+
+    // Tear down Alpine on the old node, swap, re-scan the new one.
+    window.Alpine?.destroyTree?.(board);
+    board.replaceWith(fresh);
+    board = fresh;
+    window.Alpine?.initTree?.(board);
+
+    // Refresh config + the out-of-board player index (counts/times changed).
+    cfg = JSON.parse(board.dataset.schedConfig);
+    const freshIdx = doc.getElementById('player-match-index');
+    const curIdx = document.getElementById('player-match-index');
+    if (freshIdx && curIdx) curIdx.textContent = freshIdx.textContent;
+
+    bindBoard();
+    document.dispatchEvent(new CustomEvent('sched:board-refreshed', { detail: { board } }));
+    window.scrollTo(0, scrollY);
+    return true;
+  }
+
+  // Action handlers call this with their POST response: use the board the server
+  // already rendered (no extra request), else fall back to fetching it.
+  function applyOrRefresh(res) {
+    if (res && typeof res.board === 'string') applyBoardHtml(res.board);
+    else refreshBoard();
+  }
+
+  // Preserve scroll across the last-resort full reload.
+  function hardReloadKeepingScroll() {
+    try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); } catch (_) {}
+    window.location.reload();
+  }
+
+  // Re-fetch JUST the board partial (no layout / cheatsheets / audit / capacity),
+  // then swap it in. Falls back to a scroll-preserving hard reload on any error.
   let refreshing = false;
   async function refreshBoard() {
     if (refreshing) return;
     refreshing = true;
-    const scrollY = window.scrollY;
-    selection.reset(); // leave selection mode; clears stale selected nodes
     try {
-      const res = await fetch(window.location.href, {
+      const res = await fetch(cfg.boardUrl || window.location.href, {
         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
         credentials: 'same-origin',
       });
       if (!res.ok) throw new Error('bad status ' + res.status);
-      const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
-      const fresh = doc.querySelector('[data-sched-board]');
-      if (!fresh) throw new Error('board node missing from response');
-
-      // Tear down Alpine on the old node, swap, re-scan the new one.
-      window.Alpine?.destroyTree?.(board);
-      board.replaceWith(fresh);
-      board = fresh;
-      window.Alpine?.initTree?.(board);
-
-      // Refresh config + the out-of-board player index (counts/times changed).
-      cfg = JSON.parse(board.dataset.schedConfig);
-      const freshIdx = doc.getElementById('player-match-index');
-      const curIdx = document.getElementById('player-match-index');
-      if (freshIdx && curIdx) curIdx.textContent = freshIdx.textContent;
-
-      bindBoard();
-      document.dispatchEvent(new CustomEvent('sched:board-refreshed', { detail: { board } }));
-      window.scrollTo(0, scrollY);
+      applyBoardHtml(await res.text());
     } catch (_) {
-      window.location.reload();
-      return;
+      hardReloadKeepingScroll();
     } finally {
       refreshing = false;
     }
@@ -403,10 +433,10 @@ function initMultiSelect(board, cfg, onDone) {
     goBtn.disabled = true;
     goBtn.textContent = 'Quitando…';
     try {
-      await post(cfg.unplaceManyUrl, { match_ids: [...selected] });
+      const res = await post(cfg.unplaceManyUrl, { match_ids: [...selected] });
       toast.success(`${n} ${n === 1 ? 'partido quitado' : 'partidos quitados'}.`);
       clear();
-      if (onDone) onDone(); else window.location.reload();
+      if (onDone) onDone(res); else window.location.reload();
     } catch (_) {
       toast.error('No se pudieron quitar.');
       goBtn.disabled = false;

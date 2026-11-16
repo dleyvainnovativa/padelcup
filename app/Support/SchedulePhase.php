@@ -9,10 +9,20 @@ namespace App\Support;
  */
 class SchedulePhase
 {
-    /** Ordered phase keys → Spanish labels. Order = chronological. */
+    /**
+     * Ordered phase keys → Spanish labels. Order = chronological.
+     *
+     * Keys name the round by how many pairs it has left (r64 = round of 64 =
+     * "treintaidosavos", r32 = round of 32 = "dieciseisavos", r16 = round of 16
+     * = "octavos"). A 64-slot bracket has 6 bracket rounds, so r64 is required —
+     * without it the first two rounds collapse onto the same phase and the
+     * scheduler forces both into one window. Brackets of 32 or fewer never use
+     * r64 and are unaffected by its addition.
+     */
     public const LABELS = [
         'groups' => 'Grupos',
-        'r32' => 'Treintaidosavos',
+        'r64' => 'Treintaidosavos',
+        'r32' => 'Dieciseisavos',
         'r16' => 'Octavos',
         'quarterfinal' => 'Cuartos de final',
         'semifinal' => 'Semifinal',

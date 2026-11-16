@@ -141,6 +141,8 @@ Route::middleware(['auth'])->group(function () {
 
         // Schedule / calendar (Phase 7)
         Route::get('calendario', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'index'])->name('schedule.index');
+        // Lightweight board-only partial (HTML) for live in-place refreshes.
+        Route::get('calendario/tablero', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'board'])->name('schedule.board');
         Route::post('calendario/auto', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'auto'])->name('schedule.auto');
         Route::post('calendario/auto-categoria', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'autoCategory'])->name('schedule.autoCategory');
         Route::post('calendario/colocar', [\App\Http\Controllers\Dashboard\ScheduleController::class, 'place'])->name('schedule.place');
