@@ -283,6 +283,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/patrocinadores/{sponsor}', [\App\Http\Controllers\Admin\SponsorController::class, 'update'])->name('sponsors.update');
     Route::delete('/patrocinadores/{sponsor}', [\App\Http\Controllers\Admin\SponsorController::class, 'destroy'])->name('sponsors.destroy');
 
+    // Umami analytics report (per tournament public page)
+    Route::get('/analitica', [\App\Http\Controllers\Admin\AnalyticsController::class, 'index'])->name('analytics.index');
+
     Route::get('/reclamos', [AdminPlayerClaimController::class, 'index'])->name('claims.index');
     Route::post('/reclamos/{claim}/aprobar', [AdminPlayerClaimController::class, 'approve'])->name('claims.approve');
     Route::post('/reclamos/{claim}/rechazar', [AdminPlayerClaimController::class, 'reject'])->name('claims.reject');

@@ -145,6 +145,9 @@ $inTournament = $isStaff && $ctxTournament instanceof \App\Models\Tournament;
     <a href="{{ $to('admin.sponsors.index') }}" class="nav-item {{ $isActive('admin.sponsors.*') }}">
         <i class="fa-solid fa-handshake-angle"></i> Patrocinadores
     </a>
+    <a href="{{ $to('admin.analytics.index') }}" class="nav-item {{ $isActive('admin.analytics.*') }}">
+        <i class="fa-solid fa-chart-line"></i> Analítica
+    </a>
     <a href="{{ $to('admin.claims.index') }}" class="nav-item {{ $isActive('admin.claims.*') }}">
         <i class="fa-solid fa-user-check"></i> Reclamos
         @if($pendingClaims > 0)

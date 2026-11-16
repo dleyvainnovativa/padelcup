@@ -46,4 +46,17 @@ return [
         'redirect' => env('APPLE_REDIRECT_URI', '/auth/apple/callback'),
     ],
 
+    // Umami Cloud analytics (umami.is). Read-only report of a tournament's
+    // public page. 'register_event' is the Umami custom event name you fire on
+    // sign-up (leave default if you don't track one). 'path_param' is the query
+    // key Umami uses to filter by page path — 'url' on most versions; flip to
+    // 'path' if your Cloud account rejects the filter (see the API changelog).
+    'umami' => [
+        'base' => env('UMAMI_API_URL', 'https://api.umami.is/v1'),
+        'api_key' => env('UMAMI_API_KEY'),
+        'website_id' => env('UMAMI_WEBSITE_ID'),
+        'register_event' => env('UMAMI_REGISTER_EVENT', 'registro'),
+        'path_param' => env('UMAMI_PATH_PARAM', 'url'),
+    ],
+
 ];
