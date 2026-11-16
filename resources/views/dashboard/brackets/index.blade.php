@@ -18,6 +18,20 @@
         <a href="{{ route('results.index', [$tournament, $category]) }}" class="btn btn-soft">
             <i class="fa-solid fa-flag-checkered me-1"></i> Resultados
         </a>
+        @unless($matches->isEmpty())
+        {{-- One-page bracket PDF. Main button = auto layout (mirror for big draws,
+             linear for small); the split picks a layout explicitly. --}}
+        <div class="btn-group">
+            <a href="{{ route('draw.bracket.pdf', [$tournament, $category]) }}" class="btn btn-soft" target="_blank" rel="noopener">
+                <i class="fa-solid fa-file-pdf me-1"></i> PDF llave
+            </a>
+            <button type="button" class="btn btn-soft dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Opciones</span></button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ route('draw.bracket.pdf', [$tournament, $category, 'layout' => 'mirror']) }}" target="_blank" rel="noopener">Lado a lado</a></li>
+                <li><a class="dropdown-item" href="{{ route('draw.bracket.pdf', [$tournament, $category, 'layout' => 'linear']) }}" target="_blank" rel="noopener">Lineal</a></li>
+            </ul>
+        </div>
+        @endunless
         {{-- Editing positions stays available even when locked, so the manager
              can fix a bad draw (e.g. same-group first-round clash). It only
              moves UNPLAYED slots, so it can't disturb recorded results.

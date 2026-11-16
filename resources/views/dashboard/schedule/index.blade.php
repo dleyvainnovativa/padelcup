@@ -52,9 +52,8 @@
                         data-url="{{ route('schedule.gridPdf', $tournament) }}"
                         data-tournament="{{ $tournament->id }}"><i class="fa-solid fa-table-cells me-1"></i> Vista (cuadrícula)</a>
                     <a href="{{ route('schedule.exportCrucesPdf', $tournament) }}" class="pdf-menu__item"><i class="fa-solid fa-layer-group me-1"></i> Por cruces</a>
-                    <a href="{{ route('schedule.exportEliminationPdf', $tournament) }}" class="btn btn-soft btn-sm">
-                        <i class="fa-solid fa-sitemap me-1"></i> PDF eliminación
-                    </a>
+                    {{-- The elimination PDF is now a one-page visual bracket, per category,
+                         from each category's Llave page ("PDF llave"). --}}
                 </div>
             </div>
             <button type="button" class="btn btn-soft"

@@ -352,6 +352,49 @@ class DrawController extends Controller
     }
 
     /** Show the bracket. */
+    /**
+     * One-page bracket PDF for a single category. Page size fits the bracket (no
+     * letterboxing). ?layout=linear|mirror; omitted → auto (mirror for 9+ first-
+     * round matches, i.e. a 32+ draw, else linear).
+     */
+    public function bracketPdf(
+        Request $request,
+        Tournament $tournament,
+        Category $category,
+        \App\Services\Tournament\BracketPdfComposer $composer,
+        \App\Services\Tournament\GhostQualifierResolver $ghost,
+    ) {
+        $this->authorize('view', $category);
+        abort_unless($category->tournament_id === $tournament->id, 404);
+
+        $matches = \App\Models\GameMatch::where('category_id', $category->id)
+            ->whereNull('group_id')
+            ->with(['pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2', 'feederA', 'feederB'])
+            ->orderBy('round')->orderBy('slot')->orderBy('id')
+            ->get();
+        abort_if($matches->isEmpty(), 404, 'Esta categoría no tiene llave de eliminación.');
+
+        $firstRound = $matches->where('round', 1)->whereNull('group_id')->count();
+        $layout = $request->get('layout');
+        if (! in_array($layout, ['linear', 'mirror'], true)) {
+            $layout = $firstRound > 8 ? 'mirror' : 'linear';
+        }
+
+        $data = $composer->compose($matches, $layout);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('dashboard.schedule.pdf-bracket', [
+            'tournament' => $tournament,
+            'category' => $category,
+            'categoryUrl' => route('public.category', [$tournament, $category]),
+            'matches' => $matches,
+            'ghost' => $ghost->mapFor($category),
+            'layoutData' => $data,
+            'generatedAt' => now('America/Mexico_City'),
+        ])->setPaper([0, 0, $data['width'], $data['height']]);
+
+        return $pdf->download(\Illuminate\Support\Str::slug($tournament->name . ' ' . $category->name) . '-llave.pdf');
+    }
+
     public function bracket(Tournament $tournament, Category $category)
     {
         $this->authorize('view', $category);
