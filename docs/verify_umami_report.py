@@ -80,6 +80,72 @@ check("view clarifies main-page (not sum of categories)", "Página principal del
 check("view renders breakdown groups + subsections", "$report['breakdowns']" in idx2 and "$sub['label']" in idx2)
 check("view has a glossary", "Definiciones" in idx2 and "Visitantes" in idx2 and "Sesiones" in idx2)
 
+# --- Part C: trigger-based search + date range + day-by-day ---
+print("Part C — trigger / date-range / daily")
+
+# logic mirror: custom desde/hasta wins over the preset range
+def resolve_window(frm, to, rng, created_ms, now_ms):
+    if frm and to:
+        return (frm, to, "custom")
+    start = {
+        'all': created_ms, 'today': now_ms - 1,
+        '7d': now_ms - 7, '90d': now_ms - 90,
+    }.get(rng, now_ms - 30)
+    return (start, now_ms, rng)
+check("from+to overrides range", resolve_window(1000, 2000, 'all', 50, 9000)[:2] == (1000, 2000))
+check("'all' runs from created_at", resolve_window(None, None, 'all', 50, 9000)[0] == 50)
+check("unknown range falls back to 30d window", resolve_window(None, None, 'zzz', 50, 9000)[0] == 9000 - 30)
+
+# logic mirror: dailyLight keeps only days with traffic, sessions joined by date
+def daily_light(pv, sess):
+    sidx = {p['t'][:10]: p['y'] for p in sess}
+    return [{'date': p['t'][:10], 'pv': p['y'], 'sess': sidx.get(p['t'][:10], 0)}
+            for p in pv if p['y'] > 0]
+pv = [{'t': '2026-11-08', 'y': 12}, {'t': '2026-11-09', 'y': 0}, {'t': '2026-11-10', 'y': 5}]
+sess = [{'t': '2026-11-08', 'y': 9}, {'t': '2026-11-10', 'y': 4}]
+dl = daily_light(pv, sess)
+check("daily light drops empty days", [d['date'] for d in dl] == ['2026-11-08', '2026-11-10'])
+check("daily light joins sessions by date", dl[0]['sess'] == 9 and dl[1]['sess'] == 4)
+
+ctrl3 = (ROOT/"app/Http/Controllers/Admin/AnalyticsController.php").read_text()
+check("index() only fetches when buscar pressed",
+      "$request->boolean('buscar')" in ctrl3 and "$searched" in ctrl3)
+check("controller passes searched + from + to to view",
+      "'searched' =>" in ctrl3 and "'from' =>" in ctrl3 and "'to' =>" in ctrl3)
+check("exportPdf resolves tournament from query (not route binding)",
+      "Tournament::where('slug', $request->string('tournament'))" in ctrl3)
+check("controller has dailyMain + dailyLight + cap",
+      "function dailyMain(" in ctrl3 and "function dailyLight(" in ctrl3 and "DAILY_CAP" in ctrl3)
+check("controller passes dailyMain to pdf + per-category daily",
+      "'dailyMain' =>" in ctrl3 and "'daily' => $on ? $this->dailyLight" in ctrl3)
+check("resolveWindow honours custom from/to window",
+      "function resolveWindow(" in ctrl3 and "$from && $to" in ctrl3)
+check("dailyMain skips empty days and caps per-day calls",
+      "<= 0) continue" in ctrl3 and "self::DAILY_CAP) break" in ctrl3)
+
+web2 = (ROOT/"routes/web.php").read_text()
+check("analytics.pdf route is query-based (no {tournament} in path)",
+      "analitica/pdf" in web2 and "analitica/{tournament" not in web2
+      and "'exportPdf'])->name('analytics.pdf')" in web2)
+
+idx3 = (ROOT/"resources/views/admin/analytics/index.blade.php").read_text()
+check("form no longer auto-submits on change", "this.form.submit()" not in idx3)
+check("Buscar + Exportar PDF submit buttons", "Buscar" in idx3
+      and 'formaction="{{ route(\'admin.analytics.pdf\') }}"' in idx3)
+check("hidden buscar flag + desde/hasta inputs",
+      'name="buscar"' in idx3 and 'name="from"' in idx3 and 'name="to"' in idx3)
+check("range is a <select> now (not navigating links)",
+      'name="range"' in idx3 and "class=\"form-select\"" in idx3)
+check("report body gated behind searched",
+      "! $searched" in idx3 and "haz clic en" in idx3)
+
+pdf3 = (ROOT/"resources/views/admin/analytics/pdf.blade.php").read_text()
+check("pdf has day-by-day section", "Detalle día por día" in pdf3)
+check("pdf main daily table = full 5 metrics", "$dailyMain" in pdf3
+      and "Visitantes" in pdf3 and "Rebote" in pdf3 and "Tiempo medio" in pdf3)
+check("pdf category daily table = light (Fecha+Visitas+Sesiones)", "$row['daily']" in pdf3)
+check("pdf daily dates formatted d-m-Y", "format('d-m-Y')" in pdf3)
+
 print()
 total = passed + failed
 print(f"{passed}/{total} checks passed")

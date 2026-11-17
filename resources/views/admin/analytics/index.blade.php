@@ -12,37 +12,51 @@
 
 @include('dashboard.partials.flash')
 
+{{-- Nothing is fetched until the manager presses Buscar (the fetch is slow), so
+     opening the page from the sidebar stays instant. Exportar PDF submits the
+     same form to the PDF route and downloads without touching the page. --}}
 <form method="GET" action="{{ route('admin.analytics.index') }}" class="row g-2 align-items-end mb-3">
-    <div class="col-12 col-md-6 col-lg-5">
+    <input type="hidden" name="buscar" value="1">
+    <div class="col-12 col-md-4">
         <label class="form-label" style="font-size:13px;font-weight:500;">Torneo</label>
-        <select name="tournament" class="form-select" style="border-radius:var(--radius);" onchange="this.form.submit()">
+        <select name="tournament" class="form-select" style="border-radius:var(--radius);">
+            <option value="">— elige —</option>
             @foreach($tournaments as $t)
                 <option value="{{ $t->slug }}" @selected($selected && $selected->id === $t->id)>{{ $t->name }}</option>
             @endforeach
         </select>
     </div>
-    <div class="col-8 col-md-4 col-lg-4">
+    <div class="col-6 col-md-2">
         <label class="form-label" style="font-size:13px;font-weight:500;">Rango</label>
-        <div class="btn-group d-flex" role="group">
+        <select name="range" class="form-select" style="border-radius:var(--radius);">
             @foreach($ranges as $key => $label)
-                <a href="{{ route('admin.analytics.index', ['tournament' => $selected?->slug, 'range' => $key]) }}"
-                   class="btn btn-sm {{ $range === $key ? 'btn-dark' : 'btn-outline-secondary' }}">{{ $label }}</a>
+                <option value="{{ $key }}" @selected($range === $key)>{{ $label }}</option>
             @endforeach
-        </div>
+        </select>
     </div>
-    @if($selected)
-    <div class="col-4 col-md-2 col-lg-3 text-end">
-        <label class="form-label d-block" style="font-size:13px;">&nbsp;</label>
-        <a href="{{ route('admin.analytics.pdf', ['tournament' => $selected->slug, 'range' => $range]) }}"
-           class="btn btn-soft btn-sm" target="_blank" rel="noopener">
-            <i class="fa-solid fa-file-pdf me-1"></i> Exportar PDF
-        </a>
+    <div class="col-3 col-md-2">
+        <label class="form-label" style="font-size:13px;font-weight:500;">Desde</label>
+        <input type="date" name="from" value="{{ $from }}" class="form-control" style="border-radius:var(--radius);">
     </div>
-    @endif
+    <div class="col-3 col-md-2">
+        <label class="form-label" style="font-size:13px;font-weight:500;">Hasta</label>
+        <input type="date" name="to" value="{{ $to }}" class="form-control" style="border-radius:var(--radius);">
+    </div>
+    <div class="col-12 col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-dark flex-fill"><i class="fa-solid fa-magnifying-glass me-1"></i> Buscar</button>
+        <button type="submit" class="btn btn-soft" formaction="{{ route('admin.analytics.pdf') }}" formtarget="_blank"
+                title="Exportar PDF (incluye el detalle día por día)"><i class="fa-solid fa-file-pdf"></i></button>
+    </div>
+    <div class="col-12" style="font-size:11px;color:var(--muted);">Desde/Hasta tienen prioridad sobre el rango. «Todo» = desde que se creó el torneo.</div>
 </form>
 
-@if(! $selected)
+@if($tournaments->isEmpty())
     <div class="tc-card"><div class="tc-card__body">No hay torneos todavía.</div></div>
+@elseif(! $searched || ! $selected)
+    <div class="tc-card"><div class="tc-card__body" style="color:var(--muted);">
+        <i class="fa-solid fa-magnifying-glass me-1"></i> Elige un torneo y un rango, y haz clic en <strong>Buscar</strong>.
+        El detalle día por día está en <strong>Exportar PDF</strong>.
+    </div></div>
 @elseif($report && ! $report['configured'])
     <div class="tc-card"><div class="tc-card__body">
         <strong>Umami no está configurado.</strong>
@@ -60,7 +74,7 @@
     @endif
 
     @php
-        $s = $report['stats'];
+        $s = $report['stats'] ?? [];
         $visits = $s['visits'] ?? 0;
         $bounce = $visits > 0 ? round(($s['bounces'] ?? 0) / $visits * 100) : 0;
         $avg = $visits > 0 ? round(($s['totaltime'] ?? 0) / $visits) : 0;

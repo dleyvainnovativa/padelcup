@@ -286,7 +286,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     // Umami analytics report (per tournament public page)
     Route::get('/analitica', [\App\Http\Controllers\Admin\AnalyticsController::class, 'index'])->name('analytics.index');
-    Route::get('/analitica/{tournament:slug}/pdf', [\App\Http\Controllers\Admin\AnalyticsController::class, 'exportPdf'])->name('analytics.pdf');
+    // Route::get('/analitica/{tournament:slug}/pdf', [\App\Http\Controllers\Admin\AnalyticsController::class, 'exportPdf'])->name('analytics.pdf');
+    Route::get('/analitica/pdf', [\App\Http\Controllers\Admin\AnalyticsController::class, 'exportPdf'])->name('analytics.pdf');
 
     Route::get('/reclamos', [AdminPlayerClaimController::class, 'index'])->name('claims.index');
     Route::post('/reclamos/{claim}/aprobar', [AdminPlayerClaimController::class, 'approve'])->name('claims.approve');

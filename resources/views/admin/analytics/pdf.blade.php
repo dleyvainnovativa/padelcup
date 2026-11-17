@@ -56,6 +56,18 @@
     .brk-row span { color: #1a1a2e; }
     .brk-row b { float: right; color: #0e3b2e; }
 
+    table.daily { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    table.daily th {
+        background: #0e3b2e; color: #fff; font-size: 8.5px; text-transform: uppercase;
+        letter-spacing: .03em; padding: 4px 6px; text-align: right;
+    }
+    table.daily th.d, table.daily td.d { text-align: left; white-space: nowrap; }
+    table.daily td { border-bottom: 0.6px solid #e6ebe8; padding: 3.5px 6px; font-size: 9.5px; text-align: right; }
+    table.daily tr:nth-child(even) td { background: #fafbfa; }
+    .daily-sub { font-size: 10px; font-weight: bold; color: #1a1a2e; margin: 8px 0 3px; }
+    .daily-sub .u { color: #8a948f; font-weight: normal; font-size: 8.5px; }
+    .page-break { page-break-before: always; }
+
     table.gloss { width: 100%; border-collapse: collapse; }
     table.gloss td.gt { width: 50%; padding: 3px 8px 3px 0; font-size: 9.5px; vertical-align: top; }
     table.gloss td.gt b { color: #0e3b2e; }
@@ -147,6 +159,68 @@
                 @endforeach
             </tr></table>
         @endforeach
+
+        @if(!empty($dailyMain) || collect($rows)->contains(fn($r) => !empty($r['daily'])))
+            <div class="page-break"></div>
+            <div class="section">Detalle día por día</div>
+            <div class="section-note">Desde el primer día con datos (o la creación del torneo) hasta hoy. Días sin visitas se omiten.</div>
+
+            @if(!empty($dailyMain))
+                <div class="daily-sub">Página principal <span class="u">{{ $overallPath }}</span></div>
+                <table class="daily">
+                    <thead>
+                        <tr>
+                            <th class="d">Fecha</th>
+                            <th>Visitas</th>
+                            <th>Visitantes</th>
+                            <th>Sesiones</th>
+                            <th>Rebote</th>
+                            <th>Tiempo medio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($dailyMain as $d)
+                            <tr>
+                                <td class="d">{{ $d['date']->format('d-m-Y') }}</td>
+                                @if($d['stats'])
+                                    <td>{{ $fmt($d['stats']['pageviews'] ?? 0) }}</td>
+                                    <td>{{ $fmt($d['stats']['visitors'] ?? 0) }}</td>
+                                    <td>{{ $fmt($d['stats']['visits'] ?? 0) }}</td>
+                                    <td>{{ $bounce($d['stats']) }}</td>
+                                    <td>{{ $avg($d['stats']) }}</td>
+                                @else
+                                    <td colspan="5" class="muted">sin detalle</td>
+                                @endif
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+
+            @foreach($rows as $row)
+                @if(!empty($row['daily']))
+                    <div class="daily-sub">{{ $row['name'] }} <span class="u">{{ $row['path'] }}</span></div>
+                    <table class="daily">
+                        <thead>
+                            <tr>
+                                <th class="d">Fecha</th>
+                                <th>Visitas</th>
+                                <th>Sesiones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($row['daily'] as $d)
+                                <tr>
+                                    <td class="d">{{ $d['date']->format('d-m-Y') }}</td>
+                                    <td>{{ $fmt($d['pageviews'] ?? 0) }}</td>
+                                    <td>{{ $fmt($d['sessions'] ?? 0) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @endif
+            @endforeach
+        @endif
 
         <div class="section">Definiciones</div>
         <table class="gloss">

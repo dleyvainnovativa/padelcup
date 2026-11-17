@@ -54,8 +54,17 @@ blade2 = (ROOT/"resources/views/admin/analytics/pdf.blade.php").read_text()
 check("PDF renames to Página principal del torneo", "Página principal del torneo" in blade2)
 check("PDF renders breakdown sections", "($breakdowns ?? [])" in blade2 and "class=\"brk\"" in blade2)
 check("PDF has a glossary (Definiciones)", "Definiciones" in blade2 and "class=\"gloss\"" in blade2)
+check("PDF has day-by-day detail section", "Detalle día por día" in blade2 and "class=\"daily\"" in blade2)
+check("PDF main daily table carries full 5 metrics",
+      "$dailyMain" in blade2 and "$d['stats']" in blade2
+      and "pageviews" in blade2 and "visitors" in blade2 and "visits" in blade2)
+check("PDF category daily table is light (Visitas+Sesiones)",
+      "$row['daily']" in blade2 and "$d['pageviews']" in blade2 and "$d['sessions']" in blade2)
+check("PDF daily dates use d-m-Y", "format('d-m-Y')" in blade2)
 ctrl3 = (ROOT/"app/Http/Controllers/Admin/AnalyticsController.php").read_text()
 check("exportPdf passes breakdowns", "'breakdowns' => $this->breakdowns($umami, $overallPath" in ctrl3)
+check("exportPdf passes dailyMain + per-category daily",
+      "'dailyMain' =>" in ctrl3 and "'daily' => $on ? $this->dailyLight" in ctrl3)
 
 print()
 total = passed + failed
