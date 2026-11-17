@@ -47,6 +47,20 @@
     .cat .url { color: #8a948f; font-size: 8.5px; }
     .muted { color: #9aa29d; font-style: italic; }
 
+    .section-note { font-size: 9.5px; color: #8a948f; margin: -2px 0 6px; }
+
+    table.brk { width: 100%; border-collapse: separate; border-spacing: 8px 0; margin-bottom: 8px; }
+    table.brk > tr > td { width: 33%; vertical-align: top; }
+    .brk-h { font-size: 9px; font-weight: bold; color: #0e3b2e; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 3px; }
+    .brk-row { font-size: 10px; padding: 2.5px 0; border-bottom: 0.6px solid #eef2f0; }
+    .brk-row span { color: #1a1a2e; }
+    .brk-row b { float: right; color: #0e3b2e; }
+
+    table.gloss { width: 100%; border-collapse: collapse; }
+    table.gloss td.gt { width: 50%; padding: 3px 8px 3px 0; font-size: 9.5px; vertical-align: top; }
+    table.gloss td.gt b { color: #0e3b2e; }
+    table.gloss td.gt span { color: #6b756f; }
+
     .note { margin-top: 14px; font-size: 9.5px; color: #8a948f; }
     .foot { margin-top: 10px; border-top: 0.7px solid #e6ebe8; padding-top: 6px; font-size: 9px; color: #9aa29d; }
 </style>
@@ -67,7 +81,8 @@
     @else
         @if($error)<p class="muted">{{ $error }}</p>@endif
 
-        <div class="section">Totales del torneo</div>
+        <div class="section">Página principal del torneo</div>
+        <div class="section-note">Números de la página principal (<code>{{ $overallPath }}</code>) — no la suma de las categorías.</div>
         <table class="tiles">
             <tr>
                 <td><div class="v">{{ $overall ? $fmt($overall['pageviews'] ?? 0) : '—' }}</div><div class="l">Visitas</div></td>
@@ -114,8 +129,47 @@
             </tbody>
         </table>
 
+        @foreach(($breakdowns ?? []) as $group => $subs)
+            <div class="section">{{ $group }}</div>
+            <table class="brk"><tr>
+                @foreach($subs as $sub)
+                <td>
+                    <div class="brk-h">{{ $sub['label'] }}</div>
+                    @forelse(array_slice($sub['rows'], 0, 8) as $r)
+                        <div class="brk-row">
+                            <span>{{ $r['name'] !== '' ? $r['name'] : '(directo / ninguno)' }}</span>
+                            <b>{{ $fmt($r['value']) }}</b>
+                        </div>
+                    @empty
+                        <div class="muted" style="font-size:9.5px;">Sin datos.</div>
+                    @endforelse
+                </td>
+                @endforeach
+            </tr></table>
+        @endforeach
+
+        <div class="section">Definiciones</div>
+        <table class="gloss">
+            @foreach([
+                ['Visitas', 'Páginas vistas en total (cada carga cuenta).'],
+                ['Visitantes', 'Personas únicas (por dispositivo y navegador).'],
+                ['Sesiones', 'Visitas: actividad de un visitante hasta ~30 min de inactividad.'],
+                ['Rebote', '% de sesiones de una sola página.'],
+                ['Tiempo medio', 'Duración media de la visita.'],
+                [ucfirst($eventName), 'Evento «'.$eventName.'» del sitio completo (no por página).'],
+                ['Referentes', 'Sitios que enviaron el tráfico.'],
+                ['Canales', 'Tipo de origen: directo, búsqueda, social, etc.'],
+                ['Países / Regiones / Ciudades', 'Ubicación aproximada del visitante.'],
+                ['Navegadores / Sistema / Dispositivos', 'Entorno desde el que visitan.'],
+            ] as $i => $pair)
+                @if($i % 2 === 0)<tr>@endif
+                    <td class="gt"><b>{{ $pair[0] }}</b> — <span>{{ $pair[1] }}</span></td>
+                @if($i % 2 === 1)</tr>@endif
+            @endforeach
+        </table>
+
         <div class="note">
-            Las sesiones de categoría usan la URL pública <code>/t/{torneo}/{categoría}</code>.
+            Ubicación, orígenes y entorno corresponden a la página principal del torneo.
             El conteo de «{{ $eventName }}» es del sitio completo en el rango.
         </div>
     @endif

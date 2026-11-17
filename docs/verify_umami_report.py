@@ -53,7 +53,7 @@ check("all-time range default", "'all' => 'Todo'" in (ROOT/"app/Http/Controllers
 ctrl = (ROOT / "app/Http/Controllers/Admin/AnalyticsController.php").read_text()
 check("controller filters by the tournament public path /t/{slug}", "'/t/' . $selected->slug" in ctrl)
 check("controller passes ms timestamps", "valueOf()" in ctrl)
-check("controller pulls event + referrers", "eventCount(" in ctrl and "metrics('referrer'" in ctrl)
+check("controller pulls event + breakdowns", "eventCount(" in ctrl and "breakdowns($umami" in ctrl)
 
 cfg = (ROOT / "config/services.php").read_text()
 check("services.umami config block", "'umami' =>" in cfg and "UMAMI_API_KEY" in cfg and "UMAMI_WEBSITE_ID" in cfg)
@@ -67,6 +67,18 @@ check("view renders tiles + series chart + referrers", "Visitas por día" in vie
 
 nav = (ROOT / "resources/views/layouts/partials/sidebar.blade.php").read_text()
 check("sidebar nav link", "admin.analytics.index" in nav)
+
+# --- Location / Sources / Environment + glossary + main-page rename ---
+ctrl2 = (ROOT/"app/Http/Controllers/Admin/AnalyticsController.php").read_text()
+check("controller fetches location/sources/environment breakdowns",
+      "'Ubicación'" in ctrl2 and "'country'" in ctrl2 and "'region'" in ctrl2 and "'city'" in ctrl2
+      and "'referrer'" in ctrl2 and "'channel'" in ctrl2
+      and "'browser'" in ctrl2 and "'os'" in ctrl2 and "'device'" in ctrl2)
+check("controller breakdowns() helper + passed to view", "function breakdowns(" in ctrl2 and "'breakdowns' =>" in ctrl2)
+idx2 = (ROOT/"resources/views/admin/analytics/index.blade.php").read_text()
+check("view clarifies main-page (not sum of categories)", "Página principal del torneo" in idx2 and "no la suma" in idx2)
+check("view renders breakdown groups + subsections", "$report['breakdowns']" in idx2 and "$sub['label']" in idx2)
+check("view has a glossary", "Definiciones" in idx2 and "Visitantes" in idx2 and "Sesiones" in idx2)
 
 print()
 total = passed + failed

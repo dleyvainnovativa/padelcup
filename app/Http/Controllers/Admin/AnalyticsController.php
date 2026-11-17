@@ -11,6 +11,13 @@ class AnalyticsController extends Controller
 {
     private const RANGES = ['all' => 'Todo', 'today' => 'Hoy', '7d' => '7 días', '30d' => '30 días', '90d' => '90 días'];
 
+    /** Dimension breakdowns pulled from Umami's metrics endpoint (type → label), grouped. */
+    private const GROUPS = [
+        'Ubicación' => ['country' => 'Países', 'region' => 'Regiones', 'city' => 'Ciudades'],
+        'Orígenes' => ['referrer' => 'Referentes', 'channel' => 'Canales'],
+        'Entorno' => ['browser' => 'Navegadores', 'os' => 'Sistema', 'device' => 'Dispositivos'],
+    ];
+
     public function index(Request $request, UmamiClient $umami)
     {
         $tournaments = Tournament::orderByDesc('starts_on')->get(['id', 'name', 'slug', 'starts_on']);
@@ -39,7 +46,7 @@ class AnalyticsController extends Controller
                 'event_name' => $event,
                 'event_count' => $umami->configured() ? $umami->eventCount($event, $startMs, $endMs) : 0,
                 'series' => $umami->pageviewsSeries($path, $startMs, $endMs),
-                'referrers' => $umami->metrics('referrer', $path, $startMs, $endMs),
+                'breakdowns' => $this->breakdowns($umami, $path, $startMs, $endMs),
             ];
         }
 
@@ -79,10 +86,33 @@ class AnalyticsController extends Controller
             'eventCount' => $umami->configured() ? $umami->eventCount($event, $startMs, $endMs) : 0,
             'configured' => $umami->configured(),
             'error' => $overall['error'] ?? null,
+            'breakdowns' => $this->breakdowns($umami, $overallPath, $startMs, $endMs),
             'generatedAt' => now('America/Mexico_City'),
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download(\Illuminate\Support\Str::slug($tournament->name) . '-analitica.pdf');
+    }
+
+    /**
+     * Location / Sources / Environment breakdowns for ONE path (the tournament
+     * main page), each via Umami's metrics endpoint. Grouped and labelled for the
+     * view + PDF. Empty when Umami isn't configured.
+     *
+     * @return array<string, array<int, array{label:string, rows:array}>>
+     */
+    private function breakdowns(UmamiClient $umami, string $path, int $startMs, int $endMs): array
+    {
+        if (! $umami->configured()) return [];
+
+        $out = [];
+        foreach (self::GROUPS as $group => $types) {
+            $subs = [];
+            foreach ($types as $type => $label) {
+                $subs[] = ['label' => $label, 'rows' => $umami->metrics($type, $path, $startMs, $endMs, 8)];
+            }
+            $out[$group] = $subs;
+        }
+        return $out;
     }
 
     /** [startMs, endMs] for a range key, in the tournament timezone's day boundaries. */

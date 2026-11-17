@@ -50,6 +50,13 @@ check("export button on the report page", "admin.analytics.pdf" in idx and "Expo
 
 check("logo asset present", (ROOT/"public/img/voleo-logo.png").exists())
 
+blade2 = (ROOT/"resources/views/admin/analytics/pdf.blade.php").read_text()
+check("PDF renames to Página principal del torneo", "Página principal del torneo" in blade2)
+check("PDF renders breakdown sections", "($breakdowns ?? [])" in blade2 and "class=\"brk\"" in blade2)
+check("PDF has a glossary (Definiciones)", "Definiciones" in blade2 and "class=\"gloss\"" in blade2)
+ctrl3 = (ROOT/"app/Http/Controllers/Admin/AnalyticsController.php").read_text()
+check("exportPdf passes breakdowns", "'breakdowns' => $this->breakdowns($umami, $overallPath" in ctrl3)
+
 print()
 total = passed + failed
 print(f"{passed}/{total} checks passed")
