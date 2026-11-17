@@ -117,7 +117,7 @@ check("exportPdf resolves tournament from query (not route binding)",
 check("controller has dailyMain + dailyLight + cap",
       "function dailyMain(" in ctrl3 and "function dailyLight(" in ctrl3 and "DAILY_CAP" in ctrl3)
 check("controller passes dailyMain to pdf + per-category daily",
-      "'dailyMain' =>" in ctrl3 and "'daily' => $on ? $this->dailyLight" in ctrl3)
+      "'dailyMain' =>" in ctrl3 and "'daily' => $wantDaily ? $this->dailyLight" in ctrl3)
 check("resolveWindow honours custom from/to window",
       "function resolveWindow(" in ctrl3 and "$from && $to" in ctrl3)
 check("dailyMain skips empty days and caps per-day calls",
@@ -140,6 +140,27 @@ check("report body gated behind searched",
       "! $searched" in idx3 and "haz clic en" in idx3)
 
 pdf3 = (ROOT/"resources/views/admin/analytics/pdf.blade.php").read_text()
+check("daily detail checkbox (off by default) gates the PDF section",
+      'name="daily"' in idx3 and "boolean('daily')" in ctrl3
+      and "$wantDaily ? $this->dailyMain" in ctrl3 and "$wantDaily ? $this->dailyLight" in ctrl3)
+
+# --- Part D: dimension translations (channels / devices / countries / regions) ---
+print("Part D — translations")
+check("label() applied inside breakdowns()", "$this->label($type" in ctrl3)
+check("channel keys translated", "'organicSearch' => 'Búsqueda orgánica'" in ctrl3
+      and "'organicSocial' => 'Social orgánico'" in ctrl3 and "'direct' => 'Directo'" in ctrl3)
+check("device keys translated", "'mobile' => 'Móvil'" in ctrl3 and "'laptop' => 'Laptop'" in ctrl3
+      and "'desktop' => 'Escritorio'" in ctrl3 and "'tablet' => 'Tableta'" in ctrl3)
+check("country codes → full Spanish names", "'MX' => 'México'" in ctrl3 and "'US' => 'Estados Unidos'" in ctrl3)
+check("Mexican region codes → full state names",
+      "'MX-VER' => 'Veracruz'" in ctrl3 and "'MX-CMX' => 'Ciudad de México'" in ctrl3 and "regionName(" in ctrl3)
+# logic mirror: region fallback strips the country prefix
+def region_name(code, mx):
+    if code.upper() in mx: return mx[code.upper()]
+    return code.split('-', 1)[1] if '-' in code else code
+check("unknown MX state keeps code-less fallback", region_name('US-CA', {'MX-VER': 'Veracruz'}) == 'CA')
+check("known MX state → full name", region_name('MX-VER', {'MX-VER': 'Veracruz'}) == 'Veracruz')
+
 check("pdf has day-by-day section", "Detalle día por día" in pdf3)
 check("pdf main daily table = full 5 metrics", "$dailyMain" in pdf3
       and "Visitantes" in pdf3 and "Rebote" in pdf3 and "Tiempo medio" in pdf3)

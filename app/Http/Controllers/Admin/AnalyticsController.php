@@ -22,6 +22,69 @@ class AnalyticsController extends Controller
 
     private const DAILY_CAP = 185; // safety ceiling on per-day stats calls
 
+    /** Umami channel keys → Spanish. */
+    private const CHANNELS = [
+        'direct' => 'Directo',
+        'organicSearch' => 'Búsqueda orgánica',
+        'organicSocial' => 'Social orgánico',
+        'organicVideo' => 'Video orgánico',
+        'organicShopping' => 'Compras orgánico',
+        'paidSearch' => 'Búsqueda pagada',
+        'paidSocial' => 'Social pagado',
+        'paidShopping' => 'Compras pagado',
+        'display' => 'Display',
+        'referral' => 'Referido',
+        'email' => 'Correo',
+        'affiliates' => 'Afiliados',
+        'audio' => 'Audio',
+        'sms' => 'SMS',
+        'unknown' => 'Desconocido',
+    ];
+
+    /** Umami device keys → Spanish. */
+    private const DEVICES = [
+        'mobile' => 'Móvil',
+        'laptop' => 'Laptop',
+        'desktop' => 'Escritorio',
+        'tablet' => 'Tableta',
+        'wearable' => 'Wearable',
+        'console' => 'Consola',
+        'tv' => 'TV',
+        'unknown' => 'Desconocido',
+    ];
+
+    /** ISO 3166-2:MX state codes → full names (Umami emits these for Mexican regions). */
+    private const MX_REGIONS = [
+        'MX-AGU' => 'Aguascalientes', 'MX-BCN' => 'Baja California', 'MX-BCS' => 'Baja California Sur',
+        'MX-CAM' => 'Campeche', 'MX-CHP' => 'Chiapas', 'MX-CHH' => 'Chihuahua', 'MX-COA' => 'Coahuila',
+        'MX-COL' => 'Colima', 'MX-CMX' => 'Ciudad de México', 'MX-DIF' => 'Ciudad de México',
+        'MX-DUR' => 'Durango', 'MX-GUA' => 'Guanajuato', 'MX-GRO' => 'Guerrero', 'MX-HID' => 'Hidalgo',
+        'MX-JAL' => 'Jalisco', 'MX-MEX' => 'Estado de México', 'MX-MIC' => 'Michoacán', 'MX-MOR' => 'Morelos',
+        'MX-NAY' => 'Nayarit', 'MX-NLE' => 'Nuevo León', 'MX-OAX' => 'Oaxaca', 'MX-PUE' => 'Puebla',
+        'MX-QUE' => 'Querétaro', 'MX-ROO' => 'Quintana Roo', 'MX-SLP' => 'San Luis Potosí', 'MX-SIN' => 'Sinaloa',
+        'MX-SON' => 'Sonora', 'MX-TAB' => 'Tabasco', 'MX-TAM' => 'Tamaulipas', 'MX-TLA' => 'Tlaxcala',
+        'MX-VER' => 'Veracruz', 'MX-YUC' => 'Yucatán', 'MX-ZAC' => 'Zacatecas',
+    ];
+
+    /** ISO 3166-1 alpha-2 → Spanish country names (common set; code kept as fallback). */
+    private const COUNTRIES = [
+        'MX' => 'México', 'US' => 'Estados Unidos', 'CA' => 'Canadá', 'GT' => 'Guatemala', 'BZ' => 'Belice',
+        'SV' => 'El Salvador', 'HN' => 'Honduras', 'NI' => 'Nicaragua', 'CR' => 'Costa Rica', 'PA' => 'Panamá',
+        'CO' => 'Colombia', 'VE' => 'Venezuela', 'EC' => 'Ecuador', 'PE' => 'Perú', 'BO' => 'Bolivia',
+        'CL' => 'Chile', 'AR' => 'Argentina', 'UY' => 'Uruguay', 'PY' => 'Paraguay', 'BR' => 'Brasil',
+        'CU' => 'Cuba', 'DO' => 'República Dominicana', 'PR' => 'Puerto Rico', 'HT' => 'Haití', 'JM' => 'Jamaica',
+        'ES' => 'España', 'PT' => 'Portugal', 'FR' => 'Francia', 'GB' => 'Reino Unido', 'IE' => 'Irlanda',
+        'DE' => 'Alemania', 'IT' => 'Italia', 'NL' => 'Países Bajos', 'BE' => 'Bélgica', 'CH' => 'Suiza',
+        'AT' => 'Austria', 'SE' => 'Suecia', 'NO' => 'Noruega', 'DK' => 'Dinamarca', 'FI' => 'Finlandia',
+        'PL' => 'Polonia', 'CZ' => 'Chequia', 'GR' => 'Grecia', 'RO' => 'Rumanía', 'HU' => 'Hungría',
+        'RU' => 'Rusia', 'UA' => 'Ucrania', 'TR' => 'Turquía', 'IL' => 'Israel', 'SA' => 'Arabia Saudita',
+        'AE' => 'Emiratos Árabes Unidos', 'EG' => 'Egipto', 'MA' => 'Marruecos', 'ZA' => 'Sudáfrica',
+        'NG' => 'Nigeria', 'KE' => 'Kenia', 'IN' => 'India', 'PK' => 'Pakistán', 'CN' => 'China',
+        'JP' => 'Japón', 'KR' => 'Corea del Sur', 'TW' => 'Taiwán', 'HK' => 'Hong Kong', 'SG' => 'Singapur',
+        'TH' => 'Tailandia', 'VN' => 'Vietnam', 'PH' => 'Filipinas', 'ID' => 'Indonesia', 'MY' => 'Malasia',
+        'AU' => 'Australia', 'NZ' => 'Nueva Zelanda',
+    ];
+
     public function index(Request $request, UmamiClient $umami)
     {
         $tournaments = Tournament::orderByDesc('starts_on')->get(['id', 'name', 'slug', 'starts_on', 'created_at']);
@@ -73,6 +136,7 @@ class AnalyticsController extends Controller
         [$startMs, $endMs, $rangeLabel] = $this->resolveWindow($request, $tournament);
         $event = (string) config('services.umami.register_event');
         $on = $umami->configured();
+        $wantDaily = $on && $request->boolean('daily'); // "Detalle día por día" checkbox (off by default)
 
         $overallPath = '/t/' . $tournament->slug;
         $overall = $umami->stats($overallPath, $startMs, $endMs);
@@ -85,7 +149,7 @@ class AnalyticsController extends Controller
                 'name' => $c->name,
                 'path' => $path,
                 'stats' => ($s['error'] ?? false) ? null : $s,
-                'daily' => $on ? $this->dailyLight($umami, $path, $startMs, $endMs) : [],
+                'daily' => $wantDaily ? $this->dailyLight($umami, $path, $startMs, $endMs) : [],
             ];
         }
 
@@ -100,7 +164,7 @@ class AnalyticsController extends Controller
             'configured' => $on,
             'error' => $overall['error'] ?? null,
             'breakdowns' => $this->breakdowns($umami, $overallPath, $startMs, $endMs),
-            'dailyMain' => $on ? $this->dailyMain($umami, $overallPath, $startMs, $endMs) : [],
+            'dailyMain' => $wantDaily ? $this->dailyMain($umami, $overallPath, $startMs, $endMs) : [],
             'generatedAt' => now(self::TZ),
         ])->setPaper('a4', 'portrait');
 
@@ -158,11 +222,37 @@ class AnalyticsController extends Controller
         foreach (self::GROUPS as $group => $types) {
             $subs = [];
             foreach ($types as $type => $label) {
-                $subs[] = ['label' => $label, 'rows' => $umami->metrics($type, $path, $startMs, $endMs, 8)];
+                $rows = array_map(
+                    fn($r) => ['name' => $this->label($type, (string) ($r['name'] ?? '')), 'value' => $r['value'] ?? 0],
+                    $umami->metrics($type, $path, $startMs, $endMs, 8)
+                );
+                $subs[] = ['label' => $label, 'rows' => $rows];
             }
             $out[$group] = $subs;
         }
         return $out;
+    }
+
+    /** Humanize a raw Umami dimension value (channel/device/country/region) into Spanish. */
+    private function label(string $type, string $value): string
+    {
+        if ($value === '') return '';            // empty → view shows "(directo / ninguno)"
+        return match ($type) {
+            'channel' => self::CHANNELS[$value] ?? $value,
+            'device' => self::DEVICES[$value] ?? $value,
+            'country' => self::COUNTRIES[strtoupper($value)] ?? $value,
+            'region' => $this->regionName($value),
+            default => $value,
+        };
+    }
+
+    /** ISO 3166-2 region code → full name. Mexican states get full names; others drop the country prefix. */
+    private function regionName(string $code): string
+    {
+        $up = strtoupper($code);
+        if (isset(self::MX_REGIONS[$up])) return self::MX_REGIONS[$up];
+        $dash = strpos($code, '-');
+        return $dash !== false ? substr($code, $dash + 1) : $code;
     }
 
     /**

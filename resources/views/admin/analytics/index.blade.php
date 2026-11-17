@@ -45,7 +45,11 @@
     <div class="col-12 col-md-2 d-flex gap-2">
         <button type="submit" class="btn btn-dark flex-fill"><i class="fa-solid fa-magnifying-glass me-1"></i> Buscar</button>
         <button type="submit" class="btn btn-soft" formaction="{{ route('admin.analytics.pdf') }}" formtarget="_blank"
-                title="Exportar PDF (incluye el detalle día por día)"><i class="fa-solid fa-file-pdf"></i></button>
+                title="Exportar PDF"><i class="fa-solid fa-file-pdf"></i></button>
+    </div>
+    <div class="col-12 d-flex align-items-center gap-2" style="font-size:12px;">
+        <input type="checkbox" name="daily" value="1" id="daily-cb" class="form-check-input mt-0" @checked(request()->boolean('daily'))>
+        <label for="daily-cb" style="cursor:pointer;">Incluir <strong>detalle día por día</strong> en el PDF <span style="color:var(--muted);">(más lento; solo sale en el PDF)</span></label>
     </div>
     <div class="col-12" style="font-size:11px;color:var(--muted);">Desde/Hasta tienen prioridad sobre el rango. «Todo» = desde que se creó el torneo.</div>
 </form>

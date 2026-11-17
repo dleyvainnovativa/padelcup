@@ -64,7 +64,7 @@ check("PDF daily dates use d-m-Y", "format('d-m-Y')" in blade2)
 ctrl3 = (ROOT/"app/Http/Controllers/Admin/AnalyticsController.php").read_text()
 check("exportPdf passes breakdowns", "'breakdowns' => $this->breakdowns($umami, $overallPath" in ctrl3)
 check("exportPdf passes dailyMain + per-category daily",
-      "'dailyMain' =>" in ctrl3 and "'daily' => $on ? $this->dailyLight" in ctrl3)
+      "'dailyMain' =>" in ctrl3 and "'daily' => $wantDaily ? $this->dailyLight" in ctrl3)
 
 print()
 total = passed + failed
