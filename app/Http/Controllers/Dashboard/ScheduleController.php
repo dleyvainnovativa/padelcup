@@ -471,6 +471,16 @@ class ScheduleController extends Controller
         $result = $this->scheduler->autoSchedule($tournament, $courts, $duration, $duration, $limitPerDay, $maxPerDay);
 
         $msg = "{$result['scheduled']} partidos programados.";
+        if (! empty($result['released'])) {
+            $r = (int) $result['released'];
+            $msg .= ' ' . ($r === 1 ? '1 partido de llave se programó' : "{$r} partidos de llave se programaron")
+                . ' en su ventana aunque sus grupos aún no cierran (las parejas se definen al terminar los grupos).';
+        }
+        if (! empty($result['waiting'])) {
+            $w = (int) $result['waiting'];
+            $msg .= ' ' . ($w === 1 ? '1 partido quedó en espera' : "{$w} partidos quedaron en espera")
+                . ' de una fase previa.';
+        }
         if (! empty($result['over_limit_players'])) {
             $n = $result['over_limit_players'];
             $over = $maxPerDay + 1;

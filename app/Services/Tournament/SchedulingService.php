@@ -216,10 +216,14 @@ class SchedulingService
         int $maxPerDay = 2,
         ?int $onlyCategoryId = null,   // scope: place ONLY this category's unscheduled matches
         ?array $categoryRanges = null, // [[startTs,endTs],…] — constrain the scoped category
-                                       // to these windows; category range WINS over phase windows
+        // to these windows; category range WINS over phase windows
         ?array $onlyPhases = null,     // restrict this run to these phase keys (null = every phase)
         bool $overridePlayerRules = false, // relax player availability / rest gap / per-day max —
-                                       // court availability AND player double-booking stay HARD
+        // court availability AND player double-booking stay HARD
+        bool $dryRun = false,          // compute placements but DON'T persist (diagnostics)
+        ?array &$trace = null,         // when passed, collect a per-match outcome row
+        // [match_id, category, phase, round, kind, label,
+        //  outcome(scheduled|waiting|unplaced), reason, court_id, start_ts]
     ): array {
         $stepSec = $stepMinutes * 60;
         $durSec = $duration * 60;
@@ -292,8 +296,14 @@ class SchedulingService
 
         // Seed occupancy from already-scheduled matches.
         $feederPairs = [
-            'feederA.pairA.player1', 'feederA.pairA.player2', 'feederA.pairB.player1', 'feederA.pairB.player2',
-            'feederB.pairA.player1', 'feederB.pairA.player2', 'feederB.pairB.player1', 'feederB.pairB.player2',
+            'feederA.pairA.player1',
+            'feederA.pairA.player2',
+            'feederA.pairB.player1',
+            'feederA.pairB.player2',
+            'feederB.pairA.player1',
+            'feederB.pairA.player2',
+            'feederB.pairB.player1',
+            'feederB.pairB.player2',
         ];
         $existing = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->whereNotNull('starts_at')
@@ -454,6 +464,8 @@ class SchedulingService
         $overLimitMatches = 0;    // placed only by breaking the per-day preference
         $overLimitPlayers = [];   // "playerKey|Y-m-d" => true
         $waitingDeps = 0;         // bracket matches held back until their inputs are placed
+        $releasedDeps = 0;        // bracket matches scheduled despite incomplete deps,
+        // because their phase window sits strictly after them
 
         foreach ($matches as $match) {
             $phase = $match->phaseKey();
@@ -466,10 +478,30 @@ class SchedulingService
             // after its groups) and stops an unbound placeholder from sliding ahead
             // of groups that couldn't be placed.
             if ($this->bracketDependencyPending($match, $endOf, $resolved, $lettersByCat, $groupOpen)) {
-                $byPhase[$phase]['unplaced']++;
-                $byPhase[$phase]['waiting'] = ($byPhase[$phase]['waiting'] ?? 0) + 1;
-                $waitingDeps++;
-                continue;
+                // Option A — when phase windows already impose a strict time order
+                // (this match's phase window starts at/after EVERY dependency
+                // phase's window ends), the window itself guarantees the bracket
+                // lands after its groups/feeders. So a stuck/unscheduled group no
+                // longer holds the whole bracket hostage: release it and let it
+                // place in its own window (its pairs still resolve once results
+                // land). Keep the hold only when we CAN'T prove the order from
+                // windows — no phase windows, or windows that overlap/precede.
+                if (! ($hasPhases && $this->dependencyOrderedByWindows($match, $phase, $phaseWindows))) {
+                    $byPhase[$phase]['unplaced']++;
+                    $byPhase[$phase]['waiting'] = ($byPhase[$phase]['waiting'] ?? 0) + 1;
+                    $waitingDeps++;
+                    if ($trace !== null) {
+                        $trace[] = $this->traceRow(
+                            $match,
+                            $phase,
+                            'waiting',
+                            $this->dependencyReason($match, $endOf, $resolved, $lettersByCat, $groupOpen)
+                        );
+                    }
+                    continue;
+                }
+                $releasedDeps++;
+                // fall through to normal placement
             }
 
             // Effective windows = court availability ∩ window. In a scoped run the
@@ -576,6 +608,9 @@ class SchedulingService
                 $placements[$match->id] = [$courtId, $startTs, intdiv($slotDurSec, 60)];
                 $endOf[$match->id] = $endTs;
                 $byPhase[$phase]['scheduled']++;
+                if ($trace !== null) {
+                    $trace[] = $this->traceRow($match, $phase, 'scheduled', 'programado', $courtId, $startTs);
+                }
 
                 $d = $dayOf($startTs);
                 foreach ($playerKeys as $k) {
@@ -598,6 +633,8 @@ class SchedulingService
                 }
             } else {
                 $byPhase[$phase]['unplaced']++;
+                $reason = 'sin espacio en la ventana de ' . \App\Support\SchedulePhase::label($phase)
+                    . ' (canchas llenas o descanso entre partidos)';
                 // Distinguish "blocked by availability" from "didn't fit": if the
                 // match has availability windows AND would have fit ignoring them,
                 // attribute it to availability for clearer reporting.
@@ -623,26 +660,35 @@ class SchedulingService
                         $byPhase[$phase]['unplaced_availability'] =
                             ($byPhase[$phase]['unplaced_availability'] ?? 0) + 1;
                         $availabilityBlocked++;
+                        $names = $this->availabilityCulprits($match, $availabilityMap);
+                        $reason = 'bloqueado por disponibilidad de jugador'
+                            . ($names ? ': ' . implode(', ', $names) : '');
                     }
+                }
+                if ($trace !== null) {
+                    $trace[] = $this->traceRow($match, $phase, 'unplaced', $reason);
                 }
             }
         }
 
-        DB::transaction(function () use ($placements) {
-            foreach ($placements as $matchId => [$courtId, $startTs, $durMin]) {
-                GameMatch::where('id', $matchId)->update([
-                    'court_id' => $courtId,
-                    'starts_at' => Carbon::createFromTimestamp($startTs, 'America/Mexico_City'),
-                    'duration_minutes' => $durMin,
-                ]);
-            }
-        });
+        if (! $dryRun) {
+            DB::transaction(function () use ($placements) {
+                foreach ($placements as $matchId => [$courtId, $startTs, $durMin]) {
+                    GameMatch::where('id', $matchId)->update([
+                        'court_id' => $courtId,
+                        'starts_at' => Carbon::createFromTimestamp($startTs, 'America/Mexico_City'),
+                        'duration_minutes' => $durMin,
+                    ]);
+                }
+            });
+        }
 
         return [
             'scheduled' => count($placements),
             'unplaced' => $matches->count() - count($placements),
             'availability_blocked' => $availabilityBlocked,
             'waiting' => $waitingDeps,
+            'released' => $releasedDeps,
             'by_phase' => $byPhase,
             'limit_per_day' => $limitPerDay ? $maxPerDay : null,
             'over_limit_matches' => $overLimitMatches,
@@ -897,8 +943,14 @@ class SchedulingService
         $players = ['pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2'];
         $matches = GameMatch::whereHas('category', fn($q) => $q->where('tournament_id', $tournament->id))
             ->with(array_merge(['category', 'group', 'court'], $players, [
-                'feederA.pairA.player1', 'feederA.pairA.player2', 'feederA.pairB.player1', 'feederA.pairB.player2',
-                'feederB.pairA.player1', 'feederB.pairA.player2', 'feederB.pairB.player1', 'feederB.pairB.player2',
+                'feederA.pairA.player1',
+                'feederA.pairA.player2',
+                'feederA.pairB.player1',
+                'feederA.pairB.player2',
+                'feederB.pairA.player1',
+                'feederB.pairA.player2',
+                'feederB.pairB.player1',
+                'feederB.pairB.player2',
             ]))
             ->get();
 
@@ -1186,6 +1238,130 @@ class SchedulingService
         return false;
     }
 
+    /**
+     * Option A — true when this bracket match's phase window starts at/after the
+     * window-end of EVERY phase it depends on, so the windows alone guarantee the
+     * correct time order and the dependency hold can be safely released. False if
+     * this phase (or any dependency phase) has no window, or a window overlaps/
+     * precedes — then we can't prove the order and must keep the hold.
+     */
+    private function dependencyOrderedByWindows(GameMatch $match, string $phase, array $phaseWindows): bool
+    {
+        $pStart = $this->phaseWindowStart($phase, $phaseWindows);
+        if ($pStart === null) return false;
+
+        foreach ($this->dependencyPhases($match) as $dep) {
+            $dEnd = $this->phaseWindowEnd($dep, $phaseWindows);
+            if ($dEnd === null) return false;   // dependency phase is freeform — unsafe
+            if ($pStart < $dEnd) return false;  // this window starts before the dep ends
+        }
+        return true;
+    }
+
+    /** Phase keys this bracket match depends on: 'groups' for a seed-labelled
+     *  first round, the feeder match's phase for a later round. */
+    private function dependencyPhases(GameMatch $match): array
+    {
+        if ($match->group_id) return [];
+        $deps = [];
+        foreach (['feederA', 'feederB'] as $rel) {
+            $f = $match->$rel;
+            if ($f) $deps[$f->group_id ? 'groups' : $f->phaseKey()] = true;
+        }
+        foreach ([$match->seed_label_a, $match->seed_label_b] as $label) {
+            if ($label && $label !== 'BYE') {
+                $deps['groups'] = true;
+                break;
+            }
+        }
+        return array_keys($deps);
+    }
+
+    /** Earliest start among a phase's windows (null if the phase has none). */
+    private function phaseWindowStart(string $phase, array $phaseWindows): ?int
+    {
+        if (empty($phaseWindows[$phase])) return null;
+        return min(array_map(fn($w) => $w[0], $phaseWindows[$phase]));
+    }
+
+    /** Latest end among a phase's windows (null if the phase has none). */
+    private function phaseWindowEnd(string $phase, array $phaseWindows): ?int
+    {
+        if (empty($phaseWindows[$phase])) return null;
+        return max(array_map(fn($w) => $w[1], $phaseWindows[$phase]));
+    }
+
+    /**
+     * One diagnostic row for $trace (see autoSchedule's $trace param). Pure —
+     * never called on the hot path unless a caller asked for a trace.
+     */
+    private function traceRow(GameMatch $m, string $phase, string $outcome, string $reason, ?int $courtId = null, ?int $startTs = null): array
+    {
+        return [
+            'match_id' => $m->id,
+            'category' => $m->category?->name,
+            'category_id' => $m->category_id,
+            'phase' => $phase,
+            'round' => $m->round,
+            'kind' => $m->group_id ? 'group' : 'bracket',
+            'label' => $m->contextLabel(),
+            'outcome' => $outcome,            // scheduled | waiting | unplaced
+            'reason' => $reason,
+            'court_id' => $courtId,
+            'start_ts' => $startTs,
+        ];
+    }
+
+    /**
+     * Human-readable Spanish reason a bracket match is held back (mirrors
+     * bracketDependencyPending). For diagnostics only.
+     */
+    private function dependencyReason(GameMatch $match, array $endOf, array $resolved, array $lettersByCat, array $groupOpen): string
+    {
+        foreach ([$match->feeder_a_id, $match->feeder_b_id] as $fid) {
+            if ($fid && ! isset($endOf[$fid]) && ! isset($resolved[$fid])) {
+                return 'espera el resultado de una ronda previa aún sin programar';
+            }
+        }
+        $letters = $lettersByCat[$match->category_id] ?? [];
+        $byGid = array_flip($letters); // group_id => letter
+        $blocking = [];
+        foreach ([$match->seed_label_a, $match->seed_label_b] as $label) {
+            if (! $label || $label === 'BYE') continue;
+            $gids = [];
+            if (preg_match('/^Q\d+$/', $label)) {
+                $gids = array_values($letters);
+            } elseif (preg_match('/^([A-Z])\d+$/', $label, $mm) && isset($letters[$mm[1]])) {
+                $gids = [$letters[$mm[1]]];
+            }
+            foreach ($gids as $gid) {
+                $open = $groupOpen[$gid] ?? 0;
+                if ($open > 0) $blocking['Grupo ' . ($byGid[$gid] ?? '?')] = $open;
+            }
+        }
+        if ($blocking) {
+            $parts = [];
+            foreach ($blocking as $g => $n) $parts[] = "$g ($n sin programar)";
+            return 'espera a que se programe: ' . implode(', ', $parts);
+        }
+        return 'espera una dependencia sin programar';
+    }
+
+    /** Display names of a match's players who carry an availability rule. */
+    private function availabilityCulprits(GameMatch $match, array $availabilityMap): array
+    {
+        $out = [];
+        foreach ([$match->pairA, $match->pairB] as $pair) {
+            if (! $pair) continue;
+            foreach ([$pair->player1, $pair->player2] as $p) {
+                if ($p && filled($p->name) && isset($availabilityMap[\App\Models\Player::normalize($p->name)])) {
+                    $out[] = $p->name;
+                }
+            }
+        }
+        return array_values(array_unique($out));
+    }
+
     private function playerKeys(GameMatch $match): array
     {
         $keys = [];
@@ -1330,8 +1506,14 @@ class SchedulingService
     {
         $match->loadMissing([
             'category',
-            'pairA.player1', 'pairA.player2', 'pairB.player1', 'pairB.player2',
-            'feederA.pairA', 'feederA.pairB', 'feederB.pairA', 'feederB.pairB',
+            'pairA.player1',
+            'pairA.player2',
+            'pairB.player1',
+            'pairB.player2',
+            'feederA.pairA',
+            'feederA.pairB',
+            'feederB.pairA',
+            'feederB.pairB',
         ]);
 
         $ctx = [
